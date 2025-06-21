@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
@@ -51,7 +50,7 @@ async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) {
   return data.choices[0].message.content;
 }
 
-async function generateImageWithDALLE(prompt: string) {
+async function generateImageWithGPT(prompt: string) {
   const response = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -59,11 +58,11 @@ async function generateImageWithDALLE(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt: prompt,
       size: '1024x1024',
-      quality: 'hd',
-      response_format: 'b64_json',
+      quality: 'high',
+      output_format: 'png',
       n: 1
     }),
   });
@@ -243,8 +242,8 @@ FINAL CHECK: The text in the final image must be as clear and readable as text i
   const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
   console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
 
-  // Generate image with DALL-E 3
-  const base64Image = await generateImageWithDALLE(analysisText);
+  // Generate image with GPT-image-1
+  const base64Image = await generateImageWithGPT(analysisText);
 
   // Upload generated image to Supabase Storage
   const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, userId, supabase);
