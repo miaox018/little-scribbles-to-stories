@@ -34,7 +34,7 @@ serve(async (req) => {
     let artStyleGuidelines = "";
     const generatedPages: string[] = [];
 
-    // Process each image with GPT-Image-1
+    // Process each image with GPT-4o (vision model)
     for (let i = 0; i < images.length; i++) {
       const imageData = images[i];
       
@@ -85,33 +85,77 @@ Style requirements:
 - MOST IMPORTANT: Any text in the image must be crystal clear and easily readable
 - CONSISTENCY: If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages`;
 
-      // Create the request with both text prompt and image
-      const requestBody = {
-        model: 'gpt-image-1',
-        prompt: prompt,
-        image: imageData.dataUrl, // Include the original drawing as visual reference
-        size: '1024x1024',
-        quality: 'high',
-        response_format: 'b64_json',
-        n: 1
-      };
+      // Use GPT-4o with vision to analyze the image and generate description first
+      const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageData.dataUrl
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 1000
+        }),
+      });
 
+      if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error(`Vision API error for page ${i + 1}:`, errorText);
+        throw new Error(`Vision API failed for page ${i + 1}: ${errorText}`);
+      }
+
+      const visionData = await visionResponse.json();
+      const analysisText = visionData.choices[0].message.content;
+
+      console.log(`Generated analysis for page ${i + 1}:`, analysisText);
+
+      // Now use DALL-E 3 to generate the image based on the analysis
       const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: analysisText,
+          size: '1024x1024',
+          quality: 'hd',
+          response_format: 'b64_json',
+          n: 1
+        }),
       });
+
+      if (!imageResponse.ok) {
+        const errorText = await imageResponse.text();
+        console.error(`Image generation error for page ${i + 1}:`, errorText);
+        throw new Error(`Image generation failed for page ${i + 1}: ${errorText}`);
+      }
 
       const imageData_response = await imageResponse.json();
       
       if (!imageData_response.data || !imageData_response.data[0]) {
-        throw new Error(`Failed to generate image for page ${i + 1}`);
+        throw new Error(`No image data returned for page ${i + 1}`);
       }
 
-      // Convert base64 to blob URL for storage
+      // Convert base64 to blob for storage
       const base64Image = imageData_response.data[0].b64_json;
       const imageBlob = new Blob([Uint8Array.from(atob(base64Image), c => c.charCodeAt(0))], { type: 'image/png' });
       
@@ -121,7 +165,10 @@ Style requirements:
         .from('story-images')
         .upload(fileName, imageBlob);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error(`Storage upload error for page ${i + 1}:`, uploadError);
+        throw uploadError;
+      }
 
       const { data: urlData } = supabase.storage
         .from('story-images')
@@ -138,7 +185,7 @@ Style requirements:
           page_number: i + 1,
           original_image_url: imageData.url,
           generated_image_url: generatedImageUrl,
-          enhanced_prompt: prompt,
+          enhanced_prompt: analysisText,
           transformation_status: 'completed'
         });
 
@@ -175,12 +222,14 @@ Style requirements:
     
     // Try to update story status to failed for better error tracking
     try {
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const { storyId } = await req.json();
-      await supabase
-        .from('stories')
-        .update({ status: 'failed' })
-        .eq('id', storyId);
+      const { storyId } = await req.json().catch(() => ({}));
+      if (storyId) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        await supabase
+          .from('stories')
+          .update({ status: 'failed' })
+          .eq('id', storyId);
+      }
     } catch (updateError) {
       console.error('Failed to update story status to failed:', updateError);
     }
