@@ -203,33 +203,41 @@ Previous pages in this story have been generated with these visual elements. Ens
 
   const prompt = `${contextPrompt}
 
-Transform this child's hand-drawn story page into a professional children's book illustration with CLEAR, READABLE TEXT.
+Transform this child's hand-drawn story page into a professional children's book illustration.
 
-CRITICAL TEXT REQUIREMENTS:
-- Use clean, simple, easy-to-read fonts (similar to Times New Roman, Arial, or classic children's book fonts)
-- Text should be sharp, clear, and perfectly legible
-- NO decorative, stylized, or fancy fonts
-- NO text effects, shadows, or distortions
-- Text should look like it was typeset in a professional children's book
-- Ensure high contrast between text and background
-- Text should be large enough for children to read easily
+🔑 CRITICAL TEXT REQUIREMENTS - HIGHEST PRIORITY:
+- Any text in the image must be EXACTLY readable, letter-perfect, and crystal clear
+- Use clean, professional typography: Arial, Helvetica, or Times New Roman fonts ONLY
+- Text must be large enough for children to read easily (minimum 16pt equivalent)
+- Text should be CENTERED and well-positioned with high contrast against background
+- Background behind text must be plain or very simple to ensure readability
+- NO decorative fonts, NO handwriting styles, NO text effects or shadows
+- NO misspellings - spell every word perfectly in English
+- If there is dialogue or narration, display it in clean text boxes or speech bubbles with white/light backgrounds
+- Text must be perfectly legible - this is NON-NEGOTIABLE
 
 VISUAL REFERENCE ANALYSIS:
 Carefully analyze the provided child's drawing to understand:
-- Character appearances and clothing
-- Setting and background elements
-- Any text or dialogue present
+- Character appearances, clothing, and expressions
+- Setting and background elements  
+- Any text, dialogue, or narration present
 - Story events happening on this page
 - Emotional tone and mood
 
-Style requirements:
+STYLE REQUIREMENTS:
 - ${stylePrompt}
-- Child-appropriate and friendly
+- Child-appropriate and friendly tone
 - High detail but not scary or overwhelming
-- Maintain the story elements and characters from the original drawing
+- Maintain story elements and characters from the original drawing
 - Make it magical and enchanting while staying true to the child's vision
-- MOST IMPORTANT: Any text in the image must be crystal clear and easily readable
-- CONSISTENCY: If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages`;
+- Professional children's book illustration quality
+
+CONSISTENCY REQUIREMENTS (for pages after page 1):
+- If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages
+- Keep the same color palette and artistic approach
+- Ensure characters look identical to how they appeared before
+
+FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard.`;
 
   // Analyze image with GPT-4o
   const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
