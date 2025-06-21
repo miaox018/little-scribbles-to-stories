@@ -9,7 +9,101 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      stories: {
+        Row: {
+          created_at: string | null
+          id: string
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      story_pages: {
+        Row: {
+          created_at: string | null
+          generated_image_url: string | null
+          id: string
+          is_approved: boolean | null
+          original_image_url: string | null
+          page_number: number
+          story_id: string
+          updated_at: string | null
+          user_feedback: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          generated_image_url?: string | null
+          id?: string
+          is_approved?: boolean | null
+          original_image_url?: string | null
+          page_number: number
+          story_id: string
+          updated_at?: string | null
+          user_feedback?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          generated_image_url?: string | null
+          id?: string
+          is_approved?: boolean | null
+          original_image_url?: string | null
+          page_number?: number
+          story_id?: string
+          updated_at?: string | null
+          user_feedback?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_pages_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
