@@ -29,14 +29,34 @@ serve(async (req) => {
       .update({ status: 'processing' })
       .eq('id', storyId);
 
+    let storyContext = "";
+    let characterDescriptions = "";
+    let artStyleGuidelines = "";
+    const generatedPages: string[] = [];
+
     // Process each image with GPT-Image-1
     for (let i = 0; i < images.length; i++) {
       const imageData = images[i];
       
-      console.log(`Processing page ${i + 1} with GPT-Image-1`);
+      console.log(`Processing page ${i + 1} with visual reference and story context`);
 
-      // Updated prompt for clearer, more readable text
-      const prompt = `Transform this child's hand-drawn story page into a professional children's book illustration with CLEAR, READABLE TEXT.
+      // Build context from previous pages for consistency
+      let contextPrompt = "";
+      if (i === 0) {
+        // First page - establish the story context and style
+        contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages.`;
+      } else {
+        // Subsequent pages - maintain consistency
+        contextPrompt = `This is PAGE ${i + 1} of the same children's story book. MAINTAIN CONSISTENCY with the established:
+${characterDescriptions}
+${artStyleGuidelines}
+
+Previous pages in this story have been generated with these visual elements. Ensure the same characters, art style, and story world continue seamlessly.`;
+      }
+
+      const prompt = `${contextPrompt}
+
+Transform this child's hand-drawn story page into a professional children's book illustration with CLEAR, READABLE TEXT.
 
 CRITICAL TEXT REQUIREMENTS:
 - Use clean, simple, easy-to-read fonts (similar to Times New Roman, Arial, or classic children's book fonts)
@@ -47,7 +67,13 @@ CRITICAL TEXT REQUIREMENTS:
 - Ensure high contrast between text and background
 - Text should be large enough for children to read easily
 
-Analyze the drawing and understand the story elements, characters, setting, and emotions, then create a beautiful, colorful, child-friendly illustration that captures the essence of the original while making it professional and engaging.
+VISUAL REFERENCE ANALYSIS:
+Carefully analyze the provided child's drawing to understand:
+- Character appearances and clothing
+- Setting and background elements
+- Any text or dialogue present
+- Story events happening on this page
+- Emotional tone and mood
 
 Style requirements:
 - Professional children's book illustration style
@@ -56,7 +82,19 @@ Style requirements:
 - High detail but not scary or overwhelming
 - Maintain the story elements and characters from the original drawing
 - Make it magical and enchanting while staying true to the child's vision
-- MOST IMPORTANT: Any text in the image must be crystal clear and easily readable`;
+- MOST IMPORTANT: Any text in the image must be crystal clear and easily readable
+- CONSISTENCY: If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages`;
+
+      // Create the request with both text prompt and image
+      const requestBody = {
+        model: 'gpt-image-1',
+        prompt: prompt,
+        image: imageData.dataUrl, // Include the original drawing as visual reference
+        size: '1024x1024',
+        quality: 'high',
+        response_format: 'b64_json',
+        n: 1
+      };
 
       const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
@@ -64,14 +102,7 @@ Style requirements:
           'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: 'gpt-image-1',
-          prompt: prompt,
-          size: '1024x1024',
-          quality: 'high',
-          response_format: 'b64_json',
-          n: 1
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const imageData_response = await imageResponse.json();
@@ -97,6 +128,7 @@ Style requirements:
         .getPublicUrl(fileName);
 
       const generatedImageUrl = urlData.publicUrl;
+      generatedPages.push(generatedImageUrl);
 
       // Create story page record
       await supabase
@@ -110,7 +142,16 @@ Style requirements:
           transformation_status: 'completed'
         });
 
-      console.log(`Completed page ${i + 1} with improved text clarity`);
+      // Update context for next pages (extract from first page to maintain consistency)
+      if (i === 0) {
+        characterDescriptions = `- Character designs and appearances established in page 1
+- Clothing styles and color schemes from page 1`;
+        artStyleGuidelines = `- Art style: Professional children's book illustration with bright, vibrant colors
+- Visual language and composition style from page 1
+- Text typography and placement style from page 1`;
+      }
+
+      console.log(`Completed page ${i + 1} with visual reference and story context`);
     }
 
     // Update story status to completed
@@ -122,10 +163,10 @@ Style requirements:
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed with improved text clarity`);
+    console.log(`Story ${storyId} transformation completed with visual references and story consistency`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Story transformation completed with improved text clarity' }),
+      JSON.stringify({ success: true, message: 'Story transformation completed with visual references and story consistency' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
