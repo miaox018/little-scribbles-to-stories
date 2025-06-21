@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, Image, FileImage } from "lucide-react";
+import { Upload, FileImage, GripVertical } from "lucide-react";
 
 export function CreateStory() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -38,6 +39,33 @@ export function CreateStory() {
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleImageDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleImageDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+    const newFiles = [...uploadedFiles];
+    const draggedFile = newFiles[draggedIndex];
+    newFiles.splice(draggedIndex, 1);
+    newFiles.splice(dropIndex, 0, draggedFile);
+    
+    setUploadedFiles(newFiles);
+    setDraggedIndex(null);
+  };
+
+  const createImageUrl = (file: File) => {
+    return URL.createObjectURL(file);
   };
 
   return (
@@ -97,16 +125,36 @@ export function CreateStory() {
             <h3 className="text-lg font-semibold mb-4">
               Uploaded Pages ({uploadedFiles.length})
             </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Drag and drop images to reorder them
+            </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {uploadedFiles.map((file, index) => (
-                <div key={index} className="relative group">
-                  <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                    <Image className="h-8 w-8 text-gray-400" />
+                <div 
+                  key={index} 
+                  className="relative group cursor-move"
+                  draggable
+                  onDragStart={(e) => handleImageDragStart(e, index)}
+                  onDragOver={(e) => handleImageDragOver(e, index)}
+                  onDrop={(e) => handleImageDrop(e, index)}
+                >
+                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative">
+                    <img 
+                      src={createImageUrl(file)} 
+                      alt={`Page ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                      {index + 1}
+                    </div>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <GripVertical className="h-4 w-4 text-white drop-shadow-lg" />
+                    </div>
                   </div>
                   <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
                   <button
                     onClick={() => removeFile(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10"
                   >
                     ×
                   </button>
