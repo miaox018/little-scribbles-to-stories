@@ -1,8 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, AlertCircle, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Info } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -32,14 +32,31 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const [imageError, setImageError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [imageLoadDebug, setImageLoadDebug] = useState<any>(null);
 
   const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
+
+  // Debug page count mismatch
+  useEffect(() => {
+    if (isOpen) {
+      console.log('StoryViewer Debug:', {
+        storyId: story.id,
+        title: story.title,
+        totalPagesField: story.total_pages,
+        actualPagesCount: story.story_pages?.length || 0,
+        sortedPagesCount: sortedPages.length,
+        pageNumbers: sortedPages.map(p => p.page_number),
+        allPages: story.story_pages
+      });
+    }
+  }, [isOpen, story, sortedPages]);
 
   const goToNextPage = () => {
     setCurrentPage((prev) => (prev + 1) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
     setIsZoomed(false);
+    setImageLoadDebug(null);
   };
 
   const goToPrevPage = () => {
@@ -47,12 +64,40 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     setImageError(null);
     setRetryCount(0);
     setIsZoomed(false);
+    setImageLoadDebug(null);
+  };
+
+  const handleImageLoad = (event: any) => {
+    const img = event.target;
+    setImageLoadDebug({
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      displayWidth: img.width,
+      displayHeight: img.displayHeight,
+      src: img.src,
+      complete: img.complete
+    });
+    console.log('Image loaded successfully:', {
+      naturalWidth: img.naturalWidth,
+      naturalHeight: img.naturalHeight,
+      src: img.src,
+      pageNumber: sortedPages[currentPage]?.page_number
+    });
+    setImageError(null);
+    setRetryCount(0);
   };
 
   const handleImageError = (error: any) => {
     console.error('Image loading error:', error);
     const currentPageData = sortedPages[currentPage];
     const imageUrl = showOriginal ? currentPageData?.original_image_url : currentPageData?.generated_image_url;
+    
+    console.log('Image error details:', {
+      imageUrl,
+      pageNumber: currentPageData?.page_number,
+      showOriginal,
+      errorEvent: error
+    });
     
     if (imageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net')) {
       setImageError('This image has expired. OpenAI images are only available for 60 minutes. Please regenerate the story to get new images.');
@@ -68,11 +113,13 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     setShowOriginal(!showOriginal);
     setImageError(null);
     setRetryCount(0);
+    setImageLoadDebug(null);
   };
 
   const handleRetry = () => {
     setImageError(null);
     setRetryCount(0);
+    setImageLoadDebug(null);
     // Force image reload by adding a timestamp
     const img = document.querySelector('.story-page-image') as HTMLImageElement;
     if (img && img.src) {
@@ -102,6 +149,14 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
           <DialogDescription>
             View your enhanced storybook. Use the controls below to navigate between pages and switch between original and enhanced versions.
           </DialogDescription>
+          
+          {/* Debug info for page count mismatch */}
+          {story.total_pages !== sortedPages.length && (
+            <div className="flex items-center gap-2 text-sm text-orange-600 bg-orange-50 p-2 rounded">
+              <Info className="h-4 w-4" />
+              Debug: Expected {story.total_pages} pages, found {sortedPages.length} pages
+            </div>
+          )}
         </DialogHeader>
 
         {sortedPages.length > 0 && currentPageData ? (
@@ -127,6 +182,9 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                 </Button>
                 <span className="text-sm text-gray-600">
                   Page {currentPage + 1} of {sortedPages.length}
+                  {currentPageData.page_number !== currentPage + 1 && (
+                    <span className="text-orange-600"> (Page #{currentPageData.page_number})</span>
+                  )}
                 </span>
                 {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
                   <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
@@ -156,6 +214,16 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                 </Button>
               </div>
             </div>
+
+            {/* Debug info for current image */}
+            {imageLoadDebug && (
+              <div className="text-xs text-gray-500 mb-2 p-2 bg-gray-50 rounded">
+                Image: {imageLoadDebug.naturalWidth}x{imageLoadDebug.naturalHeight} 
+                {imageLoadDebug.naturalWidth < 1000 && (
+                  <span className="text-orange-600"> ⚠️ Low resolution detected</span>
+                )}
+              </div>
+            )}
 
             <div className={`flex-1 flex items-center justify-center bg-gray-50 rounded-lg overflow-auto ${isZoomed ? 'cursor-grab' : ''}`}>
               {imageError ? (
@@ -195,10 +263,7 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                           : 'max-w-full max-h-[60vh] object-contain'
                       }`}
                       onError={handleImageError}
-                      onLoad={() => {
-                        setImageError(null);
-                        setRetryCount(0);
-                      }}
+                      onLoad={handleImageLoad}
                       style={{
                         maxWidth: isZoomed ? 'none' : '100%',
                         maxHeight: isZoomed ? 'none' : '60vh'
@@ -214,6 +279,9 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
             <div className="text-center">
               <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No pages available for this story.</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Story shows {story.total_pages} total pages but {sortedPages.length} pages found.
+              </p>
             </div>
           </div>
         )}
