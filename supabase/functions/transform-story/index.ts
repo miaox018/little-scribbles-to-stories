@@ -29,72 +29,64 @@ serve(async (req) => {
       .update({ status: 'processing' })
       .eq('id', storyId);
 
-    // Process each image
+    // Process each image with GPT-Image-1
     for (let i = 0; i < images.length; i++) {
       const imageData = images[i];
       
-      console.log(`Processing page ${i + 1}`);
+      console.log(`Processing page ${i + 1} with GPT-Image-1`);
 
-      // Analyze the image with OpenAI Vision
-      const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      // Use GPT-Image-1 for enhanced story illustration generation
+      const prompt = `Transform this child's hand-drawn story page into a professional children's book illustration. 
+      
+Analyze the drawing and understand the story elements, characters, setting, and emotions, then create a beautiful, colorful, child-friendly illustration that captures the essence of the original while making it professional and engaging.
+
+Style requirements:
+- Professional children's book illustration style
+- Bright, vibrant colors
+- Child-appropriate and friendly
+- High detail but not scary or overwhelming
+- Maintain the story elements and characters from the original drawing
+- Make it magical and enchanting while staying true to the child's vision`;
+
+      const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert at analyzing children\'s hand-drawn story illustrations. Describe what you see in detail, including characters, actions, setting, and emotions. Focus on story elements that would help create a professional illustration.'
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Analyze this hand-drawn story page and describe what you see. Focus on the story elements, characters, setting, and action happening.'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageData.dataUrl
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 500
-        }),
-      });
-
-      const visionData = await visionResponse.json();
-      const description = visionData.choices[0].message.content;
-
-      // Create enhanced prompt for DALL-E
-      const enhancedPrompt = `Professional children's book illustration: ${description}. Style: colorful, friendly, child-appropriate, high-quality digital art, detailed but not scary.`;
-
-      console.log(`Generated prompt for page ${i + 1}: ${enhancedPrompt}`);
-
-      // Generate enhanced image with DALL-E
-      const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt: enhancedPrompt,
+          model: 'gpt-image-1',
+          prompt: prompt,
           size: '1024x1024',
-          quality: 'standard',
+          quality: 'high',
+          response_format: 'b64_json',
           n: 1
         }),
       });
 
-      const dalleData = await dalleResponse.json();
-      const generatedImageUrl = dalleData.data[0].url;
+      const imageData_response = await imageResponse.json();
+      
+      if (!imageData_response.data || !imageData_response.data[0]) {
+        throw new Error(`Failed to generate image for page ${i + 1}`);
+      }
+
+      // Convert base64 to blob URL for storage
+      const base64Image = imageData_response.data[0].b64_json;
+      const imageBlob = new Blob([Uint8Array.from(atob(base64Image), c => c.charCodeAt(0))], { type: 'image/png' });
+      
+      // Upload generated image to Supabase Storage
+      const fileName = `generated/${storyId}/page_${i + 1}_${Date.now()}.png`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('story-images')
+        .upload(fileName, imageBlob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('story-images')
+        .getPublicUrl(fileName);
+
+      const generatedImageUrl = urlData.publicUrl;
 
       // Create story page record
       await supabase
@@ -104,11 +96,11 @@ serve(async (req) => {
           page_number: i + 1,
           original_image_url: imageData.url,
           generated_image_url: generatedImageUrl,
-          enhanced_prompt: enhancedPrompt,
+          enhanced_prompt: prompt,
           transformation_status: 'completed'
         });
 
-      console.log(`Completed page ${i + 1}`);
+      console.log(`Completed page ${i + 1} with GPT-Image-1`);
     }
 
     // Update story status to completed
@@ -120,15 +112,28 @@ serve(async (req) => {
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed`);
+    console.log(`Story ${storyId} transformation completed with GPT-Image-1`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Story transformation completed' }),
+      JSON.stringify({ success: true, message: 'Story transformation completed with GPT-Image-1' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in transform-story function:', error);
+    
+    // Try to update story status to failed for better error tracking
+    try {
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const { storyId } = await req.json();
+      await supabase
+        .from('stories')
+        .update({ status: 'failed' })
+        .eq('id', storyId);
+    } catch (updateError) {
+      console.error('Failed to update story status to failed:', updateError);
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

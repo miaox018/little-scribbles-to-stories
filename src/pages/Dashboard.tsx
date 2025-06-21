@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { CreateStory } from "@/components/dashboard/CreateStory";
 import { Library } from "@/components/dashboard/Library";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { LogOut, User } from "lucide-react";
@@ -28,6 +29,7 @@ const Dashboard = () => {
                 {activeTab === "create" ? "Create Story" : "My Library"}
               </h1>
               <div className="flex items-center space-x-4">
+                {activeTab === "library" && <RecoveryButton />}
                 <div className="flex items-center space-x-2 text-gray-600">
                   <User className="h-4 w-4" />
                   <span className="text-sm">{user?.email}</span>

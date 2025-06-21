@@ -1,34 +1,23 @@
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Mail, Eye } from "lucide-react";
-
-// Mock data for demonstration
-const mockBooks = [
-  {
-    id: 1,
-    title: "The Magic Dragon",
-    createdAt: "2024-01-15",
-    pageCount: 8,
-    thumbnail: "/placeholder.svg",
-  },
-  {
-    id: 2,
-    title: "Princess and the Castle",
-    createdAt: "2024-01-10", 
-    pageCount: 6,
-    thumbnail: "/placeholder.svg",
-  },
-  {
-    id: 3,
-    title: "Space Adventure",
-    createdAt: "2024-01-05",
-    pageCount: 10,
-    thumbnail: "/placeholder.svg",
-  },
-];
+import { BookOpen, Mail, Eye, Loader2 } from "lucide-react";
+import { useStories } from "@/hooks/useStories";
+import { StoryViewer } from "./StoryViewer";
 
 export function Library() {
+  const { stories, isLoading } = useStories();
+  const [selectedStory, setSelectedStory] = useState<any>(null);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-8">
@@ -38,7 +27,7 @@ export function Library() {
         </p>
       </div>
 
-      {mockBooks.length === 0 ? (
+      {stories.length === 0 ? (
         <Card className="text-center p-12">
           <CardContent>
             <BookOpen className="mx-auto h-16 w-16 text-gray-400 mb-4" />
@@ -55,25 +44,48 @@ export function Library() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockBooks.map((book) => (
-            <Card key={book.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
+          {stories.map((story) => (
+            <Card key={story.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
               <CardContent className="p-0">
-                <div className="aspect-[3/4] bg-gradient-to-br from-purple-100 to-pink-100 rounded-t-lg flex items-center justify-center">
-                  <BookOpen className="h-16 w-16 text-purple-400" />
+                <div className="aspect-[3/4] bg-gradient-to-br from-purple-100 to-pink-100 rounded-t-lg flex items-center justify-center relative overflow-hidden">
+                  {story.story_pages?.[0]?.generated_image_url ? (
+                    <img
+                      src={story.story_pages[0].generated_image_url}
+                      alt={story.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <BookOpen className="h-16 w-16 text-purple-400" />
+                  )}
+                  {story.status === 'processing' && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                        <p className="text-sm">Processing...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-800 mb-1 group-hover:text-purple-600 transition-colors">
-                    {book.title}
+                    {story.title}
                   </h3>
                   <p className="text-sm text-gray-500 mb-2">
-                    {book.pageCount} pages • Created {new Date(book.createdAt).toLocaleDateString()}
+                    {story.total_pages || story.story_pages?.length || 0} pages • 
+                    {story.status === 'completed' ? ' Completed' : ` ${story.status}`} • 
+                    Created {new Date(story.created_at).toLocaleDateString()}
                   </p>
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      onClick={() => setSelectedStory(story)}
+                      disabled={story.status !== 'completed'}
+                    >
                       <Eye className="mr-1 h-3 w-3" />
-                      Read
+                      {story.status === 'completed' ? 'Read' : 'Processing'}
                     </Button>
-                    <Button size="sm" variant="outline">
+                    <Button size="sm" variant="outline" disabled={story.status !== 'completed'}>
                       <Mail className="mr-1 h-3 w-3" />
                       Share
                     </Button>
@@ -83,6 +95,14 @@ export function Library() {
             </Card>
           ))}
         </div>
+      )}
+
+      {selectedStory && (
+        <StoryViewer
+          story={selectedStory}
+          isOpen={!!selectedStory}
+          onClose={() => setSelectedStory(null)}
+        />
       )}
     </div>
   );
