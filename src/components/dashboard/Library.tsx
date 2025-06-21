@@ -2,13 +2,55 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Mail, Eye, Loader2 } from "lucide-react";
+import { BookOpen, Mail, Eye, Loader2, X } from "lucide-react";
 import { useStories } from "@/hooks/useStories";
 import { StoryViewer } from "./StoryViewer";
+import { useStoryTransformation } from "@/hooks/useStoryTransformation";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export function Library() {
-  const { stories, isLoading } = useStories();
+  const { stories, isLoading, refetch } = useStories();
   const [selectedStory, setSelectedStory] = useState<any>(null);
+  const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
+
+  const handleCancelStory = async (storyId: string) => {
+    setCancellingStories(prev => new Set(prev).add(storyId));
+    
+    try {
+      // Update story status to cancelled
+      const { error } = await supabase
+        .from('stories')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString()
+        })
+        .eq('id', storyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Story Cancelled",
+        description: "The story transformation has been cancelled successfully.",
+      });
+
+      // Refresh the stories list
+      refetch();
+    } catch (error) {
+      console.error('Error cancelling story:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel story transformation",
+        variant: "destructive"
+      });
+    } finally {
+      setCancellingStories(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(storyId);
+        return newSet;
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -76,19 +118,40 @@ export function Library() {
                     Created {new Date(story.created_at).toLocaleDateString()}
                   </p>
                   <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                      onClick={() => setSelectedStory(story)}
-                      disabled={story.status !== 'completed'}
-                    >
-                      <Eye className="mr-1 h-3 w-3" />
-                      {story.status === 'completed' ? 'Read' : 'Processing'}
-                    </Button>
-                    <Button size="sm" variant="outline" disabled={story.status !== 'completed'}>
-                      <Mail className="mr-1 h-3 w-3" />
-                      Share
-                    </Button>
+                    {story.status === 'processing' ? (
+                      <>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                          onClick={() => handleCancelStory(story.id)}
+                          disabled={cancellingStories.has(story.id)}
+                        >
+                          {cancellingStories.has(story.id) ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <X className="mr-1 h-3 w-3" />
+                          )}
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                          onClick={() => setSelectedStory(story)}
+                          disabled={story.status !== 'completed'}
+                        >
+                          <Eye className="mr-1 h-3 w-3" />
+                          {story.status === 'completed' ? 'Read' : story.status}
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={story.status !== 'completed'}>
+                          <Mail className="mr-1 h-3 w-3" />
+                          Share
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
