@@ -2,12 +2,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, FileImage, GripVertical } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
+import { useStoryTransformation } from "@/hooks/useStoryTransformation";
 
 export function CreateStory() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [storyTitle, setStoryTitle] = useState("");
+  const { transformStory, isTransforming } = useStoryTransformation();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -68,6 +73,15 @@ export function CreateStory() {
     return URL.createObjectURL(file);
   };
 
+  const handleTransformStory = async () => {
+    if (!storyTitle.trim()) {
+      alert("Please enter a story title");
+      return;
+    }
+    
+    await transformStory(uploadedFiles, storyTitle.trim());
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -77,6 +91,23 @@ export function CreateStory() {
         </p>
       </div>
 
+      {/* Story Title Input */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <Label htmlFor="story-title" className="text-base font-medium">
+            Story Title
+          </Label>
+          <Input
+            id="story-title"
+            placeholder="Enter your story title..."
+            value={storyTitle}
+            onChange={(e) => setStoryTitle(e.target.value)}
+            className="mt-2"
+            disabled={isTransforming}
+          />
+        </CardContent>
+      </Card>
+
       {/* Upload Area */}
       <Card className="mb-8">
         <CardContent className="p-8">
@@ -85,7 +116,7 @@ export function CreateStory() {
               dragActive
                 ? "border-purple-500 bg-purple-50"
                 : "border-gray-300 hover:border-purple-400"
-            }`}
+            } ${isTransforming ? "opacity-50 pointer-events-none" : ""}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -105,9 +136,14 @@ export function CreateStory() {
               onChange={handleFileSelect}
               className="hidden"
               id="file-upload"
+              disabled={isTransforming}
             />
             <label htmlFor="file-upload">
-              <Button asChild className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+              <Button 
+                asChild 
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                disabled={isTransforming}
+              >
                 <span className="cursor-pointer">
                   <FileImage className="mr-2 h-4 w-4" />
                   Select Images
@@ -132,8 +168,8 @@ export function CreateStory() {
               {uploadedFiles.map((file, index) => (
                 <div 
                   key={index} 
-                  className="relative group cursor-move"
-                  draggable
+                  className={`relative group cursor-move ${isTransforming ? "opacity-50" : ""}`}
+                  draggable={!isTransforming}
                   onDragStart={(e) => handleImageDragStart(e, index)}
                   onDragOver={(e) => handleImageDragOver(e, index)}
                   onDrop={(e) => handleImageDrop(e, index)}
@@ -152,18 +188,36 @@ export function CreateStory() {
                     </div>
                   </div>
                   <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  >
-                    ×
-                  </button>
+                  {!isTransforming && (
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-              Transform Into Storybook
+            <Button 
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              onClick={handleTransformStory}
+              disabled={isTransforming || !storyTitle.trim()}
+            >
+              {isTransforming ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Transforming Story...
+                </>
+              ) : (
+                "Transform Into Storybook"
+              )}
             </Button>
+            {isTransforming && (
+              <p className="text-sm text-gray-600 text-center mt-3">
+                This may take a few minutes. We're analyzing your drawings and creating professional illustrations!
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

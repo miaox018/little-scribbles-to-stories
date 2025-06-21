@@ -35,26 +35,35 @@ export type Database = {
       }
       stories: {
         Row: {
+          cover_image_url: string | null
           created_at: string | null
+          description: string | null
           id: string
           status: string | null
           title: string
+          total_pages: number | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           status?: string | null
           title: string
+          total_pages?: number | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           status?: string | null
           title?: string
+          total_pages?: number | null
           updated_at?: string | null
           user_id?: string
         }
@@ -63,34 +72,40 @@ export type Database = {
       story_pages: {
         Row: {
           created_at: string | null
+          enhanced_prompt: string | null
           generated_image_url: string | null
           id: string
           is_approved: boolean | null
           original_image_url: string | null
           page_number: number
           story_id: string
+          transformation_status: string | null
           updated_at: string | null
           user_feedback: string | null
         }
         Insert: {
           created_at?: string | null
+          enhanced_prompt?: string | null
           generated_image_url?: string | null
           id?: string
           is_approved?: boolean | null
           original_image_url?: string | null
           page_number: number
           story_id: string
+          transformation_status?: string | null
           updated_at?: string | null
           user_feedback?: string | null
         }
         Update: {
           created_at?: string | null
+          enhanced_prompt?: string | null
           generated_image_url?: string | null
           id?: string
           is_approved?: boolean | null
           original_image_url?: string | null
           page_number?: number
           story_id?: string
+          transformation_status?: string | null
           updated_at?: string | null
           user_feedback?: string | null
         }
