@@ -1,267 +1,13 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { corsHeaders, artStylePrompts } from './config.ts';
+import { processStoryPage } from './story-processor.ts';
+import type { ImageData } from './types.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-// Art style prompts mapping
-const artStylePrompts = {
-  classic_watercolor: "Classic watercolor painting style with soft, flowing colors and gentle brush strokes. Use pastel tones and dreamy, ethereal quality typical of children's watercolor storybooks.",
-  disney_animation: "Disney-style animation with bright, vibrant colors and smooth cartoon aesthetics. Characters should have expressive features and the overall style should be cheerful and magical like classic Disney animated films.",
-  realistic_digital: "High-quality realistic digital art with detailed textures and lifelike proportions. Use professional digital illustration techniques with rich colors and fine details suitable for premium children's books.",
-  manga_anime: "Japanese manga/anime art style with expressive characters, dynamic poses, and characteristic facial features. Use bright colors and stylized proportions typical of anime illustrations.",
-  vintage_storybook: "Classic vintage storybook illustration style reminiscent of 1950s children's books. Use warm, nostalgic colors and traditional illustration techniques with a timeless, cozy feeling."
-};
-
-async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: imageDataUrl } }
-          ]
-        }
-      ],
-      max_tokens: 1000
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Vision API failed: ${await response.text()}`);
-  }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
-}
-
-async function generateImageWithGPT(prompt: string) {
-  const response = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-image-1',
-      prompt: prompt,
-      size: '1024x1024',
-      quality: 'high',
-      output_format: 'png',
-      n: 1
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Image generation failed: ${await response.text()}`);
-  }
-
-  const data = await response.json();
-  return data.data[0].b64_json;
-}
-
-async function uploadImageToSupabase(base64Image: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
-  try {
-    // Convert base64 to blob
-    const byteCharacters = atob(base64Image);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const imageBlob = new Blob([byteArray], { type: 'image/png' });
-    
-    const fileName = `${userId}/generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
-    
-    console.log(`Uploading image to: ${fileName}`);
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('story-images')
-      .upload(fileName, imageBlob, {
-        contentType: 'image/png',
-        upsert: false
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw uploadError;
-    }
-
-    console.log('Upload successful:', uploadData);
-
-    const { data: urlData } = supabase.storage
-      .from('story-images')
-      .getPublicUrl(fileName);
-
-    console.log('Generated public URL:', urlData.publicUrl);
-    return urlData.publicUrl;
-  } catch (error) {
-    console.error('Error in uploadImageToSupabase:', error);
-    throw error;
-  }
-}
-
-async function uploadOriginalImageToSupabase(imageDataUrl: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
-  try {
-    // Extract base64 data from data URL
-    const base64Data = imageDataUrl.split(',')[1];
-    const mimeType = imageDataUrl.split(',')[0].split(':')[1].split(';')[0];
-    
-    // Convert base64 to blob
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const imageBlob = new Blob([byteArray], { type: mimeType });
-    
-    const extension = mimeType.includes('png') ? 'png' : 'jpg';
-    const fileName = `${userId}/original/${storyId}/page_${pageNumber}_${Date.now()}.${extension}`;
-    
-    console.log(`Uploading original image to: ${fileName}`);
-    
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('story-images')
-      .upload(fileName, imageBlob, {
-        contentType: mimeType,
-        upsert: false
-      });
-
-    if (uploadError) {
-      console.error('Original upload error:', uploadError);
-      throw uploadError;
-    }
-
-    console.log('Original upload successful:', uploadData);
-
-    const { data: urlData } = supabase.storage
-      .from('story-images')
-      .getPublicUrl(fileName);
-
-    console.log('Generated original public URL:', urlData.publicUrl);
-    return urlData.publicUrl;
-  } catch (error) {
-    console.error('Error in uploadOriginalImageToSupabase:', error);
-    throw error;
-  }
-}
-
-async function processStoryPage(
-  imageData: any, 
-  pageNumber: number, 
-  storyId: string, 
-  userId: string,
-  stylePrompt: string,
-  characterDescriptions: string,
-  artStyleGuidelines: string,
-  supabase: any
-) {
-  // Check if story was cancelled
-  const { data: story } = await supabase
-    .from('stories')
-    .select('status')
-    .eq('id', storyId)
-    .single();
-
-  if (story?.status === 'cancelled') {
-    throw new Error('Story transformation was cancelled');
-  }
-
-  // Upload original image to Supabase
-  const originalImageUrl = await uploadOriginalImageToSupabase(imageData.dataUrl, storyId, pageNumber, userId, supabase);
-
-  // Build context prompt
-  let contextPrompt = "";
-  if (pageNumber === 1) {
-    contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
-  } else {
-    contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. MAINTAIN CONSISTENCY with the established:
-${characterDescriptions}
-${artStyleGuidelines}
-
-Use the following art style: ${stylePrompt}
-
-Previous pages in this story have been generated with these visual elements. Ensure the same characters, art style, and story world continue seamlessly.`;
-  }
-
-  const prompt = `${contextPrompt}
-
-Transform this child's hand-drawn story page into a professional children's book illustration.
-
-🔑 CRITICAL TEXT REQUIREMENTS - HIGHEST PRIORITY:
-- Any text in the image must be EXACTLY readable, letter-perfect, and crystal clear
-- Use clean, professional typography: Arial, Helvetica, or Times New Roman fonts ONLY
-- Text must be large enough for children to read easily (minimum 16pt equivalent)
-- Text should be CENTERED and well-positioned with high contrast against background
-- Background behind text must be plain or very simple to ensure readability
-- NO decorative fonts, NO handwriting styles, NO text effects or shadows
-- NO misspellings - spell every word perfectly in English
-- If there is dialogue or narration, display it in clean text boxes or speech bubbles with white/light backgrounds
-- Text must be perfectly legible - this is NON-NEGOTIABLE
-
-VISUAL REFERENCE ANALYSIS:
-Carefully analyze the provided child's drawing to understand:
-- Character appearances, clothing, and expressions
-- Setting and background elements  
-- Any text, dialogue, or narration present
-- Story events happening on this page
-- Emotional tone and mood
-
-STYLE REQUIREMENTS:
-- ${stylePrompt}
-- Child-appropriate and friendly tone
-- High detail but not scary or overwhelming
-- Maintain story elements and characters from the original drawing
-- Make it magical and enchanting while staying true to the child's vision
-- Professional children's book illustration quality
-
-CONSISTENCY REQUIREMENTS (for pages after page 1):
-- If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages
-- Keep the same color palette and artistic approach
-- Ensure characters look identical to how they appeared before
-
-FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard.`;
-
-  // Analyze image with GPT-4o
-  const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
-  console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
-
-  // Generate image with GPT-image-1
-  const base64Image = await generateImageWithGPT(analysisText);
-
-  // Upload generated image to Supabase Storage
-  const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, userId, supabase);
-
-  // Create story page record with Supabase URLs
-  await supabase
-    .from('story_pages')
-    .insert({
-      story_id: storyId,
-      page_number: pageNumber,
-      original_image_url: originalImageUrl,
-      generated_image_url: generatedImageUrl,
-      enhanced_prompt: analysisText,
-      transformation_status: 'completed'
-    });
-
-  return { analysisText, generatedImageUrl, originalImageUrl };
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -302,16 +48,16 @@ serve(async (req) => {
     // Process each image
     for (let i = 0; i < images.length; i++) {
       try {
-        const result = await processStoryPage(
-          images[i], 
-          i + 1, 
+        const result = await processStoryPage({
+          imageData: images[i], 
+          pageNumber: i + 1, 
           storyId, 
           userId,
           stylePrompt,
           characterDescriptions,
           artStyleGuidelines,
           supabase
-        );
+        });
 
         // Update context for next pages (extract from first page to maintain consistency)
         if (i === 0) {
