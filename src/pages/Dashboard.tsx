@@ -8,7 +8,7 @@ import { useState } from "react";
 import { LogOut, User } from "lucide-react";
 
 const Dashboard = () => {
-  const [activeView, setActiveView] = useState("create");
+  const [activeTab, setActiveTab] = useState<"create" | "library">("create");
   const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
@@ -17,13 +17,13 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <DashboardSidebar activeView={activeView} setActiveView={setActiveView} />
+      <DashboardSidebar activeTab={activeTab} onTabChange={setActiveTab} />
       
       <main className="flex-1 overflow-auto">
         <header className="bg-white shadow-sm border-b px-6 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-800">
-              {activeView === "create" ? "Create Story" : "My Library"}
+              {activeTab === "create" ? "Create Story" : "My Library"}
             </h1>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-gray-600">
@@ -43,8 +43,8 @@ const Dashboard = () => {
         </header>
         
         <div className="p-6">
-          {activeView === "create" && <CreateStory />}
-          {activeView === "library" && <Library />}
+          {activeTab === "create" && <CreateStory />}
+          {activeTab === "library" && <Library />}
         </div>
       </main>
     </div>
