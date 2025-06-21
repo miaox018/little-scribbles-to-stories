@@ -76,27 +76,98 @@ async function generateImageWithDALLE(prompt: string) {
   return data.data[0].b64_json;
 }
 
-async function uploadImageToSupabase(base64Image: string, storyId: string, pageNumber: number, supabase: any) {
-  const imageBlob = new Blob([Uint8Array.from(atob(base64Image), c => c.charCodeAt(0))], { type: 'image/png' });
-  const fileName = `generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
-  
-  const { data: uploadData, error: uploadError } = await supabase.storage
-    .from('story-images')
-    .upload(fileName, imageBlob);
+async function uploadImageToSupabase(base64Image: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
+  try {
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Image);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const imageBlob = new Blob([byteArray], { type: 'image/png' });
+    
+    const fileName = `${userId}/generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
+    
+    console.log(`Uploading image to: ${fileName}`);
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('story-images')
+      .upload(fileName, imageBlob, {
+        contentType: 'image/png',
+        upsert: false
+      });
 
-  if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      throw uploadError;
+    }
 
-  const { data: urlData } = supabase.storage
-    .from('story-images')
-    .getPublicUrl(fileName);
+    console.log('Upload successful:', uploadData);
 
-  return urlData.publicUrl;
+    const { data: urlData } = supabase.storage
+      .from('story-images')
+      .getPublicUrl(fileName);
+
+    console.log('Generated public URL:', urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Error in uploadImageToSupabase:', error);
+    throw error;
+  }
+}
+
+async function uploadOriginalImageToSupabase(imageDataUrl: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
+  try {
+    // Extract base64 data from data URL
+    const base64Data = imageDataUrl.split(',')[1];
+    const mimeType = imageDataUrl.split(',')[0].split(':')[1].split(';')[0];
+    
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const imageBlob = new Blob([byteArray], { type: mimeType });
+    
+    const extension = mimeType.includes('png') ? 'png' : 'jpg';
+    const fileName = `${userId}/original/${storyId}/page_${pageNumber}_${Date.now()}.${extension}`;
+    
+    console.log(`Uploading original image to: ${fileName}`);
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('story-images')
+      .upload(fileName, imageBlob, {
+        contentType: mimeType,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Original upload error:', uploadError);
+      throw uploadError;
+    }
+
+    console.log('Original upload successful:', uploadData);
+
+    const { data: urlData } = supabase.storage
+      .from('story-images')
+      .getPublicUrl(fileName);
+
+    console.log('Generated original public URL:', urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Error in uploadOriginalImageToSupabase:', error);
+    throw error;
+  }
 }
 
 async function processStoryPage(
   imageData: any, 
   pageNumber: number, 
   storyId: string, 
+  userId: string,
   stylePrompt: string,
   characterDescriptions: string,
   artStyleGuidelines: string,
@@ -112,6 +183,9 @@ async function processStoryPage(
   if (story?.status === 'cancelled') {
     throw new Error('Story transformation was cancelled');
   }
+
+  // Upload original image to Supabase
+  const originalImageUrl = await uploadOriginalImageToSupabase(imageData.dataUrl, storyId, pageNumber, userId, supabase);
 
   // Build context prompt
   let contextPrompt = "";
@@ -164,22 +238,22 @@ Style requirements:
   // Generate image with DALL-E 3
   const base64Image = await generateImageWithDALLE(analysisText);
 
-  // Upload to Supabase Storage
-  const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, supabase);
+  // Upload generated image to Supabase Storage
+  const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, userId, supabase);
 
-  // Create story page record
+  // Create story page record with Supabase URLs
   await supabase
     .from('story_pages')
     .insert({
       story_id: storyId,
       page_number: pageNumber,
-      original_image_url: imageData.url,
+      original_image_url: originalImageUrl,
       generated_image_url: generatedImageUrl,
       enhanced_prompt: analysisText,
       transformation_status: 'completed'
     });
 
-  return { analysisText, generatedImageUrl };
+  return { analysisText, generatedImageUrl, originalImageUrl };
 }
 
 serve(async (req) => {
@@ -192,6 +266,19 @@ serve(async (req) => {
     const { storyId, images, artStyle = 'classic_watercolor' } = await req.json();
 
     console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
+
+    // Get the user ID from the story
+    const { data: storyData, error: storyError } = await supabase
+      .from('stories')
+      .select('user_id')
+      .eq('id', storyId)
+      .single();
+
+    if (storyError || !storyData) {
+      throw new Error('Story not found');
+    }
+
+    const userId = storyData.user_id;
 
     // Update story status to processing
     await supabase
@@ -212,6 +299,7 @@ serve(async (req) => {
           images[i], 
           i + 1, 
           storyId, 
+          userId,
           stylePrompt,
           characterDescriptions,
           artStyleGuidelines,

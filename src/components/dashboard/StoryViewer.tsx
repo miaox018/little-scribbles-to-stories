@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -30,29 +30,57 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showOriginal, setShowOriginal] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
 
   const goToNextPage = () => {
     setCurrentPage((prev) => (prev + 1) % sortedPages.length);
     setImageError(null);
+    setRetryCount(0);
   };
 
   const goToPrevPage = () => {
     setCurrentPage((prev) => (prev - 1 + sortedPages.length) % sortedPages.length);
     setImageError(null);
+    setRetryCount(0);
   };
 
-  const handleImageError = () => {
-    setImageError('Failed to load image. The image may have expired or been moved.');
+  const handleImageError = (error: any) => {
+    console.error('Image loading error:', error);
+    const currentPageData = sortedPages[currentPage];
+    const imageUrl = showOriginal ? currentPageData?.original_image_url : currentPageData?.generated_image_url;
+    
+    if (imageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net')) {
+      setImageError('This image has expired. OpenAI images are only available for 60 minutes. Please regenerate the story to get new images.');
+    } else if (imageUrl?.includes('supabase')) {
+      setImageError('Failed to load image from storage. The image may have been moved or deleted.');
+    } else {
+      setImageError('Failed to load image. Please try again or contact support if the problem persists.');
+    }
+    setRetryCount(prev => prev + 1);
   };
 
   const handleToggleView = () => {
     setShowOriginal(!showOriginal);
     setImageError(null);
+    setRetryCount(0);
+  };
+
+  const handleRetry = () => {
+    setImageError(null);
+    setRetryCount(0);
+    // Force image reload by adding a timestamp
+    const img = document.querySelector('.story-page-image') as HTMLImageElement;
+    if (img && img.src) {
+      const url = new URL(img.src);
+      url.searchParams.set('retry', Date.now().toString());
+      img.src = url.toString();
+    }
   };
 
   const currentPageData = sortedPages[currentPage];
+  const currentImageUrl = showOriginal ? currentPageData?.original_image_url : currentPageData?.generated_image_url;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -77,12 +105,18 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                   variant="outline"
                   size="sm"
                   onClick={handleToggleView}
+                  disabled={!currentPageData.original_image_url || !currentPageData.generated_image_url}
                 >
                   {showOriginal ? 'Show Enhanced' : 'Show Original'}
                 </Button>
                 <span className="text-sm text-gray-600">
                   Page {currentPage + 1} of {sortedPages.length}
                 </span>
+                {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
+                  <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                    ⚠️ Temporary URL - may expire
+                  </span>
+                )}
               </div>
               
               <div className="flex items-center gap-2">
@@ -109,23 +143,41 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
 
             <div className="flex-1 flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
               {imageError ? (
-                <div className="text-center p-8">
-                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4">{imageError}</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setImageError(null)}
-                  >
-                    Try Again
-                  </Button>
+                <div className="text-center p-8 max-w-md">
+                  <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
+                  <div className="flex gap-2 justify-center">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleRetry}
+                      disabled={retryCount >= 3}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      {retryCount >= 3 ? 'Max retries reached' : 'Try Again'}
+                    </Button>
+                    {currentPageData.original_image_url && currentPageData.generated_image_url && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleToggleView}
+                      >
+                        Try {showOriginal ? 'Enhanced' : 'Original'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
-                currentPageData && (
+                currentImageUrl && (
                   <img
-                    src={showOriginal ? currentPageData.original_image_url || '' : currentPageData.generated_image_url || ''}
+                    src={currentImageUrl}
                     alt={`Page ${currentPageData.page_number}`}
-                    className="max-w-full max-h-full object-contain"
+                    className="max-w-full max-h-full object-contain story-page-image"
                     onError={handleImageError}
+                    onLoad={() => {
+                      setImageError(null);
+                      setRetryCount(0);
+                    }}
                   />
                 )
               )}
