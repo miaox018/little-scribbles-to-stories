@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -12,7 +12,10 @@ export interface ImageData {
 
 export const useStoryTransformation = () => {
   const [isTransforming, setIsTransforming] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const { user } = useAuth();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const uploadImageToStorage = async (file: File, storyId: string, pageNumber: number): Promise<string> => {
     const fileName = `${user?.id}/${storyId}/page_${pageNumber}_${Date.now()}.${file.name.split('.').pop()}`;
@@ -39,7 +42,23 @@ export const useStoryTransformation = () => {
     });
   };
 
-  const transformStory = async (files: File[], title: string) => {
+  const cancelTransformation = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    setIsTransforming(false);
+    setCurrentPage(0);
+    setTotalPages(0);
+    
+    toast({
+      title: "Transformation Cancelled",
+      description: "Story transformation has been cancelled successfully.",
+    });
+  };
+
+  const transformStory = async (files: File[], title: string, artStyle: string = 'classic_watercolor') => {
     if (!user) {
       toast({
         title: "Error",
@@ -59,6 +78,11 @@ export const useStoryTransformation = () => {
     }
 
     setIsTransforming(true);
+    setCurrentPage(0);
+    setTotalPages(files.length);
+
+    // Create new AbortController for this transformation
+    abortControllerRef.current = new AbortController();
 
     try {
       // Create story record
@@ -68,7 +92,8 @@ export const useStoryTransformation = () => {
           user_id: user.id,
           title,
           status: 'draft',
-          total_pages: files.length
+          total_pages: files.length,
+          art_style: artStyle
         })
         .select()
         .single();
@@ -81,6 +106,12 @@ export const useStoryTransformation = () => {
       const imageData: Array<{url: string, dataUrl: string}> = [];
       
       for (let i = 0; i < files.length; i++) {
+        // Check if transformation was cancelled
+        if (abortControllerRef.current?.signal.aborted) {
+          throw new Error('Transformation cancelled');
+        }
+
+        setCurrentPage(i + 1);
         const file = files[i];
         const url = await uploadImageToStorage(file, story.id, i + 1);
         const dataUrl = await fileToDataUrl(file);
@@ -89,12 +120,13 @@ export const useStoryTransformation = () => {
 
       console.log('Uploaded images:', imageData.length);
 
-      // Call the transformation Edge Function
+      // Call the transformation Edge Function with cancellation support
       const { data: transformResult, error: transformError } = await supabase.functions
         .invoke('transform-story', {
           body: {
             storyId: story.id,
-            images: imageData
+            images: imageData,
+            artStyle: artStyle
           }
         });
 
@@ -109,6 +141,12 @@ export const useStoryTransformation = () => {
 
     } catch (error) {
       console.error('Transform story error:', error);
+      
+      if (error instanceof Error && error.message === 'Transformation cancelled') {
+        // Don't show error toast for user-initiated cancellation
+        return;
+      }
+      
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to transform story",
@@ -116,11 +154,17 @@ export const useStoryTransformation = () => {
       });
     } finally {
       setIsTransforming(false);
+      setCurrentPage(0);
+      setTotalPages(0);
+      abortControllerRef.current = null;
     }
   };
 
   return {
     transformStory,
-    isTransforming
+    cancelTransformation,
+    isTransforming,
+    currentPage,
+    totalPages
   };
 };

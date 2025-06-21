@@ -12,6 +12,15 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Art style prompts mapping
+const artStylePrompts = {
+  classic_watercolor: "Classic watercolor painting style with soft, flowing colors and gentle brush strokes. Use pastel tones and dreamy, ethereal quality typical of children's watercolor storybooks.",
+  disney_animation: "Disney-style animation with bright, vibrant colors and smooth cartoon aesthetics. Characters should have expressive features and the overall style should be cheerful and magical like classic Disney animated films.",
+  realistic_digital: "High-quality realistic digital art with detailed textures and lifelike proportions. Use professional digital illustration techniques with rich colors and fine details suitable for premium children's books.",
+  manga_anime: "Japanese manga/anime art style with expressive characters, dynamic poses, and characteristic facial features. Use bright colors and stylized proportions typical of anime illustrations.",
+  vintage_storybook: "Classic vintage storybook illustration style reminiscent of 1950s children's books. Use warm, nostalgic colors and traditional illustration techniques with a timeless, cozy feeling."
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,15 +28,18 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { storyId, images } = await req.json();
+    const { storyId, images, artStyle = 'classic_watercolor' } = await req.json();
 
-    console.log(`Processing story ${storyId} with ${images.length} images`);
+    console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
 
     // Update story status to processing
     await supabase
       .from('stories')
       .update({ status: 'processing' })
       .eq('id', storyId);
+
+    // Get art style prompt
+    const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
 
     let storyContext = "";
     let characterDescriptions = "";
@@ -38,18 +50,35 @@ serve(async (req) => {
     for (let i = 0; i < images.length; i++) {
       const imageData = images[i];
       
-      console.log(`Processing page ${i + 1} with visual reference and story context`);
+      // Check if story was cancelled
+      const { data: story } = await supabase
+        .from('stories')
+        .select('status')
+        .eq('id', storyId)
+        .single();
+
+      if (story?.status === 'cancelled') {
+        console.log(`Story ${storyId} was cancelled, stopping processing`);
+        return new Response(
+          JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`Processing page ${i + 1} with ${artStyle} style and story context`);
 
       // Build context from previous pages for consistency
       let contextPrompt = "";
       if (i === 0) {
         // First page - establish the story context and style
-        contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages.`;
+        contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
       } else {
         // Subsequent pages - maintain consistency
         contextPrompt = `This is PAGE ${i + 1} of the same children's story book. MAINTAIN CONSISTENCY with the established:
 ${characterDescriptions}
 ${artStyleGuidelines}
+
+Use the following art style: ${stylePrompt}
 
 Previous pages in this story have been generated with these visual elements. Ensure the same characters, art style, and story world continue seamlessly.`;
       }
@@ -76,8 +105,7 @@ Carefully analyze the provided child's drawing to understand:
 - Emotional tone and mood
 
 Style requirements:
-- Professional children's book illustration style
-- Bright, vibrant colors
+- ${stylePrompt}
 - Child-appropriate and friendly
 - High detail but not scary or overwhelming
 - Maintain the story elements and characters from the original drawing
@@ -193,12 +221,12 @@ Style requirements:
       if (i === 0) {
         characterDescriptions = `- Character designs and appearances established in page 1
 - Clothing styles and color schemes from page 1`;
-        artStyleGuidelines = `- Art style: Professional children's book illustration with bright, vibrant colors
+        artStyleGuidelines = `- Art style: ${stylePrompt}
 - Visual language and composition style from page 1
 - Text typography and placement style from page 1`;
       }
 
-      console.log(`Completed page ${i + 1} with visual reference and story context`);
+      console.log(`Completed page ${i + 1} with ${artStyle} style and story context`);
     }
 
     // Update story status to completed
@@ -210,10 +238,10 @@ Style requirements:
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed with visual references and story consistency`);
+    console.log(`Story ${storyId} transformation completed with ${artStyle} style and story consistency`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Story transformation completed with visual references and story consistency' }),
+      JSON.stringify({ success: true, message: `Story transformation completed with ${artStyle} style and story consistency` }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

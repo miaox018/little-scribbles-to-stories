@@ -35,6 +35,8 @@ export type Database = {
       }
       stories: {
         Row: {
+          art_style: string | null
+          cancelled_at: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
@@ -46,6 +48,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          art_style?: string | null
+          cancelled_at?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
@@ -57,6 +61,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          art_style?: string | null
+          cancelled_at?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null

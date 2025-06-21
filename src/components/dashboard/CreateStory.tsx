@@ -6,13 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
+import { ArtStyleSelector } from "@/components/dashboard/ArtStyleSelector";
+import { TransformationProgress } from "@/components/dashboard/TransformationProgress";
 
 export function CreateStory() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [storyTitle, setStoryTitle] = useState("");
-  const { transformStory, isTransforming } = useStoryTransformation();
+  const [selectedArtStyle, setSelectedArtStyle] = useState("classic_watercolor");
+  const { 
+    transformStory, 
+    cancelTransformation, 
+    isTransforming, 
+    currentPage, 
+    totalPages 
+  } = useStoryTransformation();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -79,7 +88,7 @@ export function CreateStory() {
       return;
     }
     
-    await transformStory(uploadedFiles, storyTitle.trim());
+    await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
   };
 
   return (
@@ -90,6 +99,17 @@ export function CreateStory() {
           Upload your child's hand-drawn story pages to transform them into a beautiful, professional storybook.
         </p>
       </div>
+
+      {/* Show transformation progress if processing */}
+      {isTransforming && (
+        <div className="mb-6">
+          <TransformationProgress 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onCancel={cancelTransformation}
+          />
+        </div>
+      )}
 
       {/* Story Title Input */}
       <Card className="mb-6">
@@ -107,6 +127,13 @@ export function CreateStory() {
           />
         </CardContent>
       </Card>
+
+      {/* Art Style Selection */}
+      <ArtStyleSelector
+        selectedStyle={selectedArtStyle}
+        onStyleChange={setSelectedArtStyle}
+        disabled={isTransforming}
+      />
 
       {/* Upload Area */}
       <Card className="mb-8">
