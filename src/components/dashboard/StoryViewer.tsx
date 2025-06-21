@@ -1,8 +1,8 @@
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, AlertCircle } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -29,15 +29,27 @@ interface StoryViewerProps {
 export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
 
   const goToNextPage = () => {
     setCurrentPage((prev) => (prev + 1) % sortedPages.length);
+    setImageError(null);
   };
 
   const goToPrevPage = () => {
     setCurrentPage((prev) => (prev - 1 + sortedPages.length) % sortedPages.length);
+    setImageError(null);
+  };
+
+  const handleImageError = () => {
+    setImageError('Failed to load image. The image may have expired or been moved.');
+  };
+
+  const handleToggleView = () => {
+    setShowOriginal(!showOriginal);
+    setImageError(null);
   };
 
   const currentPageData = sortedPages[currentPage];
@@ -52,16 +64,19 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>
+          <DialogDescription>
+            View your enhanced storybook. Use the controls below to navigate between pages and switch between original and enhanced versions.
+          </DialogDescription>
         </DialogHeader>
 
-        {sortedPages.length > 0 && currentPageData && (
+        {sortedPages.length > 0 && currentPageData ? (
           <div className="flex-1 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowOriginal(!showOriginal)}
+                  onClick={handleToggleView}
                 >
                   {showOriginal ? 'Show Enhanced' : 'Show Original'}
                 </Button>
@@ -93,13 +108,34 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
             </div>
 
             <div className="flex-1 flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
-              {currentPageData && (
-                <img
-                  src={showOriginal ? currentPageData.original_image_url || '' : currentPageData.generated_image_url || ''}
-                  alt={`Page ${currentPageData.page_number}`}
-                  className="max-w-full max-h-full object-contain"
-                />
+              {imageError ? (
+                <div className="text-center p-8">
+                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4">{imageError}</p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setImageError(null)}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              ) : (
+                currentPageData && (
+                  <img
+                    src={showOriginal ? currentPageData.original_image_url || '' : currentPageData.generated_image_url || ''}
+                    alt={`Page ${currentPageData.page_number}`}
+                    className="max-w-full max-h-full object-contain"
+                    onError={handleImageError}
+                  />
+                )
               )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No pages available for this story.</p>
             </div>
           </div>
         )}

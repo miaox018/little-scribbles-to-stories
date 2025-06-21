@@ -21,69 +21,113 @@ const artStylePrompts = {
   vintage_storybook: "Classic vintage storybook illustration style reminiscent of 1950s children's books. Use warm, nostalgic colors and traditional illustration techniques with a timeless, cozy feeling."
 };
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageDataUrl } }
+          ]
+        }
+      ],
+      max_tokens: 1000
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Vision API failed: ${await response.text()}`);
   }
 
-  try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { storyId, images, artStyle = 'classic_watercolor' } = await req.json();
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
 
-    console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
+async function generateImageWithDALLE(prompt: string) {
+  const response = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'dall-e-3',
+      prompt: prompt,
+      size: '1024x1024',
+      quality: 'hd',
+      response_format: 'b64_json',
+      n: 1
+    }),
+  });
 
-    // Update story status to processing
-    await supabase
-      .from('stories')
-      .update({ status: 'processing' })
-      .eq('id', storyId);
+  if (!response.ok) {
+    throw new Error(`Image generation failed: ${await response.text()}`);
+  }
 
-    // Get art style prompt
-    const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
+  const data = await response.json();
+  return data.data[0].b64_json;
+}
 
-    let storyContext = "";
-    let characterDescriptions = "";
-    let artStyleGuidelines = "";
-    const generatedPages: string[] = [];
+async function uploadImageToSupabase(base64Image: string, storyId: string, pageNumber: number, supabase: any) {
+  const imageBlob = new Blob([Uint8Array.from(atob(base64Image), c => c.charCodeAt(0))], { type: 'image/png' });
+  const fileName = `generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
+  
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from('story-images')
+    .upload(fileName, imageBlob);
 
-    // Process each image with GPT-4o (vision model)
-    for (let i = 0; i < images.length; i++) {
-      const imageData = images[i];
-      
-      // Check if story was cancelled
-      const { data: story } = await supabase
-        .from('stories')
-        .select('status')
-        .eq('id', storyId)
-        .single();
+  if (uploadError) throw uploadError;
 
-      if (story?.status === 'cancelled') {
-        console.log(`Story ${storyId} was cancelled, stopping processing`);
-        return new Response(
-          JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      console.log(`Processing page ${i + 1} with ${artStyle} style and story context`);
+  const { data: urlData } = supabase.storage
+    .from('story-images')
+    .getPublicUrl(fileName);
 
-      // Build context from previous pages for consistency
-      let contextPrompt = "";
-      if (i === 0) {
-        // First page - establish the story context and style
-        contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
-      } else {
-        // Subsequent pages - maintain consistency
-        contextPrompt = `This is PAGE ${i + 1} of the same children's story book. MAINTAIN CONSISTENCY with the established:
+  return urlData.publicUrl;
+}
+
+async function processStoryPage(
+  imageData: any, 
+  pageNumber: number, 
+  storyId: string, 
+  stylePrompt: string,
+  characterDescriptions: string,
+  artStyleGuidelines: string,
+  supabase: any
+) {
+  // Check if story was cancelled
+  const { data: story } = await supabase
+    .from('stories')
+    .select('status')
+    .eq('id', storyId)
+    .single();
+
+  if (story?.status === 'cancelled') {
+    throw new Error('Story transformation was cancelled');
+  }
+
+  // Build context prompt
+  let contextPrompt = "";
+  if (pageNumber === 1) {
+    contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
+  } else {
+    contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. MAINTAIN CONSISTENCY with the established:
 ${characterDescriptions}
 ${artStyleGuidelines}
 
 Use the following art style: ${stylePrompt}
 
 Previous pages in this story have been generated with these visual elements. Ensure the same characters, art style, and story world continue seamlessly.`;
-      }
+  }
 
-      const prompt = `${contextPrompt}
+  const prompt = `${contextPrompt}
 
 Transform this child's hand-drawn story page into a professional children's book illustration with CLEAR, READABLE TEXT.
 
@@ -113,120 +157,87 @@ Style requirements:
 - MOST IMPORTANT: Any text in the image must be crystal clear and easily readable
 - CONSISTENCY: If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages`;
 
-      // Use GPT-4o with vision to analyze the image and generate description first
-      const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: prompt
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageData.dataUrl
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 1000
-        }),
-      });
+  // Analyze image with GPT-4o
+  const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
+  console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
 
-      if (!visionResponse.ok) {
-        const errorText = await visionResponse.text();
-        console.error(`Vision API error for page ${i + 1}:`, errorText);
-        throw new Error(`Vision API failed for page ${i + 1}: ${errorText}`);
-      }
+  // Generate image with DALL-E 3
+  const base64Image = await generateImageWithDALLE(analysisText);
 
-      const visionData = await visionResponse.json();
-      const analysisText = visionData.choices[0].message.content;
+  // Upload to Supabase Storage
+  const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, supabase);
 
-      console.log(`Generated analysis for page ${i + 1}:`, analysisText);
+  // Create story page record
+  await supabase
+    .from('story_pages')
+    .insert({
+      story_id: storyId,
+      page_number: pageNumber,
+      original_image_url: imageData.url,
+      generated_image_url: generatedImageUrl,
+      enhanced_prompt: analysisText,
+      transformation_status: 'completed'
+    });
 
-      // Now use DALL-E 3 to generate the image based on the analysis
-      const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt: analysisText,
-          size: '1024x1024',
-          quality: 'hd',
-          response_format: 'b64_json',
-          n: 1
-        }),
-      });
+  return { analysisText, generatedImageUrl };
+}
 
-      if (!imageResponse.ok) {
-        const errorText = await imageResponse.text();
-        console.error(`Image generation error for page ${i + 1}:`, errorText);
-        throw new Error(`Image generation failed for page ${i + 1}: ${errorText}`);
-      }
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-      const imageData_response = await imageResponse.json();
-      
-      if (!imageData_response.data || !imageData_response.data[0]) {
-        throw new Error(`No image data returned for page ${i + 1}`);
-      }
+  try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { storyId, images, artStyle = 'classic_watercolor' } = await req.json();
 
-      // Convert base64 to blob for storage
-      const base64Image = imageData_response.data[0].b64_json;
-      const imageBlob = new Blob([Uint8Array.from(atob(base64Image), c => c.charCodeAt(0))], { type: 'image/png' });
-      
-      // Upload generated image to Supabase Storage
-      const fileName = `generated/${storyId}/page_${i + 1}_${Date.now()}.png`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('story-images')
-        .upload(fileName, imageBlob);
+    console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
 
-      if (uploadError) {
-        console.error(`Storage upload error for page ${i + 1}:`, uploadError);
-        throw uploadError;
-      }
+    // Update story status to processing
+    await supabase
+      .from('stories')
+      .update({ status: 'processing' })
+      .eq('id', storyId);
 
-      const { data: urlData } = supabase.storage
-        .from('story-images')
-        .getPublicUrl(fileName);
+    // Get art style prompt
+    const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
 
-      const generatedImageUrl = urlData.publicUrl;
-      generatedPages.push(generatedImageUrl);
+    let characterDescriptions = "";
+    let artStyleGuidelines = "";
 
-      // Create story page record
-      await supabase
-        .from('story_pages')
-        .insert({
-          story_id: storyId,
-          page_number: i + 1,
-          original_image_url: imageData.url,
-          generated_image_url: generatedImageUrl,
-          enhanced_prompt: analysisText,
-          transformation_status: 'completed'
-        });
+    // Process each image
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const result = await processStoryPage(
+          images[i], 
+          i + 1, 
+          storyId, 
+          stylePrompt,
+          characterDescriptions,
+          artStyleGuidelines,
+          supabase
+        );
 
-      // Update context for next pages (extract from first page to maintain consistency)
-      if (i === 0) {
-        characterDescriptions = `- Character designs and appearances established in page 1
+        // Update context for next pages (extract from first page to maintain consistency)
+        if (i === 0) {
+          characterDescriptions = `- Character designs and appearances established in page 1
 - Clothing styles and color schemes from page 1`;
-        artStyleGuidelines = `- Art style: ${stylePrompt}
+          artStyleGuidelines = `- Art style: ${stylePrompt}
 - Visual language and composition style from page 1
 - Text typography and placement style from page 1`;
-      }
+        }
 
-      console.log(`Completed page ${i + 1} with ${artStyle} style and story context`);
+        console.log(`Completed page ${i + 1} with ${artStyle} style`);
+      } catch (error) {
+        if (error.message === 'Story transformation was cancelled') {
+          console.log(`Story ${storyId} was cancelled, stopping processing`);
+          return new Response(
+            JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw error;
+      }
     }
 
     // Update story status to completed
@@ -238,10 +249,10 @@ Style requirements:
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed with ${artStyle} style and story consistency`);
+    console.log(`Story ${storyId} transformation completed with ${artStyle} style`);
 
     return new Response(
-      JSON.stringify({ success: true, message: `Story transformation completed with ${artStyle} style and story consistency` }),
+      JSON.stringify({ success: true, message: `Story transformation completed with ${artStyle} style` }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
