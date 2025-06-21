@@ -18,24 +18,18 @@ export const useStoryTransformation = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const uploadImageToStorage = async (file: File, storyId: string, pageNumber: number): Promise<string> => {
-    console.log('Uploading image to storage:', { storyId, pageNumber, fileName: file.name });
-    
     const fileName = `${user?.id}/${storyId}/page_${pageNumber}_${Date.now()}.${file.name.split('.').pop()}`;
     
     const { data, error } = await supabase.storage
       .from('story-images')
       .upload(fileName, file);
 
-    if (error) {
-      console.error('Storage upload error:', error);
-      throw error;
-    }
+    if (error) throw error;
 
     const { data: urlData } = supabase.storage
       .from('story-images')
       .getPublicUrl(fileName);
 
-    console.log('Upload successful, public URL:', urlData.publicUrl);
     return urlData.publicUrl;
   };
 
@@ -49,8 +43,6 @@ export const useStoryTransformation = () => {
   };
 
   const cancelTransformation = async () => {
-    console.log('Cancelling transformation...');
-    
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -67,10 +59,7 @@ export const useStoryTransformation = () => {
   };
 
   const transformStory = async (files: File[], title: string, artStyle: string = 'classic_watercolor') => {
-    console.log('Starting story transformation:', { filesCount: files.length, title, artStyle, user: user?.id });
-
     if (!user) {
-      console.error('No user found');
       toast({
         title: "Error",
         description: "You must be logged in to create a story",
@@ -80,7 +69,6 @@ export const useStoryTransformation = () => {
     }
 
     if (files.length === 0) {
-      console.error('No files provided');
       toast({
         title: "Error", 
         description: "Please upload at least one image",
@@ -97,8 +85,6 @@ export const useStoryTransformation = () => {
     abortControllerRef.current = new AbortController();
 
     try {
-      console.log('Creating story record...');
-      
       // Create story record
       const { data: story, error: storyError } = await supabase
         .from('stories')
@@ -112,12 +98,9 @@ export const useStoryTransformation = () => {
         .select()
         .single();
 
-      if (storyError) {
-        console.error('Story creation error:', storyError);
-        throw storyError;
-      }
+      if (storyError) throw storyError;
 
-      console.log('Story created successfully:', story);
+      console.log('Created story:', story);
 
       // Prepare image data
       const imageData: Array<{url: string, dataUrl: string}> = [];
@@ -128,16 +111,14 @@ export const useStoryTransformation = () => {
           throw new Error('Transformation cancelled');
         }
 
-        console.log(`Processing file ${i + 1}/${files.length}`);
         setCurrentPage(i + 1);
-        
         const file = files[i];
         const url = await uploadImageToStorage(file, story.id, i + 1);
         const dataUrl = await fileToDataUrl(file);
         imageData.push({ url, dataUrl });
       }
 
-      console.log('All images uploaded, calling edge function...');
+      console.log('Uploaded images:', imageData.length);
 
       // Call the transformation Edge Function with cancellation support
       const { data: transformResult, error: transformError } = await supabase.functions
@@ -149,12 +130,7 @@ export const useStoryTransformation = () => {
           }
         });
 
-      if (transformError) {
-        console.error('Transform function error:', transformError);
-        throw transformError;
-      }
-
-      console.log('Transformation completed successfully:', transformResult);
+      if (transformError) throw transformError;
 
       toast({
         title: "Success!",

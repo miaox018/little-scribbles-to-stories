@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,33 +83,12 @@ export function CreateStory() {
   };
 
   const handleTransformStory = async () => {
-    console.log('Transform button clicked:', { title: storyTitle.trim(), filesCount: uploadedFiles.length, artStyle: selectedArtStyle });
-    
     if (!storyTitle.trim()) {
-      console.warn('No title provided');
-      toast({
-        title: "Error",
-        description: "Please enter a story title",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (uploadedFiles.length === 0) {
-      console.warn('No files uploaded');
-      toast({
-        title: "Error",
-        description: "Please upload at least one image",
-        variant: "destructive"
-      });
+      alert("Please enter a story title");
       return;
     }
     
-    try {
-      await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
-    } catch (error) {
-      console.error('Error in handleTransformStory:', error);
-    }
+    await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
   };
 
   return (
@@ -249,7 +229,7 @@ export function CreateStory() {
             <Button 
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
               onClick={handleTransformStory}
-              disabled={isTransforming || !storyTitle.trim() || uploadedFiles.length === 0}
+              disabled={isTransforming || !storyTitle.trim()}
             >
               {isTransforming ? (
                 <>
