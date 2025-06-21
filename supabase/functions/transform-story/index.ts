@@ -35,9 +35,18 @@ serve(async (req) => {
       
       console.log(`Processing page ${i + 1} with GPT-Image-1`);
 
-      // Use GPT-Image-1 for enhanced story illustration generation
-      const prompt = `Transform this child's hand-drawn story page into a professional children's book illustration. 
-      
+      // Updated prompt for clearer, more readable text
+      const prompt = `Transform this child's hand-drawn story page into a professional children's book illustration with CLEAR, READABLE TEXT.
+
+CRITICAL TEXT REQUIREMENTS:
+- Use clean, simple, easy-to-read fonts (similar to Times New Roman, Arial, or classic children's book fonts)
+- Text should be sharp, clear, and perfectly legible
+- NO decorative, stylized, or fancy fonts
+- NO text effects, shadows, or distortions
+- Text should look like it was typeset in a professional children's book
+- Ensure high contrast between text and background
+- Text should be large enough for children to read easily
+
 Analyze the drawing and understand the story elements, characters, setting, and emotions, then create a beautiful, colorful, child-friendly illustration that captures the essence of the original while making it professional and engaging.
 
 Style requirements:
@@ -46,7 +55,8 @@ Style requirements:
 - Child-appropriate and friendly
 - High detail but not scary or overwhelming
 - Maintain the story elements and characters from the original drawing
-- Make it magical and enchanting while staying true to the child's vision`;
+- Make it magical and enchanting while staying true to the child's vision
+- MOST IMPORTANT: Any text in the image must be crystal clear and easily readable`;
 
       const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
@@ -100,7 +110,7 @@ Style requirements:
           transformation_status: 'completed'
         });
 
-      console.log(`Completed page ${i + 1} with GPT-Image-1`);
+      console.log(`Completed page ${i + 1} with improved text clarity`);
     }
 
     // Update story status to completed
@@ -112,10 +122,10 @@ Style requirements:
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed with GPT-Image-1`);
+    console.log(`Story ${storyId} transformation completed with improved text clarity`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Story transformation completed with GPT-Image-1' }),
+      JSON.stringify({ success: true, message: 'Story transformation completed with improved text clarity' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
