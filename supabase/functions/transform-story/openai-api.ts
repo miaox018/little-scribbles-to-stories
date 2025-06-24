@@ -41,7 +41,7 @@ export async function generateImageWithGPT(prompt: string) {
     body: JSON.stringify({
       model: 'gpt-image-1',
       prompt: prompt,
-      size: '1024x1024',
+      size: '1024x1536',
       quality: 'high',
       output_format: 'png',
       n: 1
