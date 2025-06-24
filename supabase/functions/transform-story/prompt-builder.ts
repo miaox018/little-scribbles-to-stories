@@ -15,34 +15,20 @@ Previous pages in this story have been generated with these visual elements. Ens
 
   return `${contextPrompt}
 
-Transform this child's hand-drawn story page into a professional children's book illustration with these CRITICAL specifications:
+Transform this child's hand-drawn story page into a professional children's book illustration.
 
-📐 FORMAT REQUIREMENTS - NON-NEGOTIABLE:
-- Portrait orientation, 3:4 aspect ratio (1024x1536 pixels)
-- Full-page children's book layout with proper margins
-- Composition designed for portrait book format
-
-🔤 TEXT REQUIREMENTS - HIGHEST PRIORITY:
+🔑 CRITICAL TEXT REQUIREMENTS - HIGHEST PRIORITY:
 - Any text in the image must be EXACTLY readable, letter-perfect, and crystal clear
-- Use clean, professional typography: Arial, Helvetica, or similar sans-serif fonts ONLY
-- Text must be large enough for children to read easily (equivalent to 18-24pt size)
-- Text positioned within safe margins - never cut off at edges
-- Text must blend naturally with the illustration while remaining crisp and legible
-- High contrast between text and background for maximum readability
-- NO decorative fonts, NO handwriting styles, NO text effects that reduce clarity
+- Use clean, professional typography: Arial, Helvetica, or Times New Roman fonts ONLY
+- Text must be large enough for children to read easily (minimum 16pt equivalent)
+- Text should be CENTERED and well-positioned with high contrast against background
+- Background behind text must be plain or very simple to ensure readability
+- NO decorative fonts, NO handwriting styles, NO text effects or shadows
 - NO misspellings - spell every word perfectly in English
-- If dialogue exists, use clean speech bubbles with white/light backgrounds
-- If narration exists, position it clearly at top or bottom with simple background
+- If there is dialogue or narration, display it in clean text boxes or speech bubbles with white/light backgrounds
+- Text must be perfectly legible - this is NON-NEGOTIABLE
 
-🎨 VISUAL STYLE REQUIREMENTS:
-- ${stylePrompt}
-- Warm, gentle colors suitable for young children (pastels, soft tones)
-- Child-friendly and inviting atmosphere
-- Professional children's book illustration quality
-- High detail but not overwhelming or scary
-- Magical and enchanting while staying true to the child's vision
-
-📚 CONTENT ANALYSIS:
+VISUAL REFERENCE ANALYSIS:
 Carefully analyze the provided child's drawing to understand:
 - Character appearances, clothing, and expressions
 - Setting and background elements  
@@ -50,14 +36,18 @@ Carefully analyze the provided child's drawing to understand:
 - Story events happening on this page
 - Emotional tone and mood
 
-🔄 CONSISTENCY REQUIREMENTS (for pages after page 1):
-- If this is not the first page, maintain identical character designs from previous pages
-- Keep the same color palette and artistic approach established earlier
-- Ensure visual continuity and storytelling flow
+STYLE REQUIREMENTS:
+- ${stylePrompt}
+- Child-appropriate and friendly tone
+- High detail but not scary or overwhelming
+- Maintain story elements and characters from the original drawing
+- Make it magical and enchanting while staying true to the child's vision
+- Professional children's book illustration quality
 
-✅ FINAL QUALITY CHECK:
-- Text must be as readable as in a printed children's book
-- Image must fit portrait 3:4 aspect ratio perfectly
-- All story elements from original drawing must be preserved
-- Professional publishing quality suitable for young readers`;
+CONSISTENCY REQUIREMENTS (for pages after page 1):
+- If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages
+- Keep the same color palette and artistic approach
+- Ensure characters look identical to how they appeared before
+
+FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard.`;
 }

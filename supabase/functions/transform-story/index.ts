@@ -10,7 +10,6 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -46,11 +45,9 @@ serve(async (req) => {
     let characterDescriptions = "";
     let artStyleGuidelines = "";
 
-    // Process each image with timeout handling
+    // Process each image
     for (let i = 0; i < images.length; i++) {
       try {
-        console.log(`Starting processing page ${i + 1}/${images.length}`);
-        
         const result = await processStoryPage({
           imageData: images[i], 
           pageNumber: i + 1, 
@@ -73,7 +70,6 @@ serve(async (req) => {
 
         console.log(`Completed page ${i + 1} with ${artStyle} style`);
       } catch (error) {
-        console.error(`Error processing page ${i + 1}:`, error);
         if (error.message === 'Story transformation was cancelled') {
           console.log(`Story ${storyId} was cancelled, stopping processing`);
           return new Response(
@@ -81,8 +77,7 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        // Continue with other pages even if one fails
-        console.log(`Skipping page ${i + 1} due to error, continuing with next page`);
+        throw error;
       }
     }
 
