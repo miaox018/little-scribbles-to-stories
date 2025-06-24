@@ -1,17 +1,21 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Mail, Eye, Loader2, X, AlertCircle } from "lucide-react";
+import { BookOpen, Mail, Eye, Loader2, X, AlertCircle, Trash2 } from "lucide-react";
 import { useStories } from "@/hooks/useStories";
 import { StoryViewer } from "./StoryViewer";
+import { DeleteStoryDialog } from "./DeleteStoryDialog";
+import { ShareStoryDialog } from "./ShareStoryDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 export function Library() {
   const { stories, isLoading, refetch } = useStories();
   const [selectedStory, setSelectedStory] = useState<any>(null);
+  const [storyToDelete, setStoryToDelete] = useState<any>(null);
+  const [storyToShare, setStoryToShare] = useState<any>(null);
   const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
+  const [isDeletingStory, setIsDeletingStory] = useState(false);
 
   const handleCancelStory = async (storyId: string) => {
     setCancellingStories(prev => new Set(prev).add(storyId));
@@ -48,6 +52,39 @@ export function Library() {
         newSet.delete(storyId);
         return newSet;
       });
+    }
+  };
+
+  const handleDeleteStory = async () => {
+    if (!storyToDelete) return;
+    
+    setIsDeletingStory(true);
+    try {
+      // Delete the story (this will cascade delete story_pages due to foreign key)
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', storyToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Story Deleted",
+        description: `"${storyToDelete.title}" has been deleted successfully.`,
+      });
+
+      // Refresh the stories list
+      refetch();
+      setStoryToDelete(null);
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete the story. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeletingStory(false);
     }
   };
 
@@ -137,6 +174,20 @@ export function Library() {
                       </div>
                     </div>
                   )}
+                  {/* Delete button overlay */}
+                  {story.status !== 'processing' && (
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStoryToDelete(story);
+                      }}
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-800 mb-1 group-hover:text-purple-600 transition-colors">
@@ -177,7 +228,12 @@ export function Library() {
                           <Eye className="mr-1 h-3 w-3" />
                           {story.status === 'completed' ? 'Read' : story.status}
                         </Button>
-                        <Button size="sm" variant="outline" disabled={story.status !== 'completed'}>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          disabled={story.status !== 'completed'}
+                          onClick={() => setStoryToShare(story)}
+                        >
                           <Mail className="mr-1 h-3 w-3" />
                           Share
                         </Button>
@@ -198,6 +254,20 @@ export function Library() {
           onClose={() => setSelectedStory(null)}
         />
       )}
+
+      <DeleteStoryDialog
+        isOpen={!!storyToDelete}
+        onClose={() => setStoryToDelete(null)}
+        onConfirm={handleDeleteStory}
+        storyTitle={storyToDelete?.title || ""}
+        isDeleting={isDeletingStory}
+      />
+
+      <ShareStoryDialog
+        isOpen={!!storyToShare}
+        onClose={() => setStoryToShare(null)}
+        story={storyToShare}
+      />
     </div>
   );
 }
