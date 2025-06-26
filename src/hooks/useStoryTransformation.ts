@@ -42,6 +42,44 @@ export const useStoryTransformation = () => {
     });
   };
 
+  const checkStoryStatus = async (storyId: string): Promise<boolean> => {
+    const { data: story, error } = await supabase
+      .from('stories')
+      .select('status, total_pages')
+      .eq('id', storyId)
+      .single();
+
+    if (error) {
+      console.error('Error checking story status:', error);
+      return false;
+    }
+
+    return story?.status === 'completed';
+  };
+
+  const pollStoryStatus = async (storyId: string, maxAttempts: number = 60): Promise<void> => {
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      if (abortControllerRef.current?.signal.aborted) {
+        throw new Error('Transformation cancelled');
+      }
+
+      const isComplete = await checkStoryStatus(storyId);
+      
+      if (isComplete) {
+        console.log('Story processing completed via polling');
+        return;
+      }
+
+      attempts++;
+      // Wait 5 seconds between checks
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
+    throw new Error('Story processing timed out after polling');
+  };
+
   const cancelTransformation = async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -120,17 +158,39 @@ export const useStoryTransformation = () => {
 
       console.log('Uploaded images:', imageData.length);
 
-      // Call the transformation Edge Function with cancellation support
-      const { data: transformResult, error: transformError } = await supabase.functions
-        .invoke('transform-story', {
-          body: {
-            storyId: story.id,
-            images: imageData,
-            artStyle: artStyle
-          }
+      // Call the transformation Edge Function with extended timeout
+      try {
+        const { data: transformResult, error: transformError } = await supabase.functions
+          .invoke('transform-story', {
+            body: {
+              storyId: story.id,
+              images: imageData,
+              artStyle: artStyle
+            }
+          });
+
+        if (transformError) {
+          console.warn('Edge function call failed, but story may still be processing:', transformError);
+          
+          // If the edge function call fails, start polling for completion
+          toast({
+            title: "Processing Started",
+            description: "Your story is being processed. This may take several minutes for complex art styles.",
+          });
+
+          await pollStoryStatus(story.id);
+        }
+      } catch (functionError) {
+        console.warn('Edge function timeout, switching to polling mode:', functionError);
+        
+        toast({
+          title: "Processing in Background",
+          description: "Your story is being processed. This may take several minutes. We'll check the status automatically.",
         });
 
-      if (transformError) throw transformError;
+        // Start polling for completion even if function call failed
+        await pollStoryStatus(story.id);
+      }
 
       toast({
         title: "Success!",
