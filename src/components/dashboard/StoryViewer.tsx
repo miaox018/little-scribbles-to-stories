@@ -142,9 +142,9 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto p-4">
+              <div className="flex-1 overflow-auto">
                 {imageError ? (
-                  <div className="h-full flex items-center justify-center">
+                  <div className="h-full flex items-center justify-center p-4">
                     <div className="text-center p-8 max-w-md">
                       <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                       <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
@@ -172,17 +172,19 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                   </div>
                 ) : (
                   currentImageUrl && (
-                    <div className="h-full flex items-center justify-center">
-                      <img
-                        src={currentImageUrl}
-                        alt={`Page ${currentPageData.page_number}`}
-                        className="max-w-full max-h-full object-contain story-page-image rounded-lg shadow-sm"
-                        onError={handleImageError}
-                        onLoad={() => {
-                          setImageError(null);
-                          setRetryCount(0);
-                        }}
-                      />
+                    <div className="p-4">
+                      <div className="text-center">
+                        <img
+                          src={currentImageUrl}
+                          alt={`Page ${currentPageData.page_number}`}
+                          className="max-w-full h-auto story-page-image rounded-lg shadow-sm inline-block"
+                          onError={handleImageError}
+                          onLoad={() => {
+                            setImageError(null);
+                            setRetryCount(0);
+                          }}
+                        />
+                      </div>
                     </div>
                   )
                 )}
