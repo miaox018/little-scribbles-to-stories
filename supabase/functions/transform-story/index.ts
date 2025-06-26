@@ -21,6 +21,11 @@ serve(async (req) => {
 
     console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
 
+    // Validate that we have images to process
+    if (!images || images.length === 0) {
+      throw new Error('No images provided for processing');
+    }
+
     // Get the user ID from the story
     const { data: storyData, error: storyError } = await supabase
       .from('stories')
@@ -34,10 +39,13 @@ serve(async (req) => {
 
     const userId = storyData.user_id;
 
-    // Update story status to processing
+    // Update story status to processing with exact page count
     await supabase
       .from('stories')
-      .update({ status: 'processing' })
+      .update({ 
+        status: 'processing',
+        total_pages: images.length
+      })
       .eq('id', storyId);
 
     // Get art style prompt
@@ -46,9 +54,11 @@ serve(async (req) => {
     let characterDescriptions = "";
     let artStyleGuidelines = "";
 
-    // Process each image
+    // Process each image - ensure we process ALL uploaded images
     for (let i = 0; i < images.length; i++) {
       try {
+        console.log(`Processing page ${i + 1} of ${images.length}`);
+        
         const result = await processStoryPage({
           imageData: images[i], 
           pageNumber: i + 1, 
@@ -66,10 +76,11 @@ serve(async (req) => {
 - Clothing styles and color schemes from page 1`;
           artStyleGuidelines = `- Art style: ${stylePrompt}
 - Visual language and composition style from page 1
-- Text typography and placement style from page 1`;
+- Text typography and placement style from page 1
+- Portrait orientation with 3:4 aspect ratio and safe margins`;
         }
 
-        console.log(`Completed page ${i + 1} with ${artStyle} style`);
+        console.log(`Completed page ${i + 1} of ${images.length} with ${artStyle} style`);
       } catch (error) {
         if (error.message === 'Story transformation was cancelled') {
           console.log(`Story ${storyId} was cancelled, stopping processing`);
@@ -82,7 +93,7 @@ serve(async (req) => {
       }
     }
 
-    // Update story status to completed
+    // Update story status to completed with final page count verification
     await supabase
       .from('stories')
       .update({ 
@@ -91,10 +102,14 @@ serve(async (req) => {
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed with ${artStyle} style`);
+    console.log(`Story ${storyId} transformation completed: ${images.length} pages processed with ${artStyle} style`);
 
     return new Response(
-      JSON.stringify({ success: true, message: `Story transformation completed with ${artStyle} style` }),
+      JSON.stringify({ 
+        success: true, 
+        message: `Story transformation completed: ${images.length} pages processed with ${artStyle} style`,
+        pages_processed: images.length
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
