@@ -1,8 +1,9 @@
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { StoryViewerDialog } from './story-viewer/StoryViewerDialog';
+import { StoryViewerHeader } from './story-viewer/StoryViewerHeader';
+import { StoryViewerControls } from './story-viewer/StoryViewerControls';
+import { StoryImageDisplay } from './story-viewer/StoryImageDisplay';
 
 interface StoryPage {
   id: string;
@@ -79,127 +80,49 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     }
   };
 
+  const handleImageLoad = () => {
+    setImageError(null);
+    setRetryCount(0);
+  };
+
   const currentPageData = sortedPages[currentPage];
   const currentImageUrl = showOriginal ? currentPageData?.original_image_url : currentPageData?.generated_image_url;
+  const hasPages = sortedPages.length > 0 && currentPageData;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[98vw] h-[98vh] max-h-screen p-0 overflow-hidden">
-        <div className="flex flex-col h-full">
-          <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
-            <DialogTitle className="flex items-center justify-between">
-              <span className="truncate pr-4 text-lg">{story.title}</span>
-              <Button variant="ghost" size="sm" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogTitle>
-            <DialogDescription className="text-sm">
-              View your enhanced storybook. Use the controls below to navigate between pages and switch between original and enhanced versions.
-            </DialogDescription>
-          </DialogHeader>
+    <StoryViewerDialog isOpen={isOpen} onClose={onClose} hasPages={hasPages}>
+      {hasPages && (
+        <>
+          <StoryViewerHeader title={story.title} onClose={onClose} />
+          
+          <div className="flex flex-col flex-1 min-h-0">
+            <StoryViewerControls
+              currentPage={currentPage}
+              totalPages={sortedPages.length}
+              showOriginal={showOriginal}
+              currentPageData={currentPageData}
+              currentImageUrl={currentImageUrl}
+              onToggleView={handleToggleView}
+              onPrevPage={goToPrevPage}
+              onNextPage={goToNextPage}
+            />
 
-          {sortedPages.length > 0 && currentPageData ? (
-            <div className="flex flex-col flex-1 min-h-0">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border-b bg-gray-50 flex-shrink-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleToggleView}
-                    disabled={!currentPageData.original_image_url || !currentPageData.generated_image_url}
-                  >
-                    {showOriginal ? 'Show Enhanced' : 'Show Original'}
-                  </Button>
-                  <span className="text-sm text-gray-600">
-                    Page {currentPage + 1} of {sortedPages.length}
-                  </span>
-                  {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
-                    <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
-                      ⚠️ Temporary URL - may expire
-                    </span>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToPrevPage}
-                    disabled={sortedPages.length <= 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Previous</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToNextPage}
-                    disabled={sortedPages.length <= 1}
-                  >
-                    <span className="hidden sm:inline">Next</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-auto">
-                {imageError ? (
-                  <div className="h-full flex items-center justify-center p-4">
-                    <div className="text-center p-8 max-w-md">
-                      <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-                      <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
-                      <div className="flex gap-2 justify-center">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleRetry}
-                          disabled={retryCount >= 3}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          {retryCount >= 3 ? 'Max retries reached' : 'Try Again'}
-                        </Button>
-                        {currentPageData.original_image_url && currentPageData.generated_image_url && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={handleToggleView}
-                          >
-                            Try {showOriginal ? 'Enhanced' : 'Original'}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  currentImageUrl && (
-                    <div className="p-4">
-                      <div className="text-center">
-                        <img
-                          src={currentImageUrl}
-                          alt={`Page ${currentPageData.page_number}`}
-                          className="max-w-full h-auto story-page-image rounded-lg shadow-sm inline-block"
-                          onError={handleImageError}
-                          onLoad={() => {
-                            setImageError(null);
-                            setRetryCount(0);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
+            <div className="flex-1 overflow-auto">
+              <StoryImageDisplay
+                currentPageData={currentPageData}
+                currentImageUrl={currentImageUrl}
+                imageError={imageError}
+                retryCount={retryCount}
+                showOriginal={showOriginal}
+                onImageError={handleImageError}
+                onImageLoad={handleImageLoad}
+                onRetry={handleRetry}
+                onToggleView={handleToggleView}
+              />
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center">
-                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No pages available for this story.</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </>
+      )}
+    </StoryViewerDialog>
   );
 }
