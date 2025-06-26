@@ -111,31 +111,7 @@ export function CreateStory() {
         </div>
       )}
 
-      {/* Story Title Input */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <Label htmlFor="story-title" className="text-base font-medium">
-            Story Title
-          </Label>
-          <Input
-            id="story-title"
-            placeholder="Enter your story title..."
-            value={storyTitle}
-            onChange={(e) => setStoryTitle(e.target.value)}
-            className="mt-2"
-            disabled={isTransforming}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Art Style Selection */}
-      <ArtStyleSelector
-        selectedStyle={selectedArtStyle}
-        onStyleChange={setSelectedArtStyle}
-        disabled={isTransforming}
-      />
-
-      {/* Upload Area */}
+      {/* Upload Area - Moved to top */}
       <Card className="mb-8">
         <CardContent className="p-8">
           <div
@@ -183,7 +159,7 @@ export function CreateStory() {
 
       {/* Uploaded Files Preview */}
       {uploadedFiles.length > 0 && (
-        <Card>
+        <Card className="mb-6">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold mb-4">
               Uploaded Pages ({uploadedFiles.length})
@@ -226,6 +202,38 @@ export function CreateStory() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Story Title Input */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <Label htmlFor="story-title" className="text-base font-medium">
+            Story Title
+          </Label>
+          <Input
+            id="story-title"
+            placeholder="Enter your story title..."
+            value={storyTitle}
+            onChange={(e) => setStoryTitle(e.target.value)}
+            className="mt-2"
+            disabled={isTransforming}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Art Style Selection */}
+      <ArtStyleSelector
+        selectedStyle={selectedArtStyle}
+        onStyleChange={setSelectedArtStyle}
+        disabled={isTransforming}
+      />
+
+      {/* Transform Button */}
+      {uploadedFiles.length > 0 && (
+        <Card>
+          <CardContent className="p-6">
             <Button 
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
               onClick={handleTransformStory}
