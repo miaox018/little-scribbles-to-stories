@@ -32,6 +32,7 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const [showOriginal, setShowOriginal] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [scale, setScale] = useState(1);
 
   const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
 
@@ -39,12 +40,14 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     setCurrentPage((prev) => (prev + 1) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
+    setScale(1);
   };
 
   const goToPrevPage = () => {
     setCurrentPage((prev) => (prev - 1 + sortedPages.length) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
+    setScale(1);
   };
 
   const handleImageError = (error: any) => {
@@ -71,7 +74,6 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const handleRetry = () => {
     setImageError(null);
     setRetryCount(0);
-    // Force image reload by adding a timestamp
     const img = document.querySelector('.story-page-image') as HTMLImageElement;
     if (img && img.src) {
       const url = new URL(img.src);
@@ -85,9 +87,21 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     setRetryCount(0);
   };
 
+  const handleZoomIn = () => {
+    setScale(prev => Math.min(prev + 0.25, 3));
+  };
+
+  const handleZoomOut = () => {
+    setScale(prev => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleResetZoom = () => {
+    setScale(1);
+  };
+
   const currentPageData = sortedPages[currentPage];
   const currentImageUrl = showOriginal ? currentPageData?.original_image_url : currentPageData?.generated_image_url;
-  const hasPages = sortedPages.length > 0 && currentPageData;
+  const hasPages = sortedPages.length > 0 && !!currentPageData;
 
   return (
     <StoryViewerDialog isOpen={isOpen} onClose={onClose} hasPages={hasPages}>
@@ -102,9 +116,13 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
               showOriginal={showOriginal}
               currentPageData={currentPageData}
               currentImageUrl={currentImageUrl}
+              scale={scale}
               onToggleView={handleToggleView}
               onPrevPage={goToPrevPage}
               onNextPage={goToNextPage}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onResetZoom={handleResetZoom}
             />
 
             <div className="flex-1 overflow-auto">
@@ -114,6 +132,7 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                 imageError={imageError}
                 retryCount={retryCount}
                 showOriginal={showOriginal}
+                scale={scale}
                 onImageError={handleImageError}
                 onImageLoad={handleImageLoad}
                 onRetry={handleRetry}

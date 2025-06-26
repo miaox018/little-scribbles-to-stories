@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Scale } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -16,9 +16,13 @@ interface StoryViewerControlsProps {
   showOriginal: boolean;
   currentPageData: StoryPage;
   currentImageUrl: string | null;
+  scale: number;
   onToggleView: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onResetZoom: () => void;
 }
 
 export function StoryViewerControls({
@@ -27,9 +31,13 @@ export function StoryViewerControls({
   showOriginal,
   currentPageData,
   currentImageUrl,
+  scale,
   onToggleView,
   onPrevPage,
-  onNextPage
+  onNextPage,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom
 }: StoryViewerControlsProps) {
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border-b bg-gray-50 flex-shrink-0">
@@ -53,6 +61,36 @@ export function StoryViewerControls({
       </div>
       
       <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 border rounded-md p-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onZoomOut}
+            disabled={scale <= 0.5}
+            className="h-7 px-2"
+          >
+            -
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onResetZoom}
+            className="h-7 px-2 min-w-12"
+          >
+            <Scale className="h-3 w-3 mr-1" />
+            {Math.round(scale * 100)}%
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onZoomIn}
+            disabled={scale >= 3}
+            className="h-7 px-2"
+          >
+            +
+          </Button>
+        </div>
+        
         <Button
           variant="outline"
           size="sm"

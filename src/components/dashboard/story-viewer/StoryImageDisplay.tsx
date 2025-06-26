@@ -1,5 +1,6 @@
 
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 interface StoryPage {
@@ -16,6 +17,7 @@ interface StoryImageDisplayProps {
   imageError: string | null;
   retryCount: number;
   showOriginal: boolean;
+  scale: number;
   onImageError: (error: any) => void;
   onImageLoad: () => void;
   onRetry: () => void;
@@ -28,6 +30,7 @@ export function StoryImageDisplay({
   imageError,
   retryCount,
   showOriginal,
+  scale,
   onImageError,
   onImageLoad,
   onRetry,
@@ -76,16 +79,20 @@ export function StoryImageDisplay({
   }
 
   return (
-    <div className="p-4">
-      <div className="text-center">
+    <ScrollArea className="h-full">
+      <div className="p-4 min-h-full flex justify-center">
         <img
           src={currentImageUrl}
           alt={`Page ${currentPageData.page_number}`}
-          className="max-w-full h-auto story-page-image rounded-lg shadow-sm inline-block"
+          className="story-page-image rounded-lg shadow-sm transition-transform duration-200 ease-in-out"
+          style={{ 
+            transform: `scale(${scale})`,
+            transformOrigin: 'center top'
+          }}
           onError={onImageError}
           onLoad={onImageLoad}
         />
       </div>
-    </div>
+    </ScrollArea>
   );
 }
