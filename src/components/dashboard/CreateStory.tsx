@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -99,17 +98,6 @@ export function CreateStory() {
           Upload your child's hand-drawn story pages to transform them into a beautiful, professional storybook.
         </p>
       </div>
-
-      {/* Show transformation progress if processing */}
-      {isTransforming && (
-        <div className="mb-6">
-          <TransformationProgress 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onCancel={cancelTransformation}
-          />
-        </div>
-      )}
 
       {/* Upload Area - Moved to top */}
       <Card className="mb-8">
@@ -232,7 +220,7 @@ export function CreateStory() {
 
       {/* Transform Button */}
       {uploadedFiles.length > 0 && (
-        <Card>
+        <Card className="mb-6">
           <CardContent className="p-6">
             <Button 
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
@@ -255,6 +243,17 @@ export function CreateStory() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Show transformation progress if processing - Moved to end */}
+      {isTransforming && (
+        <div className="mb-6">
+          <TransformationProgress 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onCancel={cancelTransformation}
+          />
+        </div>
       )}
     </div>
   );
