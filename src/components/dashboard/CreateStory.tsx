@@ -5,12 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
+import { ArtStyleSelector } from "@/components/dashboard/ArtStyleSelector";
+import { TransformationProgress } from "@/components/dashboard/TransformationProgress";
 
 export function CreateStory() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const { transformStory, isTransforming } = useStoryTransformation();
+  const [storyTitle, setStoryTitle] = useState("");
+  const [selectedArtStyle, setSelectedArtStyle] = useState("classic_watercolor");
+  const { 
+    transformStory, 
+    cancelTransformation, 
+    isTransforming, 
+    currentPage, 
+    totalPages 
+  } = useStoryTransformation();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -72,7 +82,12 @@ export function CreateStory() {
   };
 
   const handleTransformStory = async () => {
-    await transformStory(uploadedFiles, "My Story", "classic_watercolor");
+    if (!storyTitle.trim()) {
+      alert("Please enter a story title");
+      return;
+    }
+    
+    await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
   };
 
   return (
@@ -80,11 +95,11 @@ export function CreateStory() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Create New Story</h1>
         <p className="text-gray-600">
-          Upload your child's hand-drawn story pages to transform them into a beautiful watercolor storybook.
+          Upload your child's hand-drawn story pages to transform them into a beautiful, professional storybook.
         </p>
       </div>
 
-      {/* Upload Area */}
+      {/* Upload Area - Moved to top */}
       <Card className="mb-8">
         <CardContent className="p-8">
           <div
@@ -179,34 +194,66 @@ export function CreateStory() {
         </Card>
       )}
 
+      {/* Story Title Input */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <Label htmlFor="story-title" className="text-base font-medium">
+            Story Title
+          </Label>
+          <Input
+            id="story-title"
+            placeholder="Enter your story title..."
+            value={storyTitle}
+            onChange={(e) => setStoryTitle(e.target.value)}
+            className="mt-2"
+            disabled={isTransforming}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Art Style Selection */}
+      <ArtStyleSelector
+        selectedStyle={selectedArtStyle}
+        onStyleChange={setSelectedArtStyle}
+        disabled={isTransforming}
+      />
+
       {/* Transform Button */}
       {uploadedFiles.length > 0 && (
         <Card className="mb-6">
           <CardContent className="p-6">
-            {isTransforming && (
-              <div className="mb-4 p-4 bg-green-50 rounded-lg">
-                <p className="text-sm text-green-800">
-                  ☕ <strong>Grab a coffee!</strong> The transformation process takes a few minutes to create your beautiful watercolor storybook. Feel free to check back later - we'll have your story ready in your library!
-                </p>
-              </div>
-            )}
-            
             <Button 
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
               onClick={handleTransformStory}
-              disabled={isTransforming}
+              disabled={isTransforming || !storyTitle.trim()}
             >
               {isTransforming ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Your Storybook...
+                  Transforming Story...
                 </>
               ) : (
-                "Transform Into Watercolor Storybook"
+                "Transform Into Storybook"
               )}
             </Button>
+            {isTransforming && (
+              <p className="text-sm text-gray-600 text-center mt-3">
+                This may take a few minutes. We're analyzing your drawings and creating professional illustrations!
+              </p>
+            )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Show transformation progress if processing - Moved to end */}
+      {isTransforming && (
+        <div className="mb-6">
+          <TransformationProgress 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onCancel={cancelTransformation}
+          />
+        </div>
       )}
     </div>
   );
