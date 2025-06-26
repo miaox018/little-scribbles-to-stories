@@ -84,113 +84,117 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full h-[90vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>{story.title}</span>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogTitle>
-          <DialogDescription>
-            View your enhanced storybook. Use the controls below to navigate between pages and switch between original and enhanced versions.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl w-[95vw] h-[95vh] max-h-screen p-0">
+        <div className="flex flex-col h-full">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="flex items-center justify-between">
+              <span className="truncate pr-4">{story.title}</span>
+              <Button variant="ghost" size="sm" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              View your enhanced storybook. Use the controls below to navigate between pages and switch between original and enhanced versions.
+            </DialogDescription>
+          </DialogHeader>
 
-        {sortedPages.length > 0 && currentPageData ? (
-          <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleToggleView}
-                  disabled={!currentPageData.original_image_url || !currentPageData.generated_image_url}
-                >
-                  {showOriginal ? 'Show Enhanced' : 'Show Original'}
-                </Button>
-                <span className="text-sm text-gray-600">
-                  Page {currentPage + 1} of {sortedPages.length}
-                </span>
-                {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
-                  <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
-                    ⚠️ Temporary URL - may expire
+          {sortedPages.length > 0 && currentPageData ? (
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-b bg-gray-50">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleView}
+                    disabled={!currentPageData.original_image_url || !currentPageData.generated_image_url}
+                  >
+                    {showOriginal ? 'Show Enhanced' : 'Show Original'}
+                  </Button>
+                  <span className="text-sm text-gray-600">
+                    Page {currentPage + 1} of {sortedPages.length}
                   </span>
-                )}
+                  {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
+                    <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                      ⚠️ Temporary URL - may expire
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToPrevPage}
+                    disabled={sortedPages.length <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Previous</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={goToNextPage}
+                    disabled={sortedPages.length <= 1}
+                  >
+                    <span className="hidden sm:inline">Next</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToPrevPage}
-                  disabled={sortedPages.length <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goToNextPage}
-                  disabled={sortedPages.length <= 1}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
 
-            <div className="flex-1 flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
-              {imageError ? (
-                <div className="text-center p-8 max-w-md">
-                  <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
-                  <div className="flex gap-2 justify-center">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleRetry}
-                      disabled={retryCount >= 3}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      {retryCount >= 3 ? 'Max retries reached' : 'Try Again'}
-                    </Button>
-                    {currentPageData.original_image_url && currentPageData.generated_image_url && (
+              <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+                {imageError ? (
+                  <div className="text-center p-8 max-w-md">
+                    <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
+                    <div className="flex gap-2 justify-center">
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={handleToggleView}
+                        onClick={handleRetry}
+                        disabled={retryCount >= 3}
                       >
-                        Try {showOriginal ? 'Enhanced' : 'Original'}
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        {retryCount >= 3 ? 'Max retries reached' : 'Try Again'}
                       </Button>
-                    )}
+                      {currentPageData.original_image_url && currentPageData.generated_image_url && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleToggleView}
+                        >
+                          Try {showOriginal ? 'Enhanced' : 'Original'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                currentImageUrl && (
-                  <img
-                    src={currentImageUrl}
-                    alt={`Page ${currentPageData.page_number}`}
-                    className="max-w-full max-h-full object-contain story-page-image"
-                    onError={handleImageError}
-                    onLoad={() => {
-                      setImageError(null);
-                      setRetryCount(0);
-                    }}
-                  />
-                )
-              )}
+                ) : (
+                  currentImageUrl && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <img
+                        src={currentImageUrl}
+                        alt={`Page ${currentPageData.page_number}`}
+                        className="max-w-full max-h-full object-contain story-page-image rounded-lg shadow-sm"
+                        onError={handleImageError}
+                        onLoad={() => {
+                          setImageError(null);
+                          setRetryCount(0);
+                        }}
+                      />
+                    </div>
+                  )
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No pages available for this story.</p>
+          ) : (
+            <div className="flex-1 flex items-center justify-center p-8">
+              <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No pages available for this story.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
