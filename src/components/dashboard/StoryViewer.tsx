@@ -84,11 +84,11 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl w-[95vw] h-[95vh] max-h-screen p-0">
+      <DialogContent className="max-w-6xl w-[98vw] h-[98vh] max-h-screen p-0 overflow-hidden">
         <div className="flex flex-col h-full">
-          <DialogHeader className="px-6 py-4 border-b">
+          <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
             <DialogTitle className="flex items-center justify-between">
-              <span className="truncate pr-4">{story.title}</span>
+              <span className="truncate pr-4 text-lg">{story.title}</span>
               <Button variant="ghost" size="sm" onClick={onClose}>
                 <X className="h-4 w-4" />
               </Button>
@@ -99,8 +99,8 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
           </DialogHeader>
 
           {sortedPages.length > 0 && currentPageData ? (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-b bg-gray-50">
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border-b bg-gray-50 flex-shrink-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
@@ -142,35 +142,37 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
                 </div>
               </div>
 
-              <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+              <div className="flex-1 overflow-auto p-4">
                 {imageError ? (
-                  <div className="text-center p-8 max-w-md">
-                    <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
-                    <div className="flex gap-2 justify-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleRetry}
-                        disabled={retryCount >= 3}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        {retryCount >= 3 ? 'Max retries reached' : 'Try Again'}
-                      </Button>
-                      {currentPageData.original_image_url && currentPageData.generated_image_url && (
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-center p-8 max-w-md">
+                      <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                      <p className="text-gray-600 mb-4 text-sm">{imageError}</p>
+                      <div className="flex gap-2 justify-center">
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={handleToggleView}
+                          onClick={handleRetry}
+                          disabled={retryCount >= 3}
                         >
-                          Try {showOriginal ? 'Enhanced' : 'Original'}
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          {retryCount >= 3 ? 'Max retries reached' : 'Try Again'}
                         </Button>
-                      )}
+                        {currentPageData.original_image_url && currentPageData.generated_image_url && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleToggleView}
+                          >
+                            Try {showOriginal ? 'Enhanced' : 'Original'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
                   currentImageUrl && (
-                    <div className="w-full h-full flex items-center justify-center">
+                    <div className="h-full flex items-center justify-center">
                       <img
                         src={currentImageUrl}
                         alt={`Page ${currentPageData.page_number}`}
