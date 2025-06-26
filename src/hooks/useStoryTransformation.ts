@@ -12,8 +12,6 @@ export interface ImageData {
 
 export const useStoryTransformation = () => {
   const [isTransforming, setIsTransforming] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const { user } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -73,27 +71,10 @@ export const useStoryTransformation = () => {
       }
 
       attempts++;
-      // Wait 5 seconds between checks
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
     throw new Error('Story processing timed out after polling');
-  };
-
-  const cancelTransformation = async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    
-    setIsTransforming(false);
-    setCurrentPage(0);
-    setTotalPages(0);
-    
-    toast({
-      title: "Transformation Cancelled",
-      description: "Story transformation has been cancelled successfully.",
-    });
   };
 
   const transformStory = async (files: File[], title: string, artStyle: string = 'classic_watercolor') => {
@@ -116,14 +97,9 @@ export const useStoryTransformation = () => {
     }
 
     setIsTransforming(true);
-    setCurrentPage(0);
-    setTotalPages(files.length);
-
-    // Create new AbortController for this transformation
     abortControllerRef.current = new AbortController();
 
     try {
-      // Create story record
       const { data: story, error: storyError } = await supabase
         .from('stories')
         .insert({
@@ -140,16 +116,13 @@ export const useStoryTransformation = () => {
 
       console.log('Created story:', story);
 
-      // Prepare image data
       const imageData: Array<{url: string, dataUrl: string}> = [];
       
       for (let i = 0; i < files.length; i++) {
-        // Check if transformation was cancelled
         if (abortControllerRef.current?.signal.aborted) {
           throw new Error('Transformation cancelled');
         }
 
-        setCurrentPage(i + 1);
         const file = files[i];
         const url = await uploadImageToStorage(file, story.id, i + 1);
         const dataUrl = await fileToDataUrl(file);
@@ -158,7 +131,6 @@ export const useStoryTransformation = () => {
 
       console.log('Uploaded images:', imageData.length);
 
-      // Call the transformation Edge Function with extended timeout
       try {
         const { data: transformResult, error: transformError } = await supabase.functions
           .invoke('transform-story', {
@@ -171,24 +143,10 @@ export const useStoryTransformation = () => {
 
         if (transformError) {
           console.warn('Edge function call failed, but story may still be processing:', transformError);
-          
-          // If the edge function call fails, start polling for completion
-          toast({
-            title: "Processing Started",
-            description: "Your story is being processed. This may take several minutes for complex art styles.",
-          });
-
           await pollStoryStatus(story.id);
         }
       } catch (functionError) {
         console.warn('Edge function timeout, switching to polling mode:', functionError);
-        
-        toast({
-          title: "Processing in Background",
-          description: "Your story is being processed. This may take several minutes. We'll check the status automatically.",
-        });
-
-        // Start polling for completion even if function call failed
         await pollStoryStatus(story.id);
       }
 
@@ -203,7 +161,6 @@ export const useStoryTransformation = () => {
       console.error('Transform story error:', error);
       
       if (error instanceof Error && error.message === 'Transformation cancelled') {
-        // Don't show error toast for user-initiated cancellation
         return;
       }
       
@@ -214,17 +171,12 @@ export const useStoryTransformation = () => {
       });
     } finally {
       setIsTransforming(false);
-      setCurrentPage(0);
-      setTotalPages(0);
       abortControllerRef.current = null;
     }
   };
 
   return {
     transformStory,
-    cancelTransformation,
-    isTransforming,
-    currentPage,
-    totalPages
+    isTransforming
   };
 };
