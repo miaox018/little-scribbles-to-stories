@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
-import { ArtStyleSelector } from "@/components/dashboard/ArtStyleSelector";
 import { TransformationProgress } from "@/components/dashboard/TransformationProgress";
 
 export function CreateStory() {
@@ -13,7 +12,6 @@ export function CreateStory() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [storyTitle, setStoryTitle] = useState("");
-  const [selectedArtStyle, setSelectedArtStyle] = useState("classic_watercolor");
   const { 
     transformStory, 
     cancelTransformation, 
@@ -87,7 +85,8 @@ export function CreateStory() {
       return;
     }
     
-    await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
+    // Always use classic_watercolor as the default art style
+    await transformStory(uploadedFiles, storyTitle.trim(), "classic_watercolor");
   };
 
   return (
@@ -95,11 +94,11 @@ export function CreateStory() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Create New Story</h1>
         <p className="text-gray-600">
-          Upload your child's hand-drawn story pages to transform them into a beautiful, professional storybook.
+          Upload your child's hand-drawn story pages to transform them into a beautiful watercolor storybook.
         </p>
       </div>
 
-      {/* Upload Area - Moved to top */}
+      {/* Upload Area */}
       <Card className="mb-8">
         <CardContent className="p-8">
           <div
@@ -211,17 +210,15 @@ export function CreateStory() {
         </CardContent>
       </Card>
 
-      {/* Art Style Selection */}
-      <ArtStyleSelector
-        selectedStyle={selectedArtStyle}
-        onStyleChange={setSelectedArtStyle}
-        disabled={isTransforming}
-      />
-
       {/* Transform Button */}
       {uploadedFiles.length > 0 && (
         <Card className="mb-6">
           <CardContent className="p-6">
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                🎨 <strong>Art Style:</strong> Classic Watercolor - Your story will be transformed into beautiful, soft watercolor paintings with gentle colors.
+              </p>
+            </div>
             <Button 
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
               onClick={handleTransformStory}
@@ -233,19 +230,19 @@ export function CreateStory() {
                   Transforming Story...
                 </>
               ) : (
-                "Transform Into Storybook"
+                "Transform Into Watercolor Storybook"
               )}
             </Button>
             {isTransforming && (
               <p className="text-sm text-gray-600 text-center mt-3">
-                This may take a few minutes. We're analyzing your drawings and creating professional illustrations!
+                This may take a few minutes. We're analyzing your drawings and creating professional watercolor illustrations!
               </p>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Show transformation progress if processing - Moved to end */}
+      {/* Show transformation progress if processing */}
       {isTransforming && (
         <div className="mb-6">
           <TransformationProgress 
