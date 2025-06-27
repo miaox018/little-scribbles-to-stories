@@ -56,10 +56,11 @@ async function generateImageWithGPT(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt: prompt,
-      size: '1024x1792',
-      quality: 'standard',
+      size: '1024x1536',
+      quality: 'high',
+      output_format: 'png',
       n: 1
     }),
   });
@@ -69,13 +70,27 @@ async function generateImageWithGPT(prompt: string) {
   }
 
   const data = await response.json();
-  return data.data[0].url;
+  // gpt-image-1 returns base64 data directly
+  return data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
 }
 
 async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
-  // Download the image from the URL
-  const imageResponse = await fetch(imageUrl);
-  const imageBuffer = await imageResponse.arrayBuffer();
+  let imageBuffer;
+  
+  if (imageUrl.startsWith('data:image/')) {
+    // Handle base64 data URL
+    const base64Data = imageUrl.split(',')[1];
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    imageBuffer = new Uint8Array(byteNumbers);
+  } else {
+    // Handle regular URL
+    const imageResponse = await fetch(imageUrl);
+    imageBuffer = await imageResponse.arrayBuffer();
+  }
   
   const fileName = `${userId}/generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
   
@@ -193,3 +208,4 @@ serve(async (req) => {
     );
   }
 });
+

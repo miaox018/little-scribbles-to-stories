@@ -1,4 +1,5 @@
 
+
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) {
@@ -39,10 +40,11 @@ export async function generateImageWithGPT(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt: prompt,
-      size: '1024x1792',
-      quality: 'standard',
+      size: '1024x1536',
+      quality: 'high',
+      output_format: 'png',
       n: 1
     }),
   });
@@ -52,7 +54,8 @@ export async function generateImageWithGPT(prompt: string) {
   }
 
   const data = await response.json();
-  return data.data[0].url;
+  // gpt-image-1 returns base64 data directly
+  return data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
 }
 
 export async function generateMemoryCollage(originalImages: string[], storyTitle: string) {
@@ -71,3 +74,4 @@ export async function generateMemoryCollage(originalImages: string[], storyTitle
 
   return await generateImageWithGPT(collagePrompt);
 }
+
