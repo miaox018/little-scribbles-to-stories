@@ -16,13 +16,22 @@ serve(async (req) => {
   try {
     console.log('[CHECKOUT] Function started');
 
-    // Create Supabase client with the anon key to get user info
+    // Get the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('[CHECKOUT] No authorization header provided');
+      throw new Error('Authorization header is required');
+    }
+
+    console.log('[CHECKOUT] Authorization header found');
+
+    // Create Supabase client with the anon key and authorization header
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
+          headers: { Authorization: authHeader },
         },
       }
     );
@@ -36,8 +45,13 @@ serve(async (req) => {
     }
     
     if (!user) {
-      console.error('[CHECKOUT] No user found');
-      throw new Error('User not authenticated');
+      console.error('[CHECKOUT] No user found in token');
+      throw new Error('User not authenticated - invalid or expired token');
+    }
+
+    if (!user.email) {
+      console.error('[CHECKOUT] User has no email');
+      throw new Error('User email not available');
     }
 
     console.log('[CHECKOUT] User authenticated:', user.id, user.email);
@@ -176,7 +190,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('[CHECKOUT] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: 'Check function logs for more information'
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

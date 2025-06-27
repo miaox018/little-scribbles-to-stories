@@ -1,7 +1,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { showRegenerationLimitNotification } from '@/components/notifications/RegenerationLimitNotification';
 
 export const useUsageTracking = () => {
   const { user } = useAuth();
@@ -70,10 +70,9 @@ export const useUsageTracking = () => {
       });
 
       if (!canUpload) {
-        toast({
-          title: "Upload Limit Reached",
-          description: "You've reached your page upload limit for this story. Upgrade to upload more pages.",
-          variant: "destructive"
+        showRegenerationLimitNotification(() => {
+          // This will be handled by the parent component
+          window.dispatchEvent(new CustomEvent('openPaywall'));
         });
         return false;
       }
@@ -114,7 +113,7 @@ export const useUsageTracking = () => {
     }
   };
 
-  const trackPageRegeneration = async (storyId: string) => {
+  const trackPageRegeneration = async (storyId: string, onUpgradeCallback?: () => void) => {
     if (!user) return;
 
     try {
@@ -126,10 +125,13 @@ export const useUsageTracking = () => {
       });
 
       if (!canRegenerate) {
-        toast({
-          title: "Regeneration Limit Reached",
-          description: "You've reached your page regeneration limit for this story. Upgrade for more regenerations.",
-          variant: "destructive"
+        showRegenerationLimitNotification(() => {
+          if (onUpgradeCallback) {
+            onUpgradeCallback();
+          } else {
+            // Fallback to dispatching an event
+            window.dispatchEvent(new CustomEvent('openPaywall'));
+          }
         });
         return false;
       }

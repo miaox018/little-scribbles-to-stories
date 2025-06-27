@@ -65,6 +65,22 @@ export const useSubscription = () => {
   });
 
   const createCheckoutSession = async (tier: 'storypro' | 'storypro_plus', couponCode?: string | null) => {
+    console.log('Creating checkout session with tier:', tier, 'coupon:', couponCode);
+    
+    if (!user) {
+      throw new Error('User must be authenticated to create checkout session');
+    }
+
+    // Get current session to ensure we have a valid token
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session?.access_token) {
+      console.error('Session error:', sessionError);
+      throw new Error('Authentication session is invalid. Please sign in again.');
+    }
+
+    console.log('Valid session found, proceeding with checkout...');
+
     const priceIds = {
       storypro: 'price_storypro', // StoryPro $4.99/month
       storypro_plus: 'price_storypro_plus', // StoryPro+ $9.99/month
@@ -75,10 +91,18 @@ export const useSubscription = () => {
         priceId: priceIds[tier],
         tier: tier,
         couponCode: couponCode || undefined,
+      },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
       }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Checkout session error:', error);
+      throw error;
+    }
+    
+    console.log('Checkout session created successfully:', data);
     
     // Open Stripe checkout in a new tab
     window.open(data.url, '_blank');
