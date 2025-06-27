@@ -1,19 +1,28 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle } from "lucide-react";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { StoryViewer } from "./StoryViewer";
+import { PaywallModal } from "@/components/paywall/PaywallModal";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { toast } from "@/hooks/use-toast";
 
 export function InProgressStories() {
   const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary } = useInProgressStories();
+  const { subscription } = useSubscription();
+  const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
   const [savingStories, setSavingStories] = useState<Set<string>>(new Set());
+  const [paywallStory, setPaywallStory] = useState<any>(null);
 
   const handleRegeneratePage = async (pageId: string, storyId: string, artStyle: string) => {
+    // Check if user can regenerate more pages
+    const canRegenerate = await trackPageRegeneration(storyId);
+    if (!canRegenerate) return;
+
     setRegeneratingPages(prev => new Set(prev).add(pageId));
     
     try {
@@ -37,11 +46,18 @@ export function InProgressStories() {
     }
   };
 
-  const handleSaveToLibrary = async (storyId: string) => {
-    setSavingStories(prev => new Set(prev).add(storyId));
+  const handleSaveToLibrary = async (story: any) => {
+    // For free users, show paywall
+    if (subscription.subscription_tier === 'free') {
+      setPaywallStory(story);
+      return;
+    }
+
+    // For paid users, save directly
+    setSavingStories(prev => new Set(prev).add(story.id));
     
     try {
-      await saveStoryToLibrary(storyId);
+      await saveStoryToLibrary(story.id);
       toast({
         title: "Success",
         description: "Story saved to library!"
@@ -55,10 +71,14 @@ export function InProgressStories() {
     } finally {
       setSavingStories(prev => {
         const newSet = new Set(prev);
-        newSet.delete(storyId);
+        newSet.delete(story.id);
         return newSet;
       });
     }
+  };
+
+  const handlePaywallClose = () => {
+    setPaywallStory(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -140,7 +160,7 @@ export function InProgressStories() {
                   <Button 
                     size="sm" 
                     className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                    onClick={() => handleSaveToLibrary(story.id)}
+                    onClick={() => handleSaveToLibrary(story)}
                     disabled={story.status === 'processing' || savingStories.has(story.id)}
                   >
                     {savingStories.has(story.id) ? (
@@ -211,6 +231,14 @@ export function InProgressStories() {
           story={selectedStory}
           isOpen={!!selectedStory}
           onClose={() => setSelectedStory(null)}
+        />
+      )}
+
+      {paywallStory && (
+        <PaywallModal
+          isOpen={!!paywallStory}
+          onClose={handlePaywallClose}
+          storyTitle={paywallStory.title}
         />
       )}
     </div>

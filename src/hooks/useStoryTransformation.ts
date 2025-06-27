@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useUsageTracking } from '@/hooks/useUsageTracking';
 import { toast } from '@/hooks/use-toast';
 
 export interface ImageData {
@@ -14,6 +15,7 @@ export const useStoryTransformation = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const { user } = useAuth();
+  const { trackStoryCreation, trackPageUpload, checkCanCreateStory } = useUsageTracking();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const uploadImageToStorage = async (file: File, storyId: string, pageNumber: number): Promise<string> => {
@@ -114,6 +116,17 @@ export const useStoryTransformation = () => {
       return;
     }
 
+    // Check if user can create a new story
+    const canCreate = await checkCanCreateStory();
+    if (!canCreate) {
+      toast({
+        title: "Story Limit Reached",
+        description: "You've reached your monthly story limit. Upgrade your plan to create more stories.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsTransforming(true);
     setCurrentPage(0);
     setTotalPages(files.length + 1); // +1 for memory collage
@@ -138,6 +151,16 @@ export const useStoryTransformation = () => {
       if (storyError) throw storyError;
 
       console.log('Created story:', story);
+
+      // Track story creation and page uploads
+      await trackStoryCreation(story.id);
+      const canUploadPages = await trackPageUpload(story.id, files.length);
+      
+      if (!canUploadPages) {
+        // Delete the story if we can't upload the pages
+        await supabase.from('stories').delete().eq('id', story.id);
+        return;
+      }
 
       // Prepare image data
       const imageData: Array<{url: string, dataUrl: string}> = [];

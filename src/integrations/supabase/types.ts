@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      monthly_usage: {
+        Row: {
+          created_at: string
+          id: string
+          month_year: string
+          stories_created: number
+          total_pages_regenerated: number
+          total_pages_uploaded: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month_year: string
+          stories_created?: number
+          total_pages_regenerated?: number
+          total_pages_uploaded?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month_year?: string
+          stories_created?: number
+          total_pages_regenerated?: number
+          total_pages_uploaded?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -125,15 +158,123 @@ export type Database = {
           },
         ]
       }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscribed: boolean
+          subscription_end: string | null
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      usage_tracking: {
+        Row: {
+          created_at: string
+          id: string
+          month_year: string
+          pages_regenerated: number
+          pages_uploaded: number
+          story_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month_year: string
+          pages_regenerated?: number
+          pages_uploaded?: number
+          story_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month_year?: string
+          pages_regenerated?: number
+          pages_uploaded?: number
+          story_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_tracking_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_create_story: {
+        Args: { user_id_param: string }
+        Returns: boolean
+      }
+      can_regenerate_pages: {
+        Args: {
+          user_id_param: string
+          story_id_param: string
+          additional_regens?: number
+        }
+        Returns: boolean
+      }
+      can_upload_pages: {
+        Args: {
+          user_id_param: string
+          story_id_param: string
+          additional_pages?: number
+        }
+        Returns: boolean
+      }
+      get_user_limits: {
+        Args: { user_id_param: string }
+        Returns: {
+          subscription_tier: string
+          stories_per_month: number
+          pages_per_story: number
+          regenerations_per_story: number
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      subscription_tier: "free" | "storypro" | "storypro_plus"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -248,6 +389,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      subscription_tier: ["free", "storypro", "storypro_plus"],
+    },
   },
 } as const
