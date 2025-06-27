@@ -34,6 +34,7 @@ serve(async (req) => {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.user_id;
         const tier = session.metadata?.tier;
+        const couponCode = session.metadata?.coupon_code;
 
         if (userId && tier) {
           await supabase
@@ -46,6 +47,27 @@ serve(async (req) => {
               subscription_tier: tier,
               subscription_end: null, // Will be updated by subscription events
             });
+
+          // Record coupon redemption if coupon was used
+          if (couponCode) {
+            try {
+              // Calculate discount applied
+              let discountApplied = 0;
+              if (session.total_details?.amount_discount) {
+                discountApplied = session.total_details.amount_discount;
+              }
+
+              await supabase.rpc('record_coupon_redemption', {
+                p_code: couponCode,
+                p_user_id: userId,
+                p_tier: tier,
+                p_discount_applied: discountApplied
+              });
+            } catch (error) {
+              console.error('Error recording coupon redemption:', error);
+              // Don't fail the webhook for coupon tracking errors
+            }
+          }
         }
         break;
       }

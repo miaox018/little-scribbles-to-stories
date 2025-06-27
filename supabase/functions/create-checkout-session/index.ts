@@ -30,7 +30,7 @@ serve(async (req) => {
       throw new Error('User not authenticated');
     }
 
-    const { priceId, tier } = await req.json();
+    const { priceId, tier, couponCode } = await req.json();
     
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
       apiVersion: '2023-10-16',
@@ -64,7 +64,8 @@ serve(async (req) => {
         });
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // Prepare session configuration
+    const sessionConfig: any = {
       customer: customer.id,
       payment_method_types: ['card'],
       line_items: [
@@ -80,7 +81,56 @@ serve(async (req) => {
         user_id: user.id,
         tier: tier,
       },
-    });
+    };
+
+    // Handle coupon code if provided
+    if (couponCode) {
+      try {
+        // Validate coupon in our database first
+        const { data: couponValidation } = await supabaseClient.rpc('validate_coupon', {
+          p_code: couponCode,
+          p_user_id: user.id,
+          p_tier: tier
+        });
+
+        if (couponValidation?.[0]?.valid) {
+          // Create or get Stripe coupon
+          let stripeCoupon;
+          try {
+            stripeCoupon = await stripe.coupons.retrieve(couponCode);
+          } catch (error) {
+            // Create coupon in Stripe if it doesn't exist
+            const validation = couponValidation[0];
+            const couponData: any = {
+              id: couponCode,
+              name: `Coupon ${couponCode}`,
+            };
+
+            if (validation.discount_percent > 0) {
+              couponData.percent_off = validation.discount_percent;
+            } else if (validation.discount_amount > 0) {
+              couponData.amount_off = validation.discount_amount;
+              couponData.currency = validation.currency || 'usd';
+            }
+
+            stripeCoupon = await stripe.coupons.create(couponData);
+          }
+
+          // Apply coupon to session
+          sessionConfig.discounts = [{
+            coupon: stripeCoupon.id,
+          }];
+
+          // Store coupon application in metadata for webhook processing
+          sessionConfig.metadata.coupon_code = couponCode;
+        }
+      } catch (error) {
+        console.error('Error processing coupon:', error);
+        // Continue without coupon if there's an error
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return new Response(
       JSON.stringify({ url: session.url }),

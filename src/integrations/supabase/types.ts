@@ -9,6 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      coupon_codes: {
+        Row: {
+          applicable_tiers: string[] | null
+          code: string
+          created_at: string
+          currency: string | null
+          current_redemptions: number
+          discount_amount: number | null
+          discount_percent: number | null
+          id: string
+          is_active: boolean
+          max_redemptions: number | null
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          applicable_tiers?: string[] | null
+          code: string
+          created_at?: string
+          currency?: string | null
+          current_redemptions?: number
+          discount_amount?: number | null
+          discount_percent?: number | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          applicable_tiers?: string[] | null
+          code?: string
+          created_at?: string
+          currency?: string | null
+          current_redemptions?: number
+          discount_amount?: number | null
+          discount_percent?: number | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
+      coupon_redemptions: {
+        Row: {
+          coupon_code_id: string | null
+          discount_applied: number
+          id: string
+          redeemed_at: string
+          subscription_tier: string
+          user_id: string
+        }
+        Insert: {
+          coupon_code_id?: string | null
+          discount_applied: number
+          id?: string
+          redeemed_at?: string
+          subscription_tier: string
+          user_id: string
+        }
+        Update: {
+          coupon_code_id?: string | null
+          discount_applied?: number
+          id?: string
+          redeemed_at?: string
+          subscription_tier?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_coupon_code_id_fkey"
+            columns: ["coupon_code_id"]
+            isOneToOne: false
+            referencedRelation: "coupon_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_usage: {
         Row: {
           created_at: string
@@ -270,6 +353,25 @@ export type Database = {
           stories_per_month: number
           pages_per_story: number
           regenerations_per_story: number
+        }[]
+      }
+      record_coupon_redemption: {
+        Args: {
+          p_code: string
+          p_user_id: string
+          p_tier: string
+          p_discount_applied: number
+        }
+        Returns: boolean
+      }
+      validate_coupon: {
+        Args: { p_code: string; p_user_id: string; p_tier: string }
+        Returns: {
+          valid: boolean
+          discount_percent: number
+          discount_amount: number
+          currency: string
+          error_message: string
         }[]
       }
     }

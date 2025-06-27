@@ -1,9 +1,12 @@
 
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Crown, Sparkles } from "lucide-react";
+import { Check, Crown, Sparkles, Tag, X, Loader2 } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useCouponValidation } from "@/hooks/useCouponValidation";
 import { toast } from "@/hooks/use-toast";
 
 interface PaywallModalProps {
@@ -15,10 +18,13 @@ interface PaywallModalProps {
 
 export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: PaywallModalProps) {
   const { createCheckoutSession } = useSubscription();
+  const { validateCoupon, removeCoupon, isValidating, appliedCoupon, couponDiscount } = useCouponValidation();
+  const [couponCode, setCouponCode] = useState("");
+  const [selectedTier, setSelectedTier] = useState<'storypro' | 'storypro_plus' | null>(null);
 
   const handleUpgrade = async (tier: 'storypro' | 'storypro_plus') => {
     try {
-      await createCheckoutSession(tier);
+      await createCheckoutSession(tier, appliedCoupon);
       onClose();
     } catch (error) {
       toast({
@@ -29,10 +35,27 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
     }
   };
 
+  const handleCouponValidation = async (tier: 'storypro' | 'storypro_plus') => {
+    setSelectedTier(tier);
+    await validateCoupon(couponCode, tier);
+  };
+
+  const calculateDiscountedPrice = (originalPrice: number) => {
+    if (!couponDiscount?.valid) return originalPrice;
+    
+    if (couponDiscount.discount_percent > 0) {
+      return originalPrice * (1 - couponDiscount.discount_percent / 100);
+    } else if (couponDiscount.discount_amount > 0) {
+      return Math.max(0, originalPrice - couponDiscount.discount_amount / 100);
+    }
+    return originalPrice;
+  };
+
   const plans = [
     {
       name: "Free",
-      price: "$0",
+      price: 0,
+      originalPrice: 0,
       period: "forever",
       tier: null,
       current: true,
@@ -47,7 +70,8 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
     },
     {
       name: "StoryPro",
-      price: "$4.99",
+      price: calculateDiscountedPrice(4.99),
+      originalPrice: 4.99,
       period: "month",
       tier: "storypro" as const,
       current: false,
@@ -63,7 +87,8 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
     },
     {
       name: "StoryPro+",
-      price: "$9.99",
+      price: calculateDiscountedPrice(9.99),
+      originalPrice: 9.99,
       period: "month",
       tier: "storypro_plus" as const,
       current: false,
@@ -91,11 +116,70 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
           </p>
         </DialogHeader>
 
+        {/* Coupon Code Section */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <Tag className="h-4 w-4 text-purple-600" />
+            <span className="font-medium text-gray-700">Have a coupon code?</span>
+          </div>
+          
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-600" />
+                <span className="text-green-700 font-medium">Coupon "{appliedCoupon}" applied!</span>
+                <span className="text-sm text-green-600">
+                  {couponDiscount?.discount_percent 
+                    ? `${couponDiscount.discount_percent}% off`
+                    : `$${(couponDiscount?.discount_amount || 0) / 100} off`
+                  }
+                </span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={removeCoupon}
+                className="text-green-700 hover:text-green-800"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter coupon code"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                className="flex-1"
+              />
+              <Button
+                variant="outline"
+                onClick={() => selectedTier && handleCouponValidation(selectedTier)}
+                disabled={!couponCode.trim() || isValidating || !selectedTier}
+                className="whitespace-nowrap"
+              >
+                {isValidating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Apply"
+                )}
+              </Button>
+            </div>
+          )}
+          
+          {!selectedTier && !appliedCoupon && (
+            <p className="text-sm text-gray-500 mt-2">
+              Select a plan below to apply your coupon code
+            </p>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
           {plans.map((plan) => (
             <Card 
               key={plan.name} 
               className={`relative ${plan.popular ? 'border-purple-500 border-2' : ''} ${plan.current ? 'bg-gray-50' : ''}`}
+              onClick={() => plan.tier && setSelectedTier(plan.tier)}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -112,7 +196,20 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
                   {plan.name !== "Free" && <Sparkles className="h-4 w-4 text-purple-600" />}
                 </CardTitle>
                 <div className="text-3xl font-bold text-gray-800">
-                  {plan.price}
+                  {plan.price !== plan.originalPrice && plan.originalPrice > 0 ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="line-through text-gray-400 text-xl">
+                        ${plan.originalPrice.toFixed(2)}
+                      </span>
+                      <span className="text-green-600">
+                        ${plan.price.toFixed(2)}
+                      </span>
+                    </div>
+                  ) : (
+                    <span>
+                      {plan.price > 0 ? `$${plan.price.toFixed(2)}` : '$0'}
+                    </span>
+                  )}
                   <span className="text-base font-normal text-gray-600">/{plan.period}</span>
                 </div>
               </CardHeader>

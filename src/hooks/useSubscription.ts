@@ -64,7 +64,7 @@ export const useSubscription = () => {
     enabled: !!user,
   });
 
-  const createCheckoutSession = async (tier: 'storypro' | 'storypro_plus') => {
+  const createCheckoutSession = async (tier: 'storypro' | 'storypro_plus', couponCode?: string | null) => {
     const priceIds = {
       storypro: 'price_storypro', // StoryPro $4.99/month
       storypro_plus: 'price_storypro_plus', // StoryPro+ $9.99/month
@@ -74,6 +74,7 @@ export const useSubscription = () => {
       body: {
         priceId: priceIds[tier],
         tier: tier,
+        couponCode: couponCode || undefined,
       }
     });
 
