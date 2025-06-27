@@ -66,7 +66,7 @@ export function StoryViewerControls({
             variant="ghost"
             size="sm"
             onClick={onZoomOut}
-            disabled={scale <= 0.5}
+            disabled={scale <= 0.25}
             className="h-7 px-2"
           >
             -

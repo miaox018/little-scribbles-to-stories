@@ -14,46 +14,10 @@ export function Library() {
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [storyToDelete, setStoryToDelete] = useState<any>(null);
   const [storyToShare, setStoryToShare] = useState<any>(null);
-  const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
   const [isDeletingStory, setIsDeletingStory] = useState(false);
 
-  const handleCancelStory = async (storyId: string) => {
-    setCancellingStories(prev => new Set(prev).add(storyId));
-    
-    try {
-      // Update story status to cancelled
-      const { error } = await supabase
-        .from('stories')
-        .update({ 
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString()
-        })
-        .eq('id', storyId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Story Cancelled",
-        description: "The story transformation has been cancelled successfully.",
-      });
-
-      // Refresh the stories list
-      refetch();
-    } catch (error) {
-      console.error('Error cancelling story:', error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel story transformation",
-        variant: "destructive"
-      });
-    } finally {
-      setCancellingStories(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(storyId);
-        return newSet;
-      });
-    }
-  };
+  // Filter only saved stories for the library
+  const savedStories = stories.filter(story => story.status === 'saved');
 
   const handleDeleteStory = async () => {
     if (!storyToDelete) return;
@@ -119,19 +83,19 @@ export function Library() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Your Story Library</h1>
         <p className="text-gray-600">
-          All your transformed storybooks in one magical place. Click to read or share with family and friends.
+          All your saved storybooks in one magical place. Click to read or share with family and friends.
         </p>
       </div>
 
-      {stories.length === 0 ? (
+      {savedStories.length === 0 ? (
         <Card className="text-center p-12">
           <CardContent>
             <BookOpen className="mx-auto h-16 w-16 text-gray-400 mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              No stories yet
+              No saved stories yet
             </h3>
             <p className="text-gray-500 mb-6">
-              Create your first magical storybook to see it here!
+              Create and save your first magical storybook to see it here!
             </p>
             <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
               Create Your First Story
@@ -140,7 +104,7 @@ export function Library() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stories.map((story) => (
+          {savedStories.map((story) => (
             <Card key={story.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
               <CardContent className="p-0">
                 <div className="aspect-[3/4] bg-gradient-to-br from-purple-100 to-pink-100 rounded-t-lg flex items-center justify-center relative overflow-hidden">
@@ -151,43 +115,24 @@ export function Library() {
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         console.log('Image failed to load:', story.story_pages[0].generated_image_url);
-                        // Hide the broken image and show fallback
                         e.currentTarget.style.display = 'none';
                       }}
                     />
                   ) : (
                     <BookOpen className="h-16 w-16 text-purple-400" />
                   )}
-                  {story.status === 'processing' && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                        <p className="text-sm">Processing...</p>
-                      </div>
-                    </div>
-                  )}
-                  {(story.status === 'failed' || story.status === 'cancelled') && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm capitalize">{story.status}</p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Delete button overlay */}
-                  {story.status !== 'processing' && (
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setStoryToDelete(story);
-                      }}
-                      size="sm"
-                      variant="destructive"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStoryToDelete(story);
+                    }}
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-800 mb-1 group-hover:text-purple-600 transition-colors">
@@ -195,50 +140,25 @@ export function Library() {
                   </h3>
                   <p className="text-sm text-gray-500 mb-2">
                     {story.total_pages || story.story_pages?.length || 0} pages • 
-                    <span className={`inline-flex items-center gap-1 ml-1 ${getStatusColor(story.status)}`}>
-                      {getStatusIcon(story.status)}
-                      {story.status === 'completed' ? 'Completed' : story.status}
-                    </span> • 
                     Created {new Date(story.created_at).toLocaleDateString()}
                   </p>
                   <div className="flex gap-2">
-                    {story.status === 'processing' ? (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                        onClick={() => handleCancelStory(story.id)}
-                        disabled={cancellingStories.has(story.id)}
-                      >
-                        {cancellingStories.has(story.id) ? (
-                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                        ) : (
-                          <X className="mr-1 h-3 w-3" />
-                        )}
-                        Cancel
-                      </Button>
-                    ) : (
-                      <>
-                        <Button 
-                          size="sm" 
-                          className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                          onClick={() => setSelectedStory(story)}
-                          disabled={story.status !== 'completed'}
-                        >
-                          <Eye className="mr-1 h-3 w-3" />
-                          {story.status === 'completed' ? 'Read' : story.status}
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          disabled={story.status !== 'completed'}
-                          onClick={() => setStoryToShare(story)}
-                        >
-                          <Mail className="mr-1 h-3 w-3" />
-                          Share
-                        </Button>
-                      </>
-                    )}
+                    <Button 
+                      size="sm" 
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      onClick={() => setSelectedStory(story)}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      Read
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => setStoryToShare(story)}
+                    >
+                      <Mail className="mr-1 h-3 w-3" />
+                      Share
+                    </Button>
                   </div>
                 </div>
               </CardContent>

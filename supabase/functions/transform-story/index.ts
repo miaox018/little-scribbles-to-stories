@@ -4,6 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { corsHeaders, artStylePrompts } from './config.ts';
 import { processStoryPage } from './story-processor.ts';
+import { generateMemoryCollage } from './openai-api.ts';
+import { uploadImageToSupabase } from './storage-utils.ts';
 import type { ImageData } from './types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -44,7 +46,7 @@ serve(async (req) => {
       .from('stories')
       .update({ 
         status: 'processing',
-        total_pages: images.length
+        total_pages: images.length + 1 // +1 for memory collage
       })
       .eq('id', storyId);
 
@@ -53,8 +55,10 @@ serve(async (req) => {
 
     let characterDescriptions = "";
     let artStyleGuidelines = "";
+    let successfulPages = 0;
+    let failedPages = 0;
 
-    // Process each image - ensure we process ALL uploaded images
+    // Process each image with delays and individual error handling
     for (let i = 0; i < images.length; i++) {
       try {
         console.log(`Processing page ${i + 1} of ${images.length}`);
@@ -69,6 +73,8 @@ serve(async (req) => {
           artStyleGuidelines,
           supabase
         });
+
+        successfulPages++;
 
         // Update context for next pages (extract from first page to maintain consistency)
         if (i === 0) {
@@ -89,26 +95,78 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        throw error;
+        
+        console.error(`Failed to process page ${i + 1}:`, error);
+        failedPages++;
+        // Continue processing other pages
+      }
+
+      // Add delay between pages (except after the last page)
+      if (i < images.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
 
-    // Update story status to completed with final page count verification
+    // Generate memory collage page
+    try {
+      console.log('Generating memory collage page...');
+      const collageImageData = await generateMemoryCollage(
+        images.map(img => img.dataUrl), 
+        storyData.title || 'My Story'
+      );
+      
+      const collageImageUrl = await uploadImageToSupabase(
+        collageImageData, 
+        storyId, 
+        images.length + 1, 
+        userId, 
+        supabase
+      );
+
+      await supabase
+        .from('story_pages')
+        .insert({
+          story_id: storyId,
+          page_number: images.length + 1,
+          original_image_url: null,
+          generated_image_url: collageImageUrl,
+          enhanced_prompt: 'Memory collage of original drawings',
+          transformation_status: 'completed'
+        });
+
+      console.log('Memory collage page completed');
+    } catch (error) {
+      console.error('Failed to generate memory collage:', error);
+      failedPages++;
+    }
+
+    // Determine final status
+    let finalStatus = 'completed';
+    if (failedPages > 0 && successfulPages > 0) {
+      finalStatus = 'partial';
+    } else if (successfulPages === 0) {
+      finalStatus = 'failed';
+    }
+
+    // Update story status
     await supabase
       .from('stories')
       .update({ 
-        status: 'completed',
-        total_pages: images.length
+        status: finalStatus,
+        total_pages: images.length + 1
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed: ${images.length} pages processed with ${artStyle} style`);
+    console.log(`Story ${storyId} transformation completed: ${successfulPages} successful, ${failedPages} failed pages`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Story transformation completed: ${images.length} pages processed with ${artStyle} style`,
-        pages_processed: images.length
+        message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
+        pages_processed: images.length + 1,
+        successful_pages: successfulPages,
+        failed_pages: failedPages,
+        status: finalStatus
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

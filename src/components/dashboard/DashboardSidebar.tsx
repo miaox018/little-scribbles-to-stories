@@ -1,5 +1,4 @@
-
-import { BookOpen, Upload } from "lucide-react";
+import { BookOpen, Upload, Plus, Clock } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -13,48 +12,53 @@ import {
 } from "@/components/ui/sidebar";
 
 interface DashboardSidebarProps {
-  activeTab: "create" | "library";
-  onTabChange: (tab: "create" | "library") => void;
+  activeTab: "create" | "in-progress" | "library";
+  onTabChange: (tab: "create" | "in-progress" | "library") => void;
 }
 
 export function DashboardSidebar({ activeTab, onTabChange }: DashboardSidebarProps) {
-  const menuItems = [
-    {
-      title: "Create Story",
-      icon: Upload,
-      key: "create" as const,
-    },
-    {
-      title: "Library",
-      icon: BookOpen,
-      key: "library" as const,
-    },
-  ];
-
   return (
-    <Sidebar className="border-r border-gray-200">
-      <SidebarHeader className="p-6">
-        <div className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-          StoryMagic
+    <Sidebar>
+      <SidebarHeader>
+        <div className="flex items-center space-x-2 px-4 py-2">
+          <BookOpen className="h-8 w-8 text-purple-600" />
+          <span className="text-xl font-bold text-gray-800">StoryMaker</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton
-                    onClick={() => onTabChange(item.key)}
-                    isActive={activeTab === item.key}
-                    className="w-full justify-start"
-                  >
-                    <item.icon className="mr-2 h-4 w-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onTabChange("create")}
+                  isActive={activeTab === "create"}
+                  className="flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Story</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onTabChange("in-progress")}
+                  isActive={activeTab === "in-progress"}
+                  className="flex items-center space-x-2"
+                >
+                  <Clock className="h-4 w-4" />
+                  <span>In Progress</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onTabChange("library")}
+                  isActive={activeTab === "library"}
+                  className="flex items-center space-x-2"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  <span>My Library</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

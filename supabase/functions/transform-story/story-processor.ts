@@ -25,33 +25,51 @@ export async function processStoryPage({
     throw new Error('Story transformation was cancelled');
   }
 
-  // Upload original image to Supabase
-  const originalImageUrl = await uploadOriginalImageToSupabase(imageData.dataUrl, storyId, pageNumber, userId, supabase);
+  try {
+    // Upload original image to Supabase
+    const originalImageUrl = await uploadOriginalImageToSupabase(imageData.dataUrl, storyId, pageNumber, userId, supabase);
 
-  // Build context prompt
-  const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    // Build context prompt
+    const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
 
-  // Analyze image with GPT-4o
-  const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
-  console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
+    // Analyze image with GPT-4o
+    const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
+    console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
 
-  // Generate image with GPT-image-1
-  const base64Image = await generateImageWithGPT(analysisText);
+    // Generate image with GPT-image-1
+    const base64Image = await generateImageWithGPT(analysisText);
 
-  // Upload generated image to Supabase Storage
-  const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, userId, supabase);
+    // Upload generated image to Supabase Storage
+    const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, userId, supabase);
 
-  // Create story page record with Supabase URLs
-  await supabase
-    .from('story_pages')
-    .insert({
-      story_id: storyId,
-      page_number: pageNumber,
-      original_image_url: originalImageUrl,
-      generated_image_url: generatedImageUrl,
-      enhanced_prompt: analysisText,
-      transformation_status: 'completed'
-    });
+    // Create story page record with Supabase URLs
+    await supabase
+      .from('story_pages')
+      .insert({
+        story_id: storyId,
+        page_number: pageNumber,
+        original_image_url: originalImageUrl,
+        generated_image_url: generatedImageUrl,
+        enhanced_prompt: analysisText,
+        transformation_status: 'completed'
+      });
 
-  return { analysisText, generatedImageUrl, originalImageUrl };
+    return { analysisText, generatedImageUrl, originalImageUrl };
+  } catch (error) {
+    console.error(`Error processing page ${pageNumber}:`, error);
+    
+    // Still create a page record but mark as failed
+    await supabase
+      .from('story_pages')
+      .insert({
+        story_id: storyId,
+        page_number: pageNumber,
+        original_image_url: imageData.url || null,
+        generated_image_url: null,
+        enhanced_prompt: null,
+        transformation_status: 'failed'
+      });
+
+    throw error;
+  }
 }

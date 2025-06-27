@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { StoryViewerDialog } from './story-viewer/StoryViewerDialog';
 import { StoryViewerHeader } from './story-viewer/StoryViewerHeader';
@@ -32,7 +31,7 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const [showOriginal, setShowOriginal] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0.5); // Default to 50% scale
 
   const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
 
@@ -92,11 +91,11 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   };
 
   const handleZoomOut = () => {
-    setScale(prev => Math.max(prev - 0.25, 0.5));
+    setScale(prev => Math.max(prev - 0.25, 0.25));
   };
 
   const handleResetZoom = () => {
-    setScale(1);
+    setScale(0.5); // Reset to 50% instead of 100%
   };
 
   const currentPageData = sortedPages[currentPage];

@@ -19,7 +19,7 @@ export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) 
           ]
         }
       ],
-      max_tokens: 1000
+      max_tokens: 1500
     }),
   });
 
@@ -42,7 +42,7 @@ export async function generateImageWithGPT(prompt: string) {
       model: 'gpt-image-1',
       prompt: prompt,
       size: '1024x1536',
-      quality: 'high',
+      quality: 'standard',
       output_format: 'png',
       n: 1
     }),
@@ -54,4 +54,21 @@ export async function generateImageWithGPT(prompt: string) {
 
   const data = await response.json();
   return data.data[0].b64_json;
+}
+
+export async function generateMemoryCollage(originalImages: string[], storyTitle: string) {
+  const collagePrompt = `Create a beautiful memory collage page for a children's storybook titled "${storyTitle}". 
+  
+  This should be a final page that celebrates all the original drawings from the story. Design it as a scrapbook-style collage with:
+  - A warm, nostalgic border
+  - Space for multiple small drawings arranged artistically
+  - Text that says "My Original Drawings" or "Memory Page"
+  - Decorative elements like stars, hearts, or frames
+  - A layout that would showcase ${originalImages.length} different drawings
+  - Portrait orientation (3:4 aspect ratio)
+  - Soft, warm colors that complement a children's book
+  
+  Style: Watercolor illustration style with hand-drawn elements, suitable for a children's storybook finale.`;
+
+  return await generateImageWithGPT(collagePrompt);
 }

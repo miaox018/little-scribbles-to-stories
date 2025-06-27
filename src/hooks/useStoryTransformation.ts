@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -117,20 +116,20 @@ export const useStoryTransformation = () => {
 
     setIsTransforming(true);
     setCurrentPage(0);
-    setTotalPages(files.length);
+    setTotalPages(files.length + 1); // +1 for memory collage
 
     // Create new AbortController for this transformation
     abortControllerRef.current = new AbortController();
 
     try {
-      // Create story record
+      // Create story record with 'processing' status (not saved to library yet)
       const { data: story, error: storyError } = await supabase
         .from('stories')
         .insert({
           user_id: user.id,
           title,
-          status: 'draft',
-          total_pages: files.length,
+          status: 'processing', // Start as processing, not draft
+          total_pages: files.length + 1,
           art_style: artStyle
         })
         .select()
@@ -158,7 +157,7 @@ export const useStoryTransformation = () => {
 
       console.log('Uploaded images:', imageData.length);
 
-      // Call the transformation Edge Function with extended timeout
+      // Call the transformation Edge Function
       try {
         const { data: transformResult, error: transformError } = await supabase.functions
           .invoke('transform-story', {
@@ -172,7 +171,6 @@ export const useStoryTransformation = () => {
         if (transformError) {
           console.warn('Edge function call failed, but story may still be processing:', transformError);
           
-          // If the edge function call fails, start polling for completion
           toast({
             title: "Processing Started",
             description: "Your story is being processed. This may take several minutes for complex art styles.",
@@ -188,13 +186,12 @@ export const useStoryTransformation = () => {
           description: "Your story is being processed. This may take several minutes. We'll check the status automatically.",
         });
 
-        // Start polling for completion even if function call failed
         await pollStoryStatus(story.id);
       }
 
       toast({
         title: "Success!",
-        description: "Your story has been transformed! Check your library to see the results."
+        description: "Your story has been transformed! Check 'In Progress' to review and save it to your library."
       });
 
       return story.id;
@@ -203,7 +200,6 @@ export const useStoryTransformation = () => {
       console.error('Transform story error:', error);
       
       if (error instanceof Error && error.message === 'Transformation cancelled') {
-        // Don't show error toast for user-initiated cancellation
         return;
       }
       
