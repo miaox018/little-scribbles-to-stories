@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Mail, Eye, Loader2, X, AlertCircle, Trash2, RefreshCw } from "lucide-react";
+import { BookOpen, Mail, Eye, Loader2, X, AlertCircle, Trash2 } from "lucide-react";
 import { useStories } from "@/hooks/useStories";
 import { StoryViewer } from "./StoryViewer";
 import { DeleteStoryDialog } from "./DeleteStoryDialog";
@@ -92,7 +91,6 @@ export function Library() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'text-green-600';
-      case 'partial': return 'text-yellow-600';
       case 'processing': return 'text-blue-600';
       case 'failed': return 'text-red-600';
       case 'cancelled': return 'text-gray-600';
@@ -103,20 +101,8 @@ export function Library() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'processing': return <Loader2 className="h-3 w-3 animate-spin" />;
-      case 'partial': return <AlertCircle className="h-3 w-3" />;
       case 'failed': case 'cancelled': return <AlertCircle className="h-3 w-3" />;
       default: return null;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed': return 'Completed';
-      case 'partial': return 'Partially Complete';
-      case 'processing': return 'Processing';
-      case 'failed': return 'Failed';
-      case 'cancelled': return 'Cancelled';
-      default: return status;
     }
   };
 
@@ -188,14 +174,6 @@ export function Library() {
                       </div>
                     </div>
                   )}
-                  {story.status === 'partial' && (
-                    <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
-                      <div className="text-white text-center">
-                        <AlertCircle className="h-6 w-6 mx-auto mb-1" />
-                        <p className="text-xs">Some pages need regeneration</p>
-                      </div>
-                    </div>
-                  )}
                   {/* Delete button overlay */}
                   {story.status !== 'processing' && (
                     <Button
@@ -219,7 +197,7 @@ export function Library() {
                     {story.total_pages || story.story_pages?.length || 0} pages • 
                     <span className={`inline-flex items-center gap-1 ml-1 ${getStatusColor(story.status)}`}>
                       {getStatusIcon(story.status)}
-                      {getStatusText(story.status)}
+                      {story.status === 'completed' ? 'Completed' : story.status}
                     </span> • 
                     Created {new Date(story.created_at).toLocaleDateString()}
                   </p>
@@ -245,15 +223,15 @@ export function Library() {
                           size="sm" 
                           className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                           onClick={() => setSelectedStory(story)}
-                          disabled={story.status === 'failed'}
+                          disabled={story.status !== 'completed'}
                         >
                           <Eye className="mr-1 h-3 w-3" />
-                          {story.status === 'completed' || story.status === 'partial' ? 'Read' : getStatusText(story.status)}
+                          {story.status === 'completed' ? 'Read' : story.status}
                         </Button>
                         <Button 
                           size="sm" 
                           variant="outline" 
-                          disabled={story.status !== 'completed' && story.status !== 'partial'}
+                          disabled={story.status !== 'completed'}
                           onClick={() => setStoryToShare(story)}
                         >
                           <Mail className="mr-1 h-3 w-3" />

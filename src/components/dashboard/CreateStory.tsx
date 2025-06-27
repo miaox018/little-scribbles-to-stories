@@ -1,16 +1,26 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
+import { ArtStyleSelector } from "@/components/dashboard/ArtStyleSelector";
+import { TransformationProgress } from "@/components/dashboard/TransformationProgress";
 
 export function CreateStory() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [showProcessingMessage, setShowProcessingMessage] = useState(false);
-  const { transformStory, isTransforming } = useStoryTransformation();
+  const [storyTitle, setStoryTitle] = useState("");
+  const [selectedArtStyle, setSelectedArtStyle] = useState("classic_watercolor");
+  const { 
+    transformStory, 
+    cancelTransformation, 
+    isTransforming, 
+    currentPage, 
+    totalPages 
+  } = useStoryTransformation();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -72,8 +82,12 @@ export function CreateStory() {
   };
 
   const handleTransformStory = async () => {
-    setShowProcessingMessage(true);
-    await transformStory(uploadedFiles, "My Story", "classic_watercolor");
+    if (!storyTitle.trim()) {
+      alert("Please enter a story title");
+      return;
+    }
+    
+    await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
   };
 
   return (
@@ -85,7 +99,7 @@ export function CreateStory() {
         </p>
       </div>
 
-      {/* Upload Area */}
+      {/* Upload Area - Moved to top */}
       <Card className="mb-8">
         <CardContent className="p-8">
           <div
@@ -180,6 +194,30 @@ export function CreateStory() {
         </Card>
       )}
 
+      {/* Story Title Input */}
+      <Card className="mb-6">
+        <CardContent className="p-6">
+          <Label htmlFor="story-title" className="text-base font-medium">
+            Story Title
+          </Label>
+          <Input
+            id="story-title"
+            placeholder="Enter your story title..."
+            value={storyTitle}
+            onChange={(e) => setStoryTitle(e.target.value)}
+            className="mt-2"
+            disabled={isTransforming}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Art Style Selection */}
+      <ArtStyleSelector
+        selectedStyle={selectedArtStyle}
+        onStyleChange={setSelectedArtStyle}
+        disabled={isTransforming}
+      />
+
       {/* Transform Button */}
       {uploadedFiles.length > 0 && (
         <Card className="mb-6">
@@ -187,28 +225,35 @@ export function CreateStory() {
             <Button 
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
               onClick={handleTransformStory}
-              disabled={isTransforming}
+              disabled={isTransforming || !storyTitle.trim()}
             >
               {isTransforming ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating your story...
+                  Transforming Story...
                 </>
               ) : (
                 "Transform Into Storybook"
               )}
             </Button>
-            
-            {showProcessingMessage && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-blue-800 text-center">
-                  ☕ Great! Your story is being created. This process takes a few minutes - perfect time to grab a coffee or snack! 
-                  Feel free to check back in a bit to see your beautiful storybook.
-                </p>
-              </div>
+            {isTransforming && (
+              <p className="text-sm text-gray-600 text-center mt-3">
+                This may take a few minutes. We're analyzing your drawings and creating professional illustrations!
+              </p>
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Show transformation progress if processing - Moved to end */}
+      {isTransforming && (
+        <div className="mb-6">
+          <TransformationProgress 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onCancel={cancelTransformation}
+          />
+        </div>
       )}
     </div>
   );
