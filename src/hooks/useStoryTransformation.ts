@@ -1,3 +1,4 @@
+
 import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,12 +117,26 @@ export const useStoryTransformation = () => {
       return;
     }
 
+    console.log('Checking if user can create story...');
+
     // Check if user can create a new story
-    const canCreate = await checkCanCreateStory();
-    if (!canCreate) {
+    try {
+      const canCreate = await checkCanCreateStory();
+      console.log('Can create story:', canCreate);
+      
+      if (!canCreate) {
+        toast({
+          title: "Story Limit Reached",
+          description: "You've reached your monthly story limit. Upgrade your plan to create more stories.",
+          variant: "destructive"
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking story creation limit:', error);
       toast({
-        title: "Story Limit Reached",
-        description: "You've reached your monthly story limit. Upgrade your plan to create more stories.",
+        title: "Error",
+        description: "Failed to check story limits. Please try again.",
         variant: "destructive"
       });
       return;
@@ -135,6 +150,8 @@ export const useStoryTransformation = () => {
     abortControllerRef.current = new AbortController();
 
     try {
+      console.log('Creating story record...');
+      
       // Create story record with 'processing' status (not saved to library yet)
       const { data: story, error: storyError } = await supabase
         .from('stories')
@@ -148,20 +165,28 @@ export const useStoryTransformation = () => {
         .select()
         .single();
 
-      if (storyError) throw storyError;
+      if (storyError) {
+        console.error('Story creation error:', storyError);
+        throw storyError;
+      }
 
       console.log('Created story:', story);
 
       // Track story creation and page uploads
+      console.log('Tracking story creation...');
       await trackStoryCreation(story.id);
+      
+      console.log('Checking page upload limits...');
       const canUploadPages = await trackPageUpload(story.id, files.length);
       
       if (!canUploadPages) {
+        console.log('Cannot upload pages, deleting story...');
         // Delete the story if we can't upload the pages
         await supabase.from('stories').delete().eq('id', story.id);
         return;
       }
 
+      console.log('Preparing image data...');
       // Prepare image data
       const imageData: Array<{url: string, dataUrl: string}> = [];
       
@@ -182,6 +207,7 @@ export const useStoryTransformation = () => {
 
       // Call the transformation Edge Function
       try {
+        console.log('Calling transform-story edge function...');
         const { data: transformResult, error: transformError } = await supabase.functions
           .invoke('transform-story', {
             body: {
@@ -200,6 +226,8 @@ export const useStoryTransformation = () => {
           });
 
           await pollStoryStatus(story.id);
+        } else {
+          console.log('Transform result:', transformResult);
         }
       } catch (functionError) {
         console.warn('Edge function timeout, switching to polling mode:', functionError);

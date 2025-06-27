@@ -135,13 +135,36 @@ serve(async (req) => {
       throw new Error('Page not found');
     }
 
-    // Get the original image data URL from the stored URL
+    // Extract the file path from the original_image_url
+    let filePath;
+    if (page.original_image_url) {
+      // Handle both full URLs and relative paths
+      const urlParts = page.original_image_url.split('/');
+      const storageIndex = urlParts.findIndex(part => part === 'story-images');
+      if (storageIndex !== -1 && storageIndex < urlParts.length - 1) {
+        // Extract everything after 'story-images/'
+        filePath = urlParts.slice(storageIndex + 1).join('/');
+      } else {
+        // Fallback: try to extract from the end of the URL
+        const fileName = urlParts[urlParts.length - 1];
+        filePath = `${page.stories.user_id}/${storyId}/${fileName}`;
+      }
+    }
+
+    if (!filePath) {
+      throw new Error('Could not determine file path for original image');
+    }
+
+    console.log(`Downloading file from path: ${filePath}`);
+
+    // Get the original image data from storage
     const { data: imageData, error: imageError } = await supabase.storage
       .from('story-images')
-      .download(page.original_image_url.split('/').pop());
+      .download(filePath);
 
     if (imageError) {
-      throw new Error('Failed to retrieve original image');
+      console.error('Storage download error:', imageError);
+      throw new Error(`Failed to retrieve original image: ${imageError.message}`);
     }
 
     // Convert to data URL
@@ -208,4 +231,3 @@ serve(async (req) => {
     );
   }
 });
-
