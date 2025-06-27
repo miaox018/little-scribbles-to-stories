@@ -12,12 +12,34 @@ export const useUsageTracking = () => {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
 
     try {
-      // Update monthly usage
-      await supabase.rpc('update_monthly_usage', {
-        user_id_param: user.id,
-        month_year_param: currentMonth,
-        stories_increment: 1
-      });
+      // Update or insert monthly usage manually
+      const { data: existingUsage } = await supabase
+        .from('monthly_usage')
+        .select('stories_created')
+        .eq('user_id', user.id)
+        .eq('month_year', currentMonth)
+        .single();
+
+      if (existingUsage) {
+        await supabase
+          .from('monthly_usage')
+          .update({
+            stories_created: existingUsage.stories_created + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('month_year', currentMonth);
+      } else {
+        await supabase
+          .from('monthly_usage')
+          .insert({
+            user_id: user.id,
+            month_year: currentMonth,
+            stories_created: 1,
+            total_pages_uploaded: 0,
+            total_pages_regenerated: 0
+          });
+      }
 
       // Initialize usage tracking for this story
       await supabase
@@ -57,18 +79,33 @@ export const useUsageTracking = () => {
       }
 
       // Update usage tracking
-      await supabase
+      const { data: existingTracking } = await supabase
         .from('usage_tracking')
-        .upsert({
-          user_id: user.id,
-          story_id: storyId,
-          month_year: currentMonth,
-          pages_uploaded: pageCount,
-          pages_regenerated: 0
-        }, {
-          onConflict: 'user_id,story_id',
-          ignoreDuplicates: false
-        });
+        .select('pages_uploaded')
+        .eq('user_id', user.id)
+        .eq('story_id', storyId)
+        .single();
+
+      if (existingTracking) {
+        await supabase
+          .from('usage_tracking')
+          .update({
+            pages_uploaded: existingTracking.pages_uploaded + pageCount,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('story_id', storyId);
+      } else {
+        await supabase
+          .from('usage_tracking')
+          .upsert({
+            user_id: user.id,
+            story_id: storyId,
+            month_year: currentMonth,
+            pages_uploaded: pageCount,
+            pages_regenerated: 0
+          });
+      }
 
       return true;
     } catch (error) {
@@ -98,15 +135,24 @@ export const useUsageTracking = () => {
       }
 
       // Update regeneration count
-      const { error } = await supabase
+      const { data: existingTracking } = await supabase
         .from('usage_tracking')
-        .update({
-          pages_regenerated: supabase.sql`pages_regenerated + 1`
-        })
+        .select('pages_regenerated')
         .eq('user_id', user.id)
-        .eq('story_id', storyId);
+        .eq('story_id', storyId)
+        .single();
 
-      if (error) throw error;
+      if (existingTracking) {
+        await supabase
+          .from('usage_tracking')
+          .update({
+            pages_regenerated: existingTracking.pages_regenerated + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('story_id', storyId);
+      }
+
       return true;
     } catch (error) {
       console.error('Error tracking page regeneration:', error);
