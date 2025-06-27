@@ -65,9 +65,11 @@ export const useSubscription = () => {
   });
 
   const createCheckoutSession = async (tier: 'storypro' | 'storypro_plus') => {
+    // TODO: Replace these with your actual Stripe Price IDs from your Stripe Dashboard
+    // After creating products in Stripe, update these IDs:
     const priceIds = {
-      storypro: 'price_1234567890', // Replace with actual Stripe price ID
-      storypro_plus: 'price_0987654321', // Replace with actual Stripe price ID
+      storypro: 'price_REPLACE_WITH_STORYPRO_PRICE_ID', // StoryPro $4.99/month
+      storypro_plus: 'price_REPLACE_WITH_STORYPRO_PLUS_PRICE_ID', // StoryPro+ $9.99/month
     };
 
     const { data, error } = await supabase.functions.invoke('create-checkout-session', {
