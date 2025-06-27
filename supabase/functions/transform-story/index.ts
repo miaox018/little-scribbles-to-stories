@@ -3,7 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { corsHeaders, artStylePrompts } from './config.ts';
-import { processStoryPage, createMasterStoryAnalysis } from './story-processor.ts';
+import { processStoryPage } from './story-processor.ts';
 import type { ImageData } from './types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -51,59 +51,46 @@ serve(async (req) => {
     // Get art style prompt
     const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
 
-    console.log('Phase 1: Creating master story analysis...');
-    
-    // PHASE 1: Create master story analysis from all images
-    const masterContext = await createMasterStoryAnalysis({
-      images,
-      stylePrompt,
-      storyId,
-      supabase
-    });
+    let characterDescriptions = "";
+    let artStyleGuidelines = "";
 
-    console.log('Phase 2: Generating all illustrations in parallel...');
+    // Process each image - ensure we process ALL uploaded images
+    for (let i = 0; i < images.length; i++) {
+      try {
+        console.log(`Processing page ${i + 1} of ${images.length}`);
+        
+        const result = await processStoryPage({
+          imageData: images[i], 
+          pageNumber: i + 1, 
+          storyId, 
+          userId,
+          stylePrompt,
+          characterDescriptions,
+          artStyleGuidelines,
+          supabase
+        });
 
-    // PHASE 2: Process all pages in parallel using master context
-    const processingPromises = images.map((imageData: ImageData, index: number) => 
-      processStoryPage({
-        imageData, 
-        pageNumber: index + 1, 
-        storyId, 
-        userId,
-        stylePrompt,
-        masterContext,
-        supabase
-      })
-    );
+        // Update context for next pages (extract from first page to maintain consistency)
+        if (i === 0) {
+          characterDescriptions = `- Character designs and appearances established in page 1
+- Clothing styles and color schemes from page 1`;
+          artStyleGuidelines = `- Art style: ${stylePrompt}
+- Visual language and composition style from page 1
+- Text typography and placement style from page 1
+- Portrait orientation with 3:4 aspect ratio and safe margins`;
+        }
 
-    // Check for cancellation before parallel processing
-    const { data: story } = await supabase
-      .from('stories')
-      .select('status')
-      .eq('id', storyId)
-      .single();
-
-    if (story?.status === 'cancelled') {
-      console.log(`Story ${storyId} was cancelled, stopping processing`);
-      return new Response(
-        JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Wait for all pages to complete processing
-    try {
-      await Promise.all(processingPromises);
-      console.log(`All ${images.length} pages processed successfully in parallel`);
-    } catch (error) {
-      if (error.message === 'Story transformation was cancelled') {
-        console.log(`Story ${storyId} was cancelled during processing`);
-        return new Response(
-          JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.log(`Completed page ${i + 1} of ${images.length} with ${artStyle} style`);
+      } catch (error) {
+        if (error.message === 'Story transformation was cancelled') {
+          console.log(`Story ${storyId} was cancelled, stopping processing`);
+          return new Response(
+            JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw error;
       }
-      throw error;
     }
 
     // Update story status to completed with final page count verification
