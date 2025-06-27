@@ -1,14 +1,9 @@
 
-export async function uploadImageToSupabase(base64Image: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
+export async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
   try {
-    // Convert base64 to blob
-    const byteCharacters = atob(base64Image);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const imageBlob = new Blob([byteArray], { type: 'image/png' });
+    // Download the image from the URL
+    const imageResponse = await fetch(imageUrl);
+    const imageBuffer = await imageResponse.arrayBuffer();
     
     const fileName = `${userId}/generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
     
@@ -16,7 +11,7 @@ export async function uploadImageToSupabase(base64Image: string, storyId: string
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('story-images')
-      .upload(fileName, imageBlob, {
+      .upload(fileName, imageBuffer, {
         contentType: 'image/png',
         upsert: false
       });

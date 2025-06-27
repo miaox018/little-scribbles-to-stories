@@ -39,14 +39,14 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     setCurrentPage((prev) => (prev + 1) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
-    setScale(1);
+    // Don't reset scale - keep it persistent
   };
 
   const goToPrevPage = () => {
     setCurrentPage((prev) => (prev - 1 + sortedPages.length) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
-    setScale(1);
+    // Don't reset scale - keep it persistent
   };
 
   const handleImageError = (error: any) => {

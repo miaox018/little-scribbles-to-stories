@@ -10,8 +10,10 @@ const corsHeaders = {
 
 const artStylePrompts = {
   classic_watercolor: "Classic watercolor illustration style with soft, flowing colors and organic textures",
-  digital_art: "Modern digital art style with clean lines and vibrant colors",
-  manga: "Manga/anime style with expressive characters and dynamic compositions"
+  disney_animation: "Disney-style animation with bright, vibrant colors and smooth cartoon aesthetics",
+  realistic_digital: "High-quality realistic digital art with detailed textures and lifelike proportions",
+  manga_anime: "Japanese manga/anime art style with expressive characters and dynamic poses",
+  vintage_storybook: "Classic vintage storybook illustration style reminiscent of 1950s children's books"
 };
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -54,11 +56,10 @@ async function generateImageWithGPT(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-image-1',
+      model: 'dall-e-3',
       prompt: prompt,
-      size: '1024x1536',
+      size: '1024x1792',
       quality: 'standard',
-      output_format: 'png',
       n: 1
     }),
   });
@@ -68,12 +69,15 @@ async function generateImageWithGPT(prompt: string) {
   }
 
   const data = await response.json();
-  return data.data[0].b64_json;
+  return data.data[0].url;
 }
 
-async function uploadImageToSupabase(base64Image: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
-  const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
-  const fileName = `${userId}/${storyId}/generated_page_${pageNumber}_${Date.now()}.png`;
+async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumber: number, userId: string, supabase: any) {
+  // Download the image from the URL
+  const imageResponse = await fetch(imageUrl);
+  const imageBuffer = await imageResponse.arrayBuffer();
+  
+  const fileName = `${userId}/generated/${storyId}/page_${pageNumber}_${Date.now()}.png`;
   
   const { data, error } = await supabase.storage
     .from('story-images')
@@ -145,11 +149,11 @@ serve(async (req) => {
 
     // Analyze and generate new image
     const analysisText = await analyzeImageWithGPT(dataUrl, prompt);
-    const base64Image = await generateImageWithGPT(analysisText);
+    const imageUrl = await generateImageWithGPT(analysisText);
     
     // Upload new generated image
     const generatedImageUrl = await uploadImageToSupabase(
-      base64Image, 
+      imageUrl, 
       storyId, 
       page.page_number, 
       page.stories.user_id, 

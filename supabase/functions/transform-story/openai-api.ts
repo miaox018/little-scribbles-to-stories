@@ -39,11 +39,10 @@ export async function generateImageWithGPT(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-image-1',
+      model: 'dall-e-3',
       prompt: prompt,
-      size: '1024x1536',
+      size: '1024x1792',
       quality: 'standard',
-      output_format: 'png',
       n: 1
     }),
   });
@@ -53,7 +52,7 @@ export async function generateImageWithGPT(prompt: string) {
   }
 
   const data = await response.json();
-  return data.data[0].b64_json;
+  return data.data[0].url;
 }
 
 export async function generateMemoryCollage(originalImages: string[], storyTitle: string) {

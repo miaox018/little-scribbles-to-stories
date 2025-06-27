@@ -36,11 +36,11 @@ export async function processStoryPage({
     const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
     console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
 
-    // Generate image with GPT-image-1
-    const base64Image = await generateImageWithGPT(analysisText);
+    // Generate image with DALL-E 3
+    const imageUrl = await generateImageWithGPT(analysisText);
 
     // Upload generated image to Supabase Storage
-    const generatedImageUrl = await uploadImageToSupabase(base64Image, storyId, pageNumber, userId, supabase);
+    const generatedImageUrl = await uploadImageToSupabase(imageUrl, storyId, pageNumber, userId, supabase);
 
     // Create story page record with Supabase URLs
     await supabase
