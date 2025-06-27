@@ -20,23 +20,37 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
   const { createCheckoutSession } = useSubscription();
   const { validateCoupon, removeCoupon, isValidating, appliedCoupon, couponDiscount } = useCouponValidation();
   const [couponCode, setCouponCode] = useState("");
-  const [selectedTier, setSelectedTier] = useState<'storypro' | 'storypro_plus' | null>(null);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
 
   const handleUpgrade = async (tier: 'storypro' | 'storypro_plus') => {
+    console.log('Starting checkout process for tier:', tier);
+    setIsCreatingCheckout(true);
+    
     try {
       await createCheckoutSession(tier, appliedCoupon);
       onClose();
     } catch (error) {
+      console.error('Checkout error:', error);
       toast({
         title: "Error",
         description: "Failed to create checkout session. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsCreatingCheckout(false);
     }
   };
 
   const handleCouponValidation = async (tier: 'storypro' | 'storypro_plus') => {
-    setSelectedTier(tier);
+    if (!couponCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a coupon code",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     await validateCoupon(couponCode, tier);
   };
 
@@ -145,32 +159,19 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
               </Button>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter coupon code"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                className="flex-1"
-              />
-              <Button
-                variant="outline"
-                onClick={() => selectedTier && handleCouponValidation(selectedTier)}
-                disabled={!couponCode.trim() || isValidating || !selectedTier}
-                className="whitespace-nowrap"
-              >
-                {isValidating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Apply"
-                )}
-              </Button>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter coupon code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-sm text-gray-500">
+                Enter a coupon code and select a plan below to apply the discount
+              </p>
             </div>
-          )}
-          
-          {!selectedTier && !appliedCoupon && (
-            <p className="text-sm text-gray-500 mt-2">
-              Select a plan below to apply your coupon code
-            </p>
           )}
         </div>
 
@@ -179,7 +180,6 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
             <Card 
               key={plan.name} 
               className={`relative ${plan.popular ? 'border-purple-500 border-2' : ''} ${plan.current ? 'bg-gray-50' : ''}`}
-              onClick={() => plan.tier && setSelectedTier(plan.tier)}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -224,19 +224,51 @@ export function PaywallModal({ isOpen, onClose, onSaveStory, storyTitle }: Paywa
                   ))}
                 </ul>
 
-                <Button
-                  className={`w-full ${
-                    plan.popular 
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
-                      : plan.current
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
-                  }`}
-                  disabled={plan.buttonDisabled}
-                  onClick={() => plan.tier && handleUpgrade(plan.tier)}
-                >
-                  {plan.buttonText}
-                </Button>
+                {plan.tier && (
+                  <div className="space-y-2">
+                    {/* Apply Coupon Button - only show if coupon code entered and no coupon applied */}
+                    {couponCode.trim() && !appliedCoupon && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => handleCouponValidation(plan.tier!)}
+                        disabled={isValidating}
+                      >
+                        {isValidating ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Tag className="h-4 w-4 mr-2" />
+                        )}
+                        Apply Coupon
+                      </Button>
+                    )}
+
+                    {/* Upgrade Button */}
+                    <Button
+                      className={`w-full ${
+                        plan.popular 
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700' 
+                          : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                      }`}
+                      onClick={() => handleUpgrade(plan.tier!)}
+                      disabled={isCreatingCheckout}
+                    >
+                      {isCreatingCheckout ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      {plan.buttonText}
+                    </Button>
+                  </div>
+                )}
+
+                {!plan.tier && (
+                  <Button
+                    className="w-full bg-gray-400 cursor-not-allowed"
+                    disabled={true}
+                  >
+                    {plan.buttonText}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
