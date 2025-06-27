@@ -19,7 +19,7 @@ export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) 
           ]
         }
       ],
-      max_tokens: 1000
+      max_tokens: 1500
     }),
   });
 
@@ -42,7 +42,7 @@ export async function generateImageWithGPT(prompt: string) {
       model: 'gpt-image-1',
       prompt: prompt,
       size: '1024x1536',
-      quality: 'high',
+      quality: 'standard',
       output_format: 'png',
       n: 1
     }),

@@ -53,11 +53,28 @@ serve(async (req) => {
 
     let characterDescriptions = "";
     let artStyleGuidelines = "";
+    let successfulPages = 0;
+    let failedPages = 0;
 
-    // Process each image - ensure we process ALL uploaded images
+    // Process each image with delays between API calls
     for (let i = 0; i < images.length; i++) {
       try {
         console.log(`Processing page ${i + 1} of ${images.length}`);
+        
+        // Check if story was cancelled before processing each page
+        const { data: currentStory } = await supabase
+          .from('stories')
+          .select('status')
+          .eq('id', storyId)
+          .single();
+
+        if (currentStory?.status === 'cancelled') {
+          console.log(`Story ${storyId} was cancelled, stopping processing`);
+          return new Response(
+            JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         
         const result = await processStoryPage({
           imageData: images[i], 
@@ -80,8 +97,31 @@ serve(async (req) => {
 - Portrait orientation with 3:4 aspect ratio and safe margins`;
         }
 
+        successfulPages++;
         console.log(`Completed page ${i + 1} of ${images.length} with ${artStyle} style`);
+
+        // Add delay between API calls to avoid rate limiting (except for last page)
+        if (i < images.length - 1) {
+          console.log('Adding delay between API calls...');
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+        }
+
       } catch (error) {
+        console.error(`Error processing page ${i + 1}:`, error);
+        failedPages++;
+        
+        // Create a failed page record so user can retry
+        await supabase
+          .from('story_pages')
+          .insert({
+            story_id: storyId,
+            page_number: i + 1,
+            original_image_url: null,
+            generated_image_url: null,
+            enhanced_prompt: null,
+            transformation_status: 'failed'
+          });
+
         if (error.message === 'Story transformation was cancelled') {
           console.log(`Story ${storyId} was cancelled, stopping processing`);
           return new Response(
@@ -89,26 +129,30 @@ serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        throw error;
+        
+        // Continue processing other pages even if one fails
+        continue;
       }
     }
 
-    // Update story status to completed with final page count verification
+    // Update story status - completed if all pages succeeded, partial if some failed
+    const finalStatus = failedPages > 0 ? 'partial' : 'completed';
     await supabase
       .from('stories')
       .update({ 
-        status: 'completed',
+        status: finalStatus,
         total_pages: images.length
       })
       .eq('id', storyId);
 
-    console.log(`Story ${storyId} transformation completed: ${images.length} pages processed with ${artStyle} style`);
+    console.log(`Story ${storyId} transformation finished: ${successfulPages} successful, ${failedPages} failed pages`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Story transformation completed: ${images.length} pages processed with ${artStyle} style`,
-        pages_processed: images.length
+        message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
+        pages_processed: successfulPages,
+        pages_failed: failedPages
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

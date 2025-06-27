@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Scale } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Scale, RefreshCw, Loader2 } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -17,12 +17,14 @@ interface StoryViewerControlsProps {
   currentPageData: StoryPage;
   currentImageUrl: string | null;
   scale: number;
+  regeneratingPages: Set<number>;
   onToggleView: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
+  onRegeneratePage: (pageNumber: number) => void;
 }
 
 export function StoryViewerControls({
@@ -32,13 +34,18 @@ export function StoryViewerControls({
   currentPageData,
   currentImageUrl,
   scale,
+  regeneratingPages,
   onToggleView,
   onPrevPage,
   onNextPage,
   onZoomIn,
   onZoomOut,
-  onResetZoom
+  onResetZoom,
+  onRegeneratePage
 }: StoryViewerControlsProps) {
+  const isRegenerating = regeneratingPages.has(currentPageData.page_number);
+  const canRegenerate = currentPageData.transformation_status === 'failed' || !currentPageData.generated_image_url;
+
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border-b bg-gray-50 flex-shrink-0">
       <div className="flex flex-wrap items-center gap-2">
@@ -50,9 +57,34 @@ export function StoryViewerControls({
         >
           {showOriginal ? 'Show Enhanced' : 'Show Original'}
         </Button>
+        
+        {canRegenerate && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onRegeneratePage(currentPageData.page_number)}
+            disabled={isRegenerating}
+            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+          >
+            {isRegenerating ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-1 h-3 w-3" />
+            )}
+            Regenerate
+          </Button>
+        )}
+        
         <span className="text-sm text-gray-600">
           Page {currentPage + 1} of {totalPages}
         </span>
+        
+        {currentPageData.transformation_status === 'failed' && (
+          <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+            ⚠️ Page failed to generate
+          </span>
+        )}
+        
         {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
           <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
             ⚠️ Temporary URL - may expire
@@ -66,7 +98,7 @@ export function StoryViewerControls({
             variant="ghost"
             size="sm"
             onClick={onZoomOut}
-            disabled={scale <= 0.5}
+            disabled={scale <= 0.3}
             className="h-7 px-2"
           >
             -
@@ -84,7 +116,7 @@ export function StoryViewerControls({
             variant="ghost"
             size="sm"
             onClick={onZoomIn}
-            disabled={scale >= 3}
+            disabled={scale >= 2}
             className="h-7 px-2"
           >
             +
