@@ -2,9 +2,11 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { showRegenerationLimitNotification } from '@/components/notifications/RegenerationLimitNotification';
+import { useUserRoles } from '@/hooks/useUserRoles';
 
 export const useUsageTracking = () => {
   const { user } = useAuth();
+  const { isAdmin } = useUserRoles();
 
   const trackStoryCreation = async (storyId: string) => {
     if (!user) return;
@@ -62,19 +64,22 @@ export const useUsageTracking = () => {
     const currentMonth = new Date().toISOString().slice(0, 7);
 
     try {
-      // Check if user can upload more pages
-      const { data: canUpload } = await supabase.rpc('can_upload_pages', {
-        user_id_param: user.id,
-        story_id_param: storyId,
-        additional_pages: pageCount
-      });
-
-      if (!canUpload) {
-        showRegenerationLimitNotification(() => {
-          // This will be handled by the parent component
-          window.dispatchEvent(new CustomEvent('openPaywall'));
+      // Skip limit check for admin users
+      if (!isAdmin) {
+        // Check if user can upload more pages
+        const { data: canUpload } = await supabase.rpc('can_upload_pages', {
+          user_id_param: user.id,
+          story_id_param: storyId,
+          additional_pages: pageCount
         });
-        return false;
+
+        if (!canUpload) {
+          showRegenerationLimitNotification(() => {
+            // This will be handled by the parent component
+            window.dispatchEvent(new CustomEvent('openPaywall'));
+          });
+          return false;
+        }
       }
 
       // Update usage tracking
@@ -117,23 +122,26 @@ export const useUsageTracking = () => {
     if (!user) return;
 
     try {
-      // Check if user can regenerate more pages
-      const { data: canRegenerate } = await supabase.rpc('can_regenerate_pages', {
-        user_id_param: user.id,
-        story_id_param: storyId,
-        additional_regens: 1
-      });
-
-      if (!canRegenerate) {
-        showRegenerationLimitNotification(() => {
-          if (onUpgradeCallback) {
-            onUpgradeCallback();
-          } else {
-            // Fallback to dispatching an event
-            window.dispatchEvent(new CustomEvent('openPaywall'));
-          }
+      // Skip limit check for admin users
+      if (!isAdmin) {
+        // Check if user can regenerate more pages
+        const { data: canRegenerate } = await supabase.rpc('can_regenerate_pages', {
+          user_id_param: user.id,
+          story_id_param: storyId,
+          additional_regens: 1
         });
-        return false;
+
+        if (!canRegenerate) {
+          showRegenerationLimitNotification(() => {
+            if (onUpgradeCallback) {
+              onUpgradeCallback();
+            } else {
+              // Fallback to dispatching an event
+              window.dispatchEvent(new CustomEvent('openPaywall'));
+            }
+          });
+          return false;
+        }
       }
 
       // Update regeneration count

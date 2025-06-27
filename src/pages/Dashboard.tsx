@@ -6,13 +6,23 @@ import { Library } from "@/components/dashboard/Library";
 import { InProgressStories } from "@/components/dashboard/InProgressStories";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
+import { AdminPanel } from "@/components/dashboard/AdminPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { useState } from "react";
-import { LogOut, User } from "lucide-react";
+import { useUserRoles } from "@/hooks/useUserRoles";
+import { useState, useEffect } from "react";
+import { LogOut, User, Shield } from "lucide-react";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<"create" | "in-progress" | "library">("create");
   const { user, signOut } = useAuth();
+  const { isAdmin, assignAdminByEmail } = useUserRoles();
+
+  // Auto-assign admin role to the specified email on first load
+  useEffect(() => {
+    if (user?.email === 'miaox018@gmail.com' && !isAdmin) {
+      assignAdminByEmail.mutate('miaox018@gmail.com');
+    }
+  }, [user?.email, isAdmin, assignAdminByEmail]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -43,6 +53,12 @@ const Dashboard = () => {
                 <div className="flex items-center space-x-2 text-gray-600">
                   <User className="h-4 w-4" />
                   <span className="text-sm">{user?.email}</span>
+                  {isAdmin && (
+                    <div className="flex items-center space-x-1 bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
+                      <Shield className="h-3 w-3" />
+                      <span>Admin</span>
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="outline"
@@ -57,6 +73,11 @@ const Dashboard = () => {
           </header>
           
           <div className="p-6">
+            {isAdmin && (
+              <div className="mb-6">
+                <AdminPanel />
+              </div>
+            )}
             {activeTab === "create" && <CreateStory />}
             {activeTab === "in-progress" && <InProgressStories />}
             {activeTab === "library" && <Library />}
