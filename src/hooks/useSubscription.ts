@@ -81,11 +81,10 @@ export const useSubscription = () => {
 
     console.log('Valid session found, proceeding with checkout...');
 
-    // TODO: Replace these with your actual Stripe Price IDs from your Stripe Dashboard
-    // Go to Stripe Dashboard → Products → Create products and copy the Price IDs
+    // Actual Stripe Price IDs from your Stripe Dashboard
     const priceIds = {
-      storypro: 'price_REPLACE_WITH_ACTUAL_STORYPRO_PRICE_ID', // Replace with real Price ID for $4.99/month
-      storypro_plus: 'price_REPLACE_WITH_ACTUAL_STORYPRO_PLUS_PRICE_ID', // Replace with real Price ID for $9.99/month
+      storypro: 'price_1RekA5Dc4yn7CE70Ob9Vjrpc', // StoryPro $4.99/month
+      storypro_plus: 'price_1RekAoDc4yn7CE70xnx1E5NJ', // StoryPro+ $9.99/month
     };
 
     try {
