@@ -61,11 +61,14 @@ export const useUserRoles = () => {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to assign admin role",
-        variant: "destructive"
-      });
+      // Don't show error toast for conflict errors (role already exists)
+      if (!error.message?.includes('duplicate key') && !error.message?.includes('conflict')) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to assign admin role",
+          variant: "destructive"
+        });
+      }
     },
   });
 
@@ -99,11 +102,14 @@ export const useUserRoles = () => {
       });
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to assign admin role",
-        variant: "destructive"
-      });
+      // Don't show error toast for conflict errors (role already exists)
+      if (!error.message?.includes('duplicate key') && !error.message?.includes('conflict')) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to assign admin role",
+          variant: "destructive"
+        });
+      }
     },
   });
 

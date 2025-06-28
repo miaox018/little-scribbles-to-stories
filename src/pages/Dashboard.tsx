@@ -9,17 +9,19 @@ import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { AdminPanel } from "@/components/dashboard/AdminPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useUserRoles } from "@/hooks/useUserRoles";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Shield } from "lucide-react";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<"create" | "in-progress" | "library">("create");
   const { user, signOut } = useAuth();
   const { isAdmin, assignAdminByEmail } = useUserRoles();
+  const hasAttemptedAssignment = useRef(false);
 
-  // Auto-assign admin role to the specified email on first load
+  // Auto-assign admin role to the specified email on first load only
   useEffect(() => {
-    if (user?.email === 'miaox018@gmail.com' && !isAdmin) {
+    if (user?.email === 'miaox018@gmail.com' && !isAdmin && !hasAttemptedAssignment.current) {
+      hasAttemptedAssignment.current = true;
       assignAdminByEmail.mutate('miaox018@gmail.com');
     }
   }, [user?.email, isAdmin, assignAdminByEmail]);
