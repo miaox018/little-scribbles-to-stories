@@ -59,9 +59,24 @@ serve(async (req) => {
     const { priceId, tier, couponCode } = await req.json();
     console.log('[CHECKOUT] Request data:', { priceId, tier, couponCode });
     
+    // Validate that we have a price ID
+    if (!priceId || priceId.includes('REPLACE_WITH_ACTUAL')) {
+      console.error('[CHECKOUT] Invalid price ID:', priceId);
+      throw new Error('Payment configuration not set up. Please contact support to complete the Stripe integration.');
+    }
+    
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
       apiVersion: '2023-10-16',
     });
+
+    // Validate the price exists in Stripe
+    try {
+      const price = await stripe.prices.retrieve(priceId);
+      console.log('[CHECKOUT] Price validated:', price.id, price.unit_amount);
+    } catch (priceError) {
+      console.error('[CHECKOUT] Price validation failed:', priceError);
+      throw new Error('Invalid pricing configuration. Please contact support.');
+    }
 
     // Create or get customer
     let customer;

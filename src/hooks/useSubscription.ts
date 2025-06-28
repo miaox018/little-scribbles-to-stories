@@ -81,31 +81,50 @@ export const useSubscription = () => {
 
     console.log('Valid session found, proceeding with checkout...');
 
+    // TODO: Replace these with your actual Stripe Price IDs from your Stripe Dashboard
+    // Go to Stripe Dashboard → Products → Create products and copy the Price IDs
     const priceIds = {
-      storypro: 'price_storypro', // StoryPro $4.99/month
-      storypro_plus: 'price_storypro_plus', // StoryPro+ $9.99/month
+      storypro: 'price_REPLACE_WITH_ACTUAL_STORYPRO_PRICE_ID', // Replace with real Price ID for $4.99/month
+      storypro_plus: 'price_REPLACE_WITH_ACTUAL_STORYPRO_PLUS_PRICE_ID', // Replace with real Price ID for $9.99/month
     };
 
-    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-      body: {
-        priceId: priceIds[tier],
-        tier: tier,
-        couponCode: couponCode || undefined,
-      },
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      }
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: {
+          priceId: priceIds[tier],
+          tier: tier,
+          couponCode: couponCode || undefined,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
+      });
 
-    if (error) {
-      console.error('Checkout session error:', error);
-      throw error;
+      if (error) {
+        console.error('Checkout session error:', error);
+        
+        // Provide more helpful error messages
+        if (error.message?.includes('No such price')) {
+          throw new Error('Payment configuration error. Please contact support.');
+        } else if (error.message?.includes('Authentication')) {
+          throw new Error('Please sign in again and try again.');
+        } else {
+          throw new Error(`Checkout failed: ${error.message}`);
+        }
+      }
+      
+      console.log('Checkout session created successfully:', data);
+      
+      // Open Stripe checkout in a new tab
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      } else {
+        throw new Error('No checkout URL received from server');
+      }
+    } catch (err) {
+      console.error('Error in createCheckoutSession:', err);
+      throw err;
     }
-    
-    console.log('Checkout session created successfully:', data);
-    
-    // Open Stripe checkout in a new tab
-    window.open(data.url, '_blank');
   };
 
   return {
