@@ -1,9 +1,10 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Mail, Eye, Loader2, X, AlertCircle, Trash2 } from "lucide-react";
 import { useStories } from "@/hooks/useStories";
-import { StoryViewer } from "./StoryViewer";
+import { StoryCarousel } from "./StoryCarousel";
 import { DeleteStoryDialog } from "./DeleteStoryDialog";
 import { ShareStoryDialog } from "./ShareStoryDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,24 +50,6 @@ export function Library() {
       });
     } finally {
       setIsDeletingStory(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600';
-      case 'processing': return 'text-blue-600';
-      case 'failed': return 'text-red-600';
-      case 'cancelled': return 'text-gray-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'processing': return <Loader2 className="h-3 w-3 animate-spin" />;
-      case 'failed': case 'cancelled': return <AlertCircle className="h-3 w-3" />;
-      default: return null;
     }
   };
 
@@ -168,10 +151,10 @@ export function Library() {
       )}
 
       {selectedStory && (
-        <StoryViewer
+        <StoryCarousel
           story={selectedStory}
-          isOpen={!!selectedStory}
           onClose={() => setSelectedStory(null)}
+          showSaveButton={false}
         />
       )}
 

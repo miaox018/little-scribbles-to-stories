@@ -3,7 +3,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { CreateStory } from "@/components/dashboard/CreateStory";
 import { Library } from "@/components/dashboard/Library";
-import { InProgressStories } from "@/components/dashboard/InProgressStories";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { AdminPanel } from "@/components/dashboard/AdminPanel";
@@ -13,7 +12,7 @@ import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Shield } from "lucide-react";
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<"create" | "in-progress" | "library">("create");
+  const [activeTab, setActiveTab] = useState<"create" | "library">("create");
   const { user, signOut } = useAuth();
   const { isAdmin, assignAdminByEmail } = useUserRoles();
   const hasAttemptedAssignment = useRef(false);
@@ -33,7 +32,6 @@ const Dashboard = () => {
   const getTabTitle = () => {
     switch (activeTab) {
       case "create": return "Create Story";
-      case "in-progress": return "Stories In Progress";
       case "library": return "My Library";
       default: return "Dashboard";
     }
@@ -81,7 +79,6 @@ const Dashboard = () => {
               </div>
             )}
             {activeTab === "create" && <CreateStory />}
-            {activeTab === "in-progress" && <InProgressStories />}
             {activeTab === "library" && <Library />}
           </div>
         </main>

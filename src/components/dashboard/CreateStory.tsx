@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
 import { ArtStyleSelector } from "@/components/dashboard/ArtStyleSelector";
-import { TransformationProgress } from "@/components/dashboard/TransformationProgress";
+import { StoryCarousel } from "@/components/dashboard/StoryCarousel";
+import { useStories } from "@/hooks/useStories";
 
 export function CreateStory() {
   const [dragActive, setDragActive] = useState(false);
@@ -14,13 +16,17 @@ export function CreateStory() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [storyTitle, setStoryTitle] = useState("");
   const [selectedArtStyle, setSelectedArtStyle] = useState("classic_watercolor");
+  const [currentStory, setCurrentStory] = useState<any>(null);
+  const [originalImageUrls, setOriginalImageUrls] = useState<string[]>([]);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  
   const { 
     transformStory, 
     cancelTransformation, 
-    isTransforming, 
-    currentPage, 
-    totalPages 
+    isTransforming
   } = useStoryTransformation();
+  
+  const { stories, refetch } = useStories();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -87,8 +93,84 @@ export function CreateStory() {
       return;
     }
     
-    await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
+    // Store original image URLs for carousel
+    const imageUrls = uploadedFiles.map(file => createImageUrl(file));
+    setOriginalImageUrls(imageUrls);
+    
+    const storyId = await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
+    
+    if (storyId) {
+      // Fetch the created story and show carousel
+      refetch();
+      const story = stories.find(s => s.id === storyId);
+      if (story) {
+        setCurrentStory(story);
+      }
+    }
   };
+
+  const handleSaveStory = () => {
+    // Reset the form after successful save
+    setCurrentStory(null);
+    setUploadedFiles([]);
+    setStoryTitle("");
+    setOriginalImageUrls([]);
+    refetch();
+  };
+
+  const handleCloseCarousel = () => {
+    if (currentStory?.status !== 'saved') {
+      setShowExitConfirmation(true);
+    } else {
+      setCurrentStory(null);
+      setOriginalImageUrls([]);
+    }
+  };
+
+  const confirmExit = () => {
+    setCurrentStory(null);
+    setUploadedFiles([]);
+    setStoryTitle("");
+    setOriginalImageUrls([]);
+    setShowExitConfirmation(false);
+  };
+
+  // Show carousel if we have a current story
+  if (currentStory) {
+    return (
+      <>
+        <StoryCarousel
+          story={currentStory}
+          originalImages={originalImageUrls}
+          onSave={handleSaveStory}
+          onClose={handleCloseCarousel}
+          isGenerating={isTransforming}
+        />
+        
+        {/* Exit Confirmation Dialog */}
+        {showExitConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+            <Card className="w-96">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-2">Leave Without Saving?</h3>
+                <p className="text-gray-600 mb-4">
+                  You will lose all the work you've created if you leave now. Are you sure?
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <Button variant="outline" onClick={() => setShowExitConfirmation(false)}>
+                    Stay
+                  </Button>
+                  <Button variant="destructive" onClick={confirmExit}>
+                    Leave & Lose Work
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -99,7 +181,7 @@ export function CreateStory() {
         </p>
       </div>
 
-      {/* Upload Area - Moved to top */}
+      {/* Upload Area */}
       <Card className="mb-8">
         <CardContent className="p-8">
           <div
@@ -230,30 +312,24 @@ export function CreateStory() {
               {isTransforming ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Transforming Story...
+                  Creating Magic...
                 </>
               ) : (
                 "Transform Into Storybook"
               )}
             </Button>
             {isTransforming && (
-              <p className="text-sm text-gray-600 text-center mt-3">
-                This may take a few minutes. We're analyzing your drawings and creating professional illustrations!
-              </p>
+              <div className="text-center mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+                <p className="text-lg font-medium text-purple-800 mb-2">
+                  Great art takes time! 🎨✨
+                </p>
+                <p className="text-sm text-purple-600">
+                  Your masterpiece is being crafted. Please hold tight for a moment—it's worth the wait!
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Show transformation progress if processing - Moved to end */}
-      {isTransforming && (
-        <div className="mb-6">
-          <TransformationProgress 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onCancel={cancelTransformation}
-          />
-        </div>
       )}
     </div>
   );

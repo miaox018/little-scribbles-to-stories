@@ -13,8 +13,6 @@ export interface ImageData {
 
 export const useStoryTransformation = () => {
   const [isTransforming, setIsTransforming] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const { user } = useAuth();
   const { trackStoryCreation, trackPageUpload, checkCanCreateStory } = useUsageTracking();
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -89,8 +87,6 @@ export const useStoryTransformation = () => {
     }
     
     setIsTransforming(false);
-    setCurrentPage(0);
-    setTotalPages(0);
     
     toast({
       title: "Transformation Cancelled",
@@ -143,8 +139,6 @@ export const useStoryTransformation = () => {
     }
 
     setIsTransforming(true);
-    setCurrentPage(0);
-    setTotalPages(files.length + 1); // +1 for memory collage
 
     // Create new AbortController for this transformation
     abortControllerRef.current = new AbortController();
@@ -152,14 +146,14 @@ export const useStoryTransformation = () => {
     try {
       console.log('Creating story record...');
       
-      // Create story record with 'processing' status (not saved to library yet)
+      // Create story record with 'processing' status - OpenAI returns exact N pages (no +1)
       const { data: story, error: storyError } = await supabase
         .from('stories')
         .insert({
           user_id: user.id,
           title,
-          status: 'processing', // Start as processing, not draft
-          total_pages: files.length + 1,
+          status: 'processing',
+          total_pages: files.length, // Exact number of uploaded files
           art_style: artStyle
         })
         .select()
@@ -196,7 +190,6 @@ export const useStoryTransformation = () => {
           throw new Error('Transformation cancelled');
         }
 
-        setCurrentPage(i + 1);
         const file = files[i];
         const url = await uploadImageToStorage(file, story.id, i + 1);
         const dataUrl = await fileToDataUrl(file);
@@ -241,8 +234,8 @@ export const useStoryTransformation = () => {
       }
 
       toast({
-        title: "Success!",
-        description: "Your story has been transformed! Check 'In Progress' to review and save it to your library."
+        title: "✨ Story Ready!",
+        description: "Your masterpiece has been transformed and is ready to view!",
       });
 
       return story.id;
@@ -261,8 +254,6 @@ export const useStoryTransformation = () => {
       });
     } finally {
       setIsTransforming(false);
-      setCurrentPage(0);
-      setTotalPages(0);
       abortControllerRef.current = null;
     }
   };
@@ -270,8 +261,6 @@ export const useStoryTransformation = () => {
   return {
     transformStory,
     cancelTransformation,
-    isTransforming,
-    currentPage,
-    totalPages
+    isTransforming
   };
 };
