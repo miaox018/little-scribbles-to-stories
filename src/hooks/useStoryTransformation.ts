@@ -73,8 +73,8 @@ export const useStoryTransformation = () => {
       }
 
       attempts++;
-      // Wait 5 seconds between checks
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait 10 seconds between checks (longer due to rate limiting)
+      await new Promise(resolve => setTimeout(resolve, 10000));
     }
 
     throw new Error('Story processing timed out after polling');
@@ -146,14 +146,14 @@ export const useStoryTransformation = () => {
     try {
       console.log('Creating story record...');
       
-      // Create story record with exact page count (no +1)
+      // Create story record with exact page count
       const { data: story, error: storyError } = await supabase
         .from('stories')
         .insert({
           user_id: user.id,
           title,
           status: 'processing',
-          total_pages: files.length, // Exact number of uploaded files
+          total_pages: files.length,
           art_style: artStyle
         })
         .select()
@@ -198,6 +198,12 @@ export const useStoryTransformation = () => {
 
       console.log('Uploaded images:', imageData.length);
 
+      // Show immediate feedback about potential delays
+      toast({
+        title: "Processing Started",
+        description: "Your story is being processed. Due to high demand, this may take longer than usual. Please be patient!",
+      });
+
       // Call the transformation Edge Function
       try {
         console.log('Calling transform-story edge function...');
@@ -214,23 +220,32 @@ export const useStoryTransformation = () => {
           console.warn('Edge function call failed, but story may still be processing:', transformError);
           
           toast({
-            title: "Processing Started",
-            description: "Your story is being processed. This may take several minutes for complex art styles.",
+            title: "Processing in Background",
+            description: "Your story is being processed. This may take several minutes due to high demand.",
           });
 
-          await pollStoryStatus(story.id);
+          await pollStoryStatus(story.id, 120); // Increased timeout for rate limiting
         } else {
           console.log('Transform result:', transformResult);
+          
+          if (transformResult.successful_pages === 0) {
+            toast({
+              title: "Processing Issues",
+              description: "All pages failed to process due to high server demand. Please try again in a few minutes.",
+              variant: "destructive"
+            });
+            return story.id;
+          }
         }
       } catch (functionError) {
         console.warn('Edge function timeout, switching to polling mode:', functionError);
         
         toast({
           title: "Processing in Background",
-          description: "Your story is being processed. This may take several minutes. We'll check the status automatically.",
+          description: "Your story is being processed. This may take several minutes due to high demand.",
         });
 
-        await pollStoryStatus(story.id);
+        await pollStoryStatus(story.id, 120); // Increased timeout
       }
 
       toast({
@@ -247,9 +262,19 @@ export const useStoryTransformation = () => {
         return;
       }
       
+      // Provide more specific error messages
+      let errorMessage = "Failed to transform story";
+      if (error instanceof Error) {
+        if (error.message.includes('rate limit') || error.message.includes('Error 1015')) {
+          errorMessage = "The AI service is currently experiencing high demand. Please try again in a few minutes.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to transform story",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

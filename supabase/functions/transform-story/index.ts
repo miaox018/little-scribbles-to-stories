@@ -39,12 +39,12 @@ serve(async (req) => {
 
     const userId = storyData.user_id;
 
-    // Update story status to processing with exact page count (no +1)
+    // Update story status to processing with exact page count
     await supabase
       .from('stories')
       .update({ 
         status: 'processing',
-        total_pages: images.length // Exact number of uploaded images
+        total_pages: images.length
       })
       .eq('id', storyId);
 
@@ -56,7 +56,7 @@ serve(async (req) => {
     let successfulPages = 0;
     let failedPages = 0;
 
-    // Process each image with delays and individual error handling
+    // Process each image with longer delays and better error handling
     for (let i = 0; i < images.length; i++) {
       try {
         console.log(`Processing page ${i + 1} of ${images.length}`);
@@ -99,9 +99,11 @@ serve(async (req) => {
         // Continue processing other pages
       }
 
-      // Add delay between pages (except after the last page)
+      // Add longer delay between pages to avoid rate limiting (except after the last page)
       if (i < images.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        const delayMs = 5000; // 5 seconds between pages
+        console.log(`Waiting ${delayMs}ms before processing next page...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
 
@@ -118,7 +120,7 @@ serve(async (req) => {
       .from('stories')
       .update({ 
         status: finalStatus,
-        total_pages: images.length // Keep exact count
+        total_pages: images.length
       })
       .eq('id', storyId);
 
@@ -128,7 +130,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
-        pages_processed: images.length, // Exact count
+        pages_processed: images.length,
         successful_pages: successfulPages,
         failed_pages: failedPages,
         status: finalStatus
