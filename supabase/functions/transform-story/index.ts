@@ -4,8 +4,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { corsHeaders, artStylePrompts } from './config.ts';
 import { processStoryPage } from './story-processor.ts';
-import { generateMemoryCollage } from './openai-api.ts';
-import { uploadImageToSupabase } from './storage-utils.ts';
 import type { ImageData } from './types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -41,12 +39,12 @@ serve(async (req) => {
 
     const userId = storyData.user_id;
 
-    // Update story status to processing with exact page count
+    // Update story status to processing with exact page count (no +1)
     await supabase
       .from('stories')
       .update({ 
         status: 'processing',
-        total_pages: images.length + 1 // +1 for memory collage
+        total_pages: images.length // Exact number of uploaded images
       })
       .eq('id', storyId);
 
@@ -83,7 +81,7 @@ serve(async (req) => {
           artStyleGuidelines = `- Art style: ${stylePrompt}
 - Visual language and composition style from page 1
 - Text typography and placement style from page 1
-- Portrait orientation with 3:4 aspect ratio and safe margins`;
+- Portrait orientation (3:4 aspect ratio) with safe margins`;
         }
 
         console.log(`Completed page ${i + 1} of ${images.length} with ${artStyle} style`);
@@ -107,39 +105,6 @@ serve(async (req) => {
       }
     }
 
-    // Generate memory collage page
-    try {
-      console.log('Generating memory collage page...');
-      const collageImageData = await generateMemoryCollage(
-        images.map(img => img.dataUrl), 
-        storyData.title || 'My Story'
-      );
-      
-      const collageImageUrl = await uploadImageToSupabase(
-        collageImageData, 
-        storyId, 
-        images.length + 1, 
-        userId, 
-        supabase
-      );
-
-      await supabase
-        .from('story_pages')
-        .insert({
-          story_id: storyId,
-          page_number: images.length + 1,
-          original_image_url: null,
-          generated_image_url: collageImageUrl,
-          enhanced_prompt: 'Memory collage of original drawings',
-          transformation_status: 'completed'
-        });
-
-      console.log('Memory collage page completed');
-    } catch (error) {
-      console.error('Failed to generate memory collage:', error);
-      failedPages++;
-    }
-
     // Determine final status
     let finalStatus = 'completed';
     if (failedPages > 0 && successfulPages > 0) {
@@ -153,7 +118,7 @@ serve(async (req) => {
       .from('stories')
       .update({ 
         status: finalStatus,
-        total_pages: images.length + 1
+        total_pages: images.length // Keep exact count
       })
       .eq('id', storyId);
 
@@ -163,7 +128,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
-        pages_processed: images.length + 1,
+        pages_processed: images.length, // Exact count
         successful_pages: successfulPages,
         failed_pages: failedPages,
         status: finalStatus

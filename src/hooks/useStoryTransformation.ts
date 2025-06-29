@@ -54,7 +54,7 @@ export const useStoryTransformation = () => {
       return false;
     }
 
-    return story?.status === 'completed';
+    return story?.status === 'completed' || story?.status === 'partial';
   };
 
   const pollStoryStatus = async (storyId: string, maxAttempts: number = 60): Promise<void> => {
@@ -146,7 +146,7 @@ export const useStoryTransformation = () => {
     try {
       console.log('Creating story record...');
       
-      // Create story record with 'processing' status - OpenAI returns exact N pages (no +1)
+      // Create story record with exact page count (no +1)
       const { data: story, error: storyError } = await supabase
         .from('stories')
         .insert({

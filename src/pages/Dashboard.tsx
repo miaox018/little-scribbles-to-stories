@@ -21,7 +21,14 @@ const Dashboard = () => {
   useEffect(() => {
     if (user?.email === 'miaox018@gmail.com' && !isAdmin && !hasAttemptedAssignment.current) {
       hasAttemptedAssignment.current = true;
-      assignAdminByEmail.mutate('miaox018@gmail.com');
+      // Use a timeout to avoid race conditions
+      setTimeout(() => {
+        assignAdminByEmail.mutate('miaox018@gmail.com', {
+          onError: (error) => {
+            console.log('Admin role assignment skipped (likely already exists):', error);
+          }
+        });
+      }, 1000);
     }
   }, [user?.email, isAdmin, assignAdminByEmail]);
 

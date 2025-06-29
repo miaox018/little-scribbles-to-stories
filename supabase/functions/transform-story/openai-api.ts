@@ -1,5 +1,4 @@
 
-
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string) {
@@ -40,11 +39,10 @@ export async function generateImageWithGPT(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-image-1',
+      model: 'dall-e-3',
       prompt: prompt,
-      size: '1024x1536',
-      quality: 'high',
-      output_format: 'png',
+      size: '1024x1792',
+      quality: 'standard',
       n: 1
     }),
   });
@@ -54,24 +52,5 @@ export async function generateImageWithGPT(prompt: string) {
   }
 
   const data = await response.json();
-  // gpt-image-1 returns base64 data directly
-  return data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
+  return data.data[0].url;
 }
-
-export async function generateMemoryCollage(originalImages: string[], storyTitle: string) {
-  const collagePrompt = `Create a beautiful memory collage page for a children's storybook titled "${storyTitle}". 
-  
-  This should be a final page that celebrates all the original drawings from the story. Design it as a scrapbook-style collage with:
-  - A warm, nostalgic border
-  - Space for multiple small drawings arranged artistically
-  - Text that says "My Original Drawings" or "Memory Page"
-  - Decorative elements like stars, hearts, or frames
-  - A layout that would showcase ${originalImages.length} different drawings
-  - Portrait orientation (3:4 aspect ratio)
-  - Soft, warm colors that complement a children's book
-  
-  Style: Watercolor illustration style with hand-drawn elements, suitable for a children's storybook finale.`;
-
-  return await generateImageWithGPT(collagePrompt);
-}
-
