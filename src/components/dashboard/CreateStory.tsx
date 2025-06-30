@@ -1,336 +1,261 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Upload, FileImage, GripVertical, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Upload, Wand2, FileImage } from "lucide-react";
+import { useDropzone } from "react-dropzone";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
-import { ArtStyleSelector } from "@/components/dashboard/ArtStyleSelector";
-import { StoryCarousel } from "@/components/dashboard/StoryCarousel";
-import { useStories } from "@/hooks/useStories";
+import { StoryCarousel } from "./StoryCarousel";
+import { ArtStyleSelector } from "./ArtStyleSelector";
+import { TransformationProgress } from "./TransformationProgress";
+import { PaywallModal } from "@/components/paywall/PaywallModal";
+import { useSubscription } from "@/hooks/useSubscription";
+import { toast } from "@/hooks/use-toast";
 
 export function CreateStory() {
-  const [dragActive, setDragActive] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [storyTitle, setStoryTitle] = useState("");
-  const [selectedArtStyle, setSelectedArtStyle] = useState("classic_watercolor");
-  const [currentStory, setCurrentStory] = useState<any>(null);
-  const [originalImageUrls, setOriginalImageUrls] = useState<string[]>([]);
-  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [title, setTitle] = useState("");
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [artStyle, setArtStyle] = useState("classic_watercolor");
+  const [showPaywall, setShowPaywall] = useState(false);
   
+  const { subscription } = useSubscription();
   const { 
+    isTransforming, 
+    transformedStory, 
+    progress, 
+    error, 
     transformStory, 
-    cancelTransformation, 
-    isTransforming
+    resetTransformation 
   } = useStoryTransformation();
-  
-  const { stories, refetch } = useStories();
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files).filter(file => 
-      file.type.startsWith('image/')
-    );
-    setUploadedFiles(prev => [...prev, ...files]);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setUploadedFiles(prev => [...prev, ...files]);
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleImageDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleImageDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleImageDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === dropIndex) return;
-
-    const newFiles = [...uploadedFiles];
-    const draggedFile = newFiles[draggedIndex];
-    newFiles.splice(draggedIndex, 1);
-    newFiles.splice(dropIndex, 0, draggedFile);
-    
-    setUploadedFiles(newFiles);
-    setDraggedIndex(null);
-  };
-
-  const createImageUrl = (file: File) => {
-    return URL.createObjectURL(file);
-  };
-
-  const handleTransformStory = async () => {
-    if (!storyTitle.trim()) {
-      alert("Please enter a story title");
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length + selectedImages.length > 10) {
+      toast({
+        title: "Too Many Images",
+        description: "You can upload a maximum of 10 images per story.",
+        variant: "destructive"
+      });
       return;
     }
     
-    // Store original image URLs for carousel
-    const imageUrls = uploadedFiles.map(file => createImageUrl(file));
-    setOriginalImageUrls(imageUrls);
-    
-    const storyId = await transformStory(uploadedFiles, storyTitle.trim(), selectedArtStyle);
-    
-    if (storyId) {
-      // Fetch the created story and show carousel
-      refetch();
-      const story = stories.find(s => s.id === storyId);
-      if (story) {
-        setCurrentStory(story);
-      }
+    setSelectedImages(prev => [...prev, ...acceptedFiles]);
+  }, [selectedImages.length]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
+    },
+    maxFiles: 10 - selectedImages.length,
+    disabled: isTransforming
+  });
+
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleTransform = async () => {
+    if (!title.trim()) {
+      toast({
+        title: "Title Required",
+        description: "Please enter a title for your story.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (selectedImages.length === 0) {
+      toast({
+        title: "Images Required", 
+        description: "Please upload at least one image for your story.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check subscription limits
+    if (subscription.subscription_tier === 'free' && selectedImages.length > 3) {
+      setShowPaywall(true);
+      return;
+    }
+
+    try {
+      await transformStory(title, selectedImages, artStyle);
+    } catch (error) {
+      // Error is already handled in the hook
     }
   };
 
-  const handleSaveStory = () => {
-    // Reset the form after successful save
-    setCurrentStory(null);
-    setUploadedFiles([]);
-    setStoryTitle("");
-    setOriginalImageUrls([]);
-    refetch();
+  const handleStartOver = () => {
+    resetTransformation();
+    setTitle("");
+    setSelectedImages([]);
+    setArtStyle("classic_watercolor");
   };
 
-  const handleCloseCarousel = () => {
-    if (currentStory?.status !== 'saved') {
-      setShowExitConfirmation(true);
-    } else {
-      setCurrentStory(null);
-      setOriginalImageUrls([]);
-    }
-  };
-
-  const confirmExit = () => {
-    setCurrentStory(null);
-    setUploadedFiles([]);
-    setStoryTitle("");
-    setOriginalImageUrls([]);
-    setShowExitConfirmation(false);
-  };
-
-  // Show carousel if we have a current story
-  if (currentStory) {
+  // Show the carousel if story is completed
+  if (transformedStory && !isTransforming) {
+    const originalImageUrls = selectedImages.map(file => URL.createObjectURL(file));
+    
     return (
-      <>
-        <StoryCarousel
-          story={currentStory}
-          originalImages={originalImageUrls}
-          onSave={handleSaveStory}
-          onClose={handleCloseCarousel}
-          isGenerating={isTransforming}
-        />
-        
-        {/* Exit Confirmation Dialog */}
-        {showExitConfirmation && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-            <Card className="w-96">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold mb-2">Leave Without Saving?</h3>
-                <p className="text-gray-600 mb-4">
-                  You will lose all the work you've created if you leave now. Are you sure?
-                </p>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => setShowExitConfirmation(false)}>
-                    Stay
-                  </Button>
-                  <Button variant="destructive" onClick={confirmExit}>
-                    Leave & Lose Work
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </>
+      <StoryCarousel
+        story={transformedStory}
+        originalImages={originalImageUrls}
+        onSave={handleStartOver}
+        showSaveButton={true}
+      />
+    );
+  }
+
+  // Show progress if transforming
+  if (isTransforming) {
+    return (
+      <TransformationProgress
+        progress={progress}
+        storyTitle={title}
+        totalPages={selectedImages.length}
+      />
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Create New Story</h1>
-        <p className="text-gray-600">
-          Upload your child's hand-drawn story pages to transform them into a beautiful, professional storybook.
-        </p>
-      </div>
-
-      {/* Upload Area */}
       <Card className="mb-8">
-        <CardContent className="p-8">
-          <div
-            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-              dragActive
-                ? "border-purple-500 bg-purple-50"
-                : "border-gray-300 hover:border-purple-400"
-            } ${isTransforming ? "opacity-50 pointer-events-none" : ""}`}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-          >
-            <Upload className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              Drop your story pages here
-            </h3>
-            <p className="text-gray-500 mb-6">
-              or click to browse and select multiple images
-            </p>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-              disabled={isTransforming}
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wand2 className="h-6 w-6 text-purple-600" />
+            Create Your Magical Story
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Title Input */}
+          <div className="space-y-2">
+            <Label htmlFor="title">Story Title</Label>
+            <Input
+              id="title"
+              placeholder="Enter your story title..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-lg"
             />
-            <label htmlFor="file-upload">
-              <Button 
-                asChild 
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                disabled={isTransforming}
-              >
-                <span className="cursor-pointer">
-                  <FileImage className="mr-2 h-4 w-4" />
-                  Select Images
-                </span>
-              </Button>
-            </label>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Uploaded Files Preview */}
-      {uploadedFiles.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              Uploaded Pages ({uploadedFiles.length})
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Drag and drop images to reorder them
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {uploadedFiles.map((file, index) => (
-                <div 
-                  key={index} 
-                  className={`relative group cursor-move ${isTransforming ? "opacity-50" : ""}`}
-                  draggable={!isTransforming}
-                  onDragStart={(e) => handleImageDragStart(e, index)}
-                  onDragOver={(e) => handleImageDragOver(e, index)}
-                  onDrop={(e) => handleImageDrop(e, index)}
-                >
-                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative">
-                    <img 
-                      src={createImageUrl(file)} 
+          {/* Image Upload */}
+          <div className="space-y-4">
+            <Label>Upload Your Story Images (Max 10)</Label>
+            
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                isDragActive 
+                  ? "border-purple-400 bg-purple-50" 
+                  : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              {isDragActive ? (
+                <p className="text-lg">Drop your images here...</p>
+              ) : (
+                <div>
+                  <p className="text-lg mb-2">
+                    Drag & drop images here, or click to select
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Supports PNG, JPG, JPEG, GIF, WebP (Max 10 images)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Images Preview */}
+            {selectedImages.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {selectedImages.map((file, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={URL.createObjectURL(file)}
                       alt={`Page ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-32 object-cover rounded-lg"
                     />
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                      {index + 1}
-                    </div>
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <GripVertical className="h-4 w-4 text-white drop-shadow-lg" />
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-1 truncate">{file.name}</p>
-                  {!isTransforming && (
                     <button
-                      onClick={() => removeFile(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       ×
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                    <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                      Page {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-      {/* Story Title Input */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <Label htmlFor="story-title" className="text-base font-medium">
-            Story Title
-          </Label>
-          <Input
-            id="story-title"
-            placeholder="Enter your story title..."
-            value={storyTitle}
-            onChange={(e) => setStoryTitle(e.target.value)}
-            className="mt-2"
-            disabled={isTransforming}
+          {/* Art Style Selection */}
+          <ArtStyleSelector
+            selectedStyle={artStyle}
+            onStyleChange={setArtStyle}
           />
+
+          {/* Transform Button */}
+          <Button
+            onClick={handleTransform}
+            disabled={isTransforming || !title.trim() || selectedImages.length === 0}
+            size="lg"
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          >
+            {isTransforming ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Transforming Story...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-5 w-5 mr-2" />
+                Transform My Story
+              </>
+            )}
+          </Button>
+
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={resetTransformation}
+                className="mt-2"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Art Style Selection */}
-      <ArtStyleSelector
-        selectedStyle={selectedArtStyle}
-        onStyleChange={setSelectedArtStyle}
-        disabled={isTransforming}
-      />
-
-      {/* Transform Button */}
-      {uploadedFiles.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <Button 
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-              onClick={handleTransformStory}
-              disabled={isTransforming || !storyTitle.trim()}
-            >
-              {isTransforming ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Magic...
-                </>
-              ) : (
-                "Transform Into Storybook"
-              )}
-            </Button>
-            {isTransforming && (
-              <div className="text-center mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
-                <p className="text-lg font-medium text-purple-800 mb-2">
-                  Great art takes time! 🎨✨
-                </p>
-                <p className="text-sm text-purple-600">
-                  Your masterpiece is being crafted. Please hold tight for a moment—it's worth the wait!
-                </p>
-              </div>
-            )}
+      {/* Free user info */}
+      {subscription.subscription_tier === 'free' && (
+        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+          <CardContent className="p-4">
+            <p className="text-sm text-purple-700">
+              <strong>Free Plan:</strong> Transform up to 3 pages per story. 
+              Upgrade for unlimited pages and advanced features!
+            </p>
           </CardContent>
         </Card>
       )}
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        storyTitle={title}
+      />
     </div>
   );
 }
