@@ -13,6 +13,7 @@ import { ArtStyleSelector } from "./ArtStyleSelector";
 import { TransformationProgress } from "./TransformationProgress";
 import { PaywallModal } from "@/components/paywall/PaywallModal";
 import { useSubscription } from "@/hooks/useSubscription";
+import { DraggableImageList } from "./DraggableImageList";
 import { toast } from "@/hooks/use-toast";
 
 export function CreateStory() {
@@ -21,7 +22,7 @@ export function CreateStory() {
   const [artStyle, setArtStyle] = useState("classic_watercolor");
   const [showPaywall, setShowPaywall] = useState(false);
   
-  const { subscription } = useSubscription();
+  const { subscription, limits } = useSubscription();
   const { 
     isTransforming, 
     transformedStory, 
@@ -31,27 +32,33 @@ export function CreateStory() {
     resetTransformation 
   } = useStoryTransformation();
 
+  const maxPages = limits?.pages_per_story || 3;
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length + selectedImages.length > 10) {
+    if (acceptedFiles.length + selectedImages.length > maxPages) {
       toast({
         title: "Too Many Images",
-        description: "You can upload a maximum of 10 images per story.",
+        description: `You can upload a maximum of ${maxPages} images per story with your current plan.`,
         variant: "destructive"
       });
       return;
     }
     
     setSelectedImages(prev => [...prev, ...acceptedFiles]);
-  }, [selectedImages.length]);
+  }, [selectedImages.length, maxPages]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
     },
-    maxFiles: 10 - selectedImages.length,
+    maxFiles: maxPages - selectedImages.length,
     disabled: isTransforming
   });
+
+  const handleImageReorder = (newOrder: File[]) => {
+    setSelectedImages(newOrder);
+  };
 
   const removeImage = (index: number) => {
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
@@ -77,7 +84,7 @@ export function CreateStory() {
     }
 
     // Check subscription limits
-    if (subscription.subscription_tier === 'free' && selectedImages.length > 3) {
+    if (selectedImages.length > maxPages) {
       setShowPaywall(true);
       return;
     }
@@ -146,55 +153,42 @@ export function CreateStory() {
 
           {/* Image Upload */}
           <div className="space-y-4">
-            <Label>Upload Your Story Images (Max 10)</Label>
+            <Label>
+              Upload Your Story Images (Max {maxPages} for {subscription.subscription_tier === 'free' ? 'Free' : 'your'} plan)
+            </Label>
             
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                isDragActive 
-                  ? "border-purple-400 bg-purple-50" 
-                  : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
-              }`}
-            >
-              <input {...getInputProps()} />
-              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              {isDragActive ? (
-                <p className="text-lg">Drop your images here...</p>
-              ) : (
-                <div>
-                  <p className="text-lg mb-2">
-                    Drag & drop images here, or click to select
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Supports PNG, JPG, JPEG, GIF, WebP (Max 10 images)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Selected Images Preview */}
-            {selectedImages.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {selectedImages.map((file, index) => (
-                  <div key={index} className="relative group">
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt={`Page ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <button
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      ×
-                    </button>
-                    <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                      Page {index + 1}
-                    </div>
+            {selectedImages.length < maxPages && (
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  isDragActive 
+                    ? "border-purple-400 bg-purple-50" 
+                    : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
+                }`}
+              >
+                <input {...getInputProps()} />
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                {isDragActive ? (
+                  <p className="text-lg">Drop your images here...</p>
+                ) : (
+                  <div>
+                    <p className="text-lg mb-2">
+                      Drag & drop images here, or click to select
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Supports PNG, JPG, JPEG, GIF, WebP ({maxPages - selectedImages.length} remaining)
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
             )}
+
+            {/* Selected Images with Drag & Drop Reordering */}
+            <DraggableImageList
+              images={selectedImages}
+              onReorder={handleImageReorder}
+              onRemove={removeImage}
+            />
           </div>
 
           {/* Art Style Selection */}
@@ -239,17 +233,20 @@ export function CreateStory() {
         </CardContent>
       </Card>
 
-      {/* Free user info */}
-      {subscription.subscription_tier === 'free' && (
-        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-          <CardContent className="p-4">
-            <p className="text-sm text-purple-700">
-              <strong>Free Plan:</strong> Transform up to 3 pages per story. 
-              Upgrade for unlimited pages and advanced features!
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Subscription Info */}
+      <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+        <CardContent className="p-4">
+          <p className="text-sm text-purple-700">
+            <strong>{subscription.subscription_tier === 'free' ? 'Free Plan' : `${subscription.subscription_tier} Plan`}:</strong> 
+            {' '}Transform up to {maxPages} pages per story
+            {subscription.subscription_tier === 'free' && (
+              <span className="ml-2">
+                Upgrade for up to 15 pages per story and advanced features!
+              </span>
+            )}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Paywall Modal */}
       <PaywallModal
