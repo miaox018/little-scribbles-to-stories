@@ -4,9 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 interface SubscriptionInfoCardProps {
   subscriptionTier: string;
   maxPages: number;
+  onUpgradeClick?: () => void;
 }
 
-export function SubscriptionInfoCard({ subscriptionTier, maxPages }: SubscriptionInfoCardProps) {
+export function SubscriptionInfoCard({ subscriptionTier, maxPages, onUpgradeClick }: SubscriptionInfoCardProps) {
   return (
     <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
       <CardContent className="p-4">
@@ -15,7 +16,12 @@ export function SubscriptionInfoCard({ subscriptionTier, maxPages }: Subscriptio
           {' '}Transform up to {maxPages} pages per story
           {subscriptionTier === 'free' && (
             <span className="ml-2">
-              Upgrade for up to 15 pages per story and advanced features!
+              <button 
+                onClick={onUpgradeClick}
+                className="text-purple-600 hover:text-purple-800 underline hover:no-underline transition-colors cursor-pointer"
+              >
+                Upgrade for up to 15 pages per story and advanced features!
+              </button>
             </span>
           )}
         </p>

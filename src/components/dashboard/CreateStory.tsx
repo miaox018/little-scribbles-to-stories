@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wand2 } from "lucide-react";
@@ -72,6 +71,10 @@ export function CreateStory() {
     setArtStyle("classic_watercolor");
   };
 
+  const handleUpgradeClick = () => {
+    setShowPaywall(true);
+  };
+
   // Show the carousel if story is completed
   if (transformedStory && !isTransforming) {
     const originalImageUrls = selectedImages.map(file => URL.createObjectURL(file));
@@ -138,6 +141,7 @@ export function CreateStory() {
       <SubscriptionInfoCard
         subscriptionTier={subscription.subscription_tier}
         maxPages={maxPages}
+        onUpgradeClick={handleUpgradeClick}
       />
 
       <PaywallModal
