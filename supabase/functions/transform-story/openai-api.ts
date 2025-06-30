@@ -84,10 +84,10 @@ export async function generateImageWithGPT(prompt: string, retryCount = 0): Prom
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
+        model: 'gpt-image-1',  // Updated to use GPT-image-1 for consistency
         prompt: prompt,
-        size: '1024x1792',
-        quality: 'standard',
+        size: '1024x1536',     // Unified: Portrait format for children's books
+        quality: 'medium',     // Unified: Medium quality for optimal cost/quality balance
         n: 1
       }),
     });
@@ -109,7 +109,8 @@ export async function generateImageWithGPT(prompt: string, retryCount = 0): Prom
     }
 
     const data = await response.json();
-    return data.data[0].url;
+    // GPT-image-1 returns base64 data directly for some configurations
+    return data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
   } catch (error) {
     if (retryCount < maxRetries && (error.message.includes('rate limit') || error.message.includes('Error 1015'))) {
       console.log(`Image generation error caught, retrying... (attempt ${retryCount + 1}/${maxRetries + 1}): ${error.message}`);

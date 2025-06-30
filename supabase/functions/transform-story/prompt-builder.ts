@@ -18,7 +18,7 @@ Previous pages in this story have been generated with these visual elements. Ens
 Transform this child's hand-drawn story page into a professional children's book illustration.
 
 🎨 FORMAT & LAYOUT REQUIREMENTS - HIGHEST PRIORITY:
-- Create a PORTRAIT orientation illustration with 3:4 aspect ratio (1024x1536 pixels)
+- Create a PORTRAIT orientation illustration with 2:3 aspect ratio (1024x1536 pixels)
 - Design for children's book page layout with proper margins
 - Keep ALL main illustration elements within a SAFE MARGIN area, leaving clear space near all edges
 - Reserve top and bottom margins for potential text placement
@@ -51,7 +51,7 @@ STYLE REQUIREMENTS:
 - Maintain story elements and characters from the original drawing
 - Make it magical and enchanting while staying true to the child's vision
 - Professional children's book illustration quality
-- Optimize composition for portrait 3:4 aspect ratio
+- Optimize composition for portrait 2:3 aspect ratio
 
 CONSISTENCY REQUIREMENTS (for pages after page 1):
 - If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages

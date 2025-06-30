@@ -101,7 +101,7 @@ serve(async (req) => {
 
       // Add longer delay between pages to avoid rate limiting (except after the last page)
       if (i < images.length - 1) {
-        const delayMs = 5000; // 5 seconds between pages
+        const delayMs = 8000; // Increased to 8 seconds between pages for better rate limiting
         console.log(`Waiting ${delayMs}ms before processing next page...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
