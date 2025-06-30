@@ -117,6 +117,7 @@ export function CreateStory() {
         progress={progress}
         storyTitle={title}
         totalPages={selectedImages.length}
+        onCancel={resetTransformation}
       />
     );
   }

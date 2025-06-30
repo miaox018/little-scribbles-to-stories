@@ -40,16 +40,14 @@ export const useStoryTransformation = () => {
     try {
       console.log('Checking if user can create story...');
       
-      // Check if user can create more stories
-      const { data: storiesCount } = await supabase
-        .from('stories')
-        .select('id', { count: 'exact' })
-        .eq('user_id', user.id);
+      // Check if user can create more stories using the database function
+      const { data: canCreate } = await supabase.rpc('can_create_story', {
+        user_id_param: user.id
+      });
 
-      const canCreateStory = !storiesCount || storiesCount.length < 10;
-      console.log('Can create story:', canCreateStory);
+      console.log('Can create story:', canCreate);
       
-      if (!canCreateStory) {
+      if (!canCreate) {
         throw new Error('Story limit reached. Please upgrade your plan.');
       }
 
@@ -73,31 +71,48 @@ export const useStoryTransformation = () => {
 
       console.log('Tracking story creation...');
       
-      // Track story creation
-      await supabase
-        .from('user_usage')
-        .insert({
-          user_id: user.id,
-          action: 'story_created',
-          metadata: { story_id: story.id, pages: images.length }
-        });
+      // Track story creation in monthly_usage table
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      
+      const { data: existingUsage } = await supabase
+        .from('monthly_usage')
+        .select('stories_created')
+        .eq('user_id', user.id)
+        .eq('month_year', currentMonth)
+        .single();
+
+      if (existingUsage) {
+        await supabase
+          .from('monthly_usage')
+          .update({
+            stories_created: existingUsage.stories_created + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .eq('month_year', currentMonth);
+      } else {
+        await supabase
+          .from('monthly_usage')
+          .insert({
+            user_id: user.id,
+            month_year: currentMonth,
+            stories_created: 1,
+            total_pages_uploaded: images.length,
+            total_pages_regenerated: 0
+          });
+      }
 
       console.log('Checking page upload limits...');
       
-      // Check page upload limits
-      const today = new Date().toISOString().split('T')[0];
-      const { data: todayUploads } = await supabase
-        .from('user_usage')
-        .select('metadata')
-        .eq('user_id', user.id)
-        .eq('action', 'page_uploaded')
-        .gte('created_at', today);
+      // Check page upload limits using database function
+      const { data: canUpload } = await supabase.rpc('can_upload_pages', {
+        user_id_param: user.id,
+        story_id_param: story.id,
+        additional_pages: images.length
+      });
 
-      const todayPages = todayUploads?.reduce((sum, usage) => 
-        sum + (usage.metadata?.pages || 1), 0) || 0;
-
-      if (todayPages + images.length > 50) {
-        throw new Error('Daily page upload limit exceeded. Please try again tomorrow.');
+      if (!canUpload) {
+        throw new Error('Page upload limit exceeded. Please upgrade your plan.');
       }
 
       console.log('Preparing image data...');
@@ -148,7 +163,7 @@ export const useStoryTransformation = () => {
       console.log('Starting polling for story completion...');
       const pollForCompletion = async (): Promise<any> => {
         let attempts = 0;
-        const maxAttempts = 120; // 10 minutes with 5-second intervals
+        const maxAttempts = 180; // 15 minutes with 5-second intervals
         
         while (attempts < maxAttempts) {
           try {
@@ -171,7 +186,7 @@ export const useStoryTransformation = () => {
 
             setState(prev => ({ 
               ...prev, 
-              progress: 50 + (attempts / maxAttempts) * 40 
+              progress: 50 + (attempts / maxAttempts) * 45 
             }));
 
             // Check if story is completed, failed, or partially completed
@@ -202,13 +217,15 @@ export const useStoryTransformation = () => {
         isTransforming: false 
       }));
 
-      // Track page uploads
+      // Track page uploads in usage_tracking table
       await supabase
-        .from('user_usage')
-        .insert({
+        .from('usage_tracking')
+        .upsert({
           user_id: user.id,
-          action: 'page_uploaded',
-          metadata: { story_id: story.id, pages: images.length }
+          story_id: story.id,
+          month_year: currentMonth,
+          pages_uploaded: images.length,
+          pages_regenerated: 0
         });
 
       if (completedStory.status === 'completed') {
