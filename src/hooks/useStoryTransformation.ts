@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +29,13 @@ export const useStoryTransformation = () => {
 
     setState(prev => ({ ...prev, isTransforming: true, error: null, progress: 0 }));
 
+    // Show encouraging message immediately
+    toast({
+      title: "Great art takes time! 🎨✨",
+      description: "Your masterpiece is being crafted as we speak. Once it's ready, you can review it anytime in the 'My Library' tab!",
+      duration: 6000,
+    });
+
     try {
       await validateStoryCreation(user!.id);
       
@@ -43,41 +49,30 @@ export const useStoryTransformation = () => {
       
       setState(prev => ({ ...prev, progress: 20 }));
 
+      // Start the transformation process in the background
       await callTransformStoryFunction(story.id, imageDataArray, artStyle);
       
       setState(prev => ({ ...prev, progress: 50 }));
 
-      const completedStory = await pollForStoryCompletion(story.id, updateProgress);
-      
+      // Show immediate feedback and redirect to library
+      toast({
+        title: "Story Started! 📚",
+        description: `"${title}" is now processing in the background. Check your library to see the progress!`,
+        duration: 4000,
+      });
+
+      // Reset the transformation state but keep story info for potential redirect
       setState(prev => ({ 
         ...prev, 
-        progress: 100, 
-        transformedStory: completedStory,
+        progress: 0, 
+        transformedStory: { ...story, status: 'processing' },
         isTransforming: false 
       }));
 
       await trackPageUploads(user!.id, story.id, images.length);
 
-      if (completedStory.status === 'completed') {
-        toast({
-          title: "Story Transformed! ✨",
-          description: `Your story "${title}" has been magically transformed!`,
-        });
-      } else if (completedStory.status === 'partial') {
-        toast({
-          title: "Story Partially Complete",
-          description: "Some pages were transformed successfully. You can regenerate failed pages.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Story Transformation Failed",
-          description: "We couldn't transform your story. Please try again with different images.",
-          variant: "destructive"
-        });
-      }
-
-      return completedStory;
+      // Return story info immediately instead of waiting for completion
+      return { ...story, status: 'processing' };
 
     } catch (error: any) {
       console.error('Story transformation error:', error);

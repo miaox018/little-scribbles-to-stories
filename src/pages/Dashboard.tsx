@@ -33,6 +33,18 @@ const Dashboard = () => {
     }
   }, [user?.email, isAdmin, assignAdminByEmail]);
 
+  // Listen for story processing events to switch to library
+  useEffect(() => {
+    const handleStoryProcessing = () => {
+      setActiveTab("library");
+    };
+
+    window.addEventListener('storyProcessingStarted', handleStoryProcessing);
+    return () => {
+      window.removeEventListener('storyProcessingStarted', handleStoryProcessing);
+    };
+  }, []);
+
   const handleSignOut = async () => {
     await signOut();
   };
@@ -87,7 +99,7 @@ const Dashboard = () => {
                 <AdminPanel />
               </div>
             )}
-            {activeTab === "create" && <CreateStory />}
+            {activeTab === "create" && <CreateStory onStoryCreated={() => setActiveTab("library")} />}
             {activeTab === "library" && <Library />}
           </div>
         </main>
