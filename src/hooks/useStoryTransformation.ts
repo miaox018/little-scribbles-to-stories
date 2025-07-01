@@ -4,7 +4,7 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import type { TransformationState } from './story-transformation/types';
 import { validateStoryCreation, validatePageUpload, validateUserAuthentication } from './story-transformation/validation';
-import { createStoryRecord, convertImagesToDataUrls, callTransformStoryFunction, pollForStoryCompletion } from './story-transformation/story-operations';
+import { createStoryRecord, uploadImagesAndGetUrls, callTransformStoryFunction, pollForStoryCompletion } from './story-transformation/story-operations';
 import { trackStoryCreation, trackPageUploads } from './story-transformation/usage-tracking';
 
 export const useStoryTransformation = () => {
@@ -39,15 +39,16 @@ export const useStoryTransformation = () => {
       
       await validatePageUpload(user!.id, story.id, images.length);
 
-      const imageDataArray = await convertImagesToDataUrls(images);
+      // Upload images to storage and get URLs instead of converting to base64
+      const imageUrls = await uploadImagesAndGetUrls(images, story.id, user!.id);
       
       setState(prev => ({ ...prev, progress: 20 }));
 
-      await callTransformStoryFunction(story.id, imageDataArray, artStyle);
+      await callTransformStoryFunction(story.id, imageUrls, artStyle);
       
       setState(prev => ({ ...prev, progress: 50 }));
 
-      const completedStory = await pollForStoryCompletion(story.id, updateProgress);
+      const completedStory = await pollForStoryCompletion(story.id, user!.id, updateProgress);
       
       setState(prev => ({ 
         ...prev, 

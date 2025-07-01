@@ -4,6 +4,30 @@ import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-
 import { buildPrompt } from './prompt-builder.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
+// Function to fetch image from URL and convert to base64
+async function fetchImageAsDataUrl(imageUrl: string): Promise<string> {
+  try {
+    console.log(`Fetching image from URL: ${imageUrl}`);
+    const response = await fetch(imageUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    
+    const dataUrl = `data:${contentType};base64,${base64}`;
+    console.log(`Successfully converted image to data URL (length: ${dataUrl.length})`);
+    
+    return dataUrl;
+  } catch (error) {
+    console.error('Error fetching image as data URL:', error);
+    throw error;
+  }
+}
+
 export async function processStoryPage({
   imageData, 
   pageNumber, 
@@ -26,14 +50,17 @@ export async function processStoryPage({
   }
 
   try {
-    // Upload original image to Supabase
-    const originalImageUrl = await uploadOriginalImageToSupabase(imageData.dataUrl, storyId, pageNumber, userId, supabase);
+    // Fetch the original image from storage URL and convert to data URL for processing
+    const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
+    
+    // Upload original image to permanent storage (from the storage URL we already have)
+    const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
     // Build context prompt
     const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
 
-    // Analyze image with GPT-4o
-    const analysisText = await analyzeImageWithGPT(imageData.dataUrl, prompt);
+    // Analyze image with GPT-4o using the data URL
+    const analysisText = await analyzeImageWithGPT(originalImageDataUrl, prompt);
     console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
 
     // Generate image with DALL-E 3
@@ -64,7 +91,7 @@ export async function processStoryPage({
       .insert({
         story_id: storyId,
         page_number: pageNumber,
-        original_image_url: imageData.url || null,
+        original_image_url: imageData.storageUrl || null,
         generated_image_url: null,
         enhanced_prompt: null,
         transformation_status: 'failed'

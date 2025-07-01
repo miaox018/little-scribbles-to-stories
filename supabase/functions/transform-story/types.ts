@@ -1,7 +1,7 @@
 
-export interface ImageData {
-  url: string;
-  dataUrl: string;
+export interface ImageUrlData {
+  storageUrl: string;
+  pageNumber: number;
 }
 
 export interface ArtStylePrompts {
@@ -9,7 +9,7 @@ export interface ArtStylePrompts {
 }
 
 export interface ProcessStoryPageParams {
-  imageData: ImageData;
+  imageData: ImageUrlData;
   pageNumber: number;
   storyId: string;
   userId: string;

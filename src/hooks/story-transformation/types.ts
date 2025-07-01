@@ -12,7 +12,7 @@ export interface TransformStoryParams {
   artStyle: string;
 }
 
-export interface ImageData {
-  dataUrl: string;
+export interface ImageUrlData {
+  storageUrl: string;
   pageNumber: number;
 }

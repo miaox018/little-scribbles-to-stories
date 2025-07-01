@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import type { ImageData } from './types';
+import { uploadImagesToStorage, cleanupTempImages } from './storage-operations';
 
 export const createStoryRecord = async (userId: string, title: string, artStyle: string, imageCount: number) => {
   console.log('Creating story record...');
@@ -23,48 +23,35 @@ export const createStoryRecord = async (userId: string, title: string, artStyle:
   return story;
 };
 
-export const convertImagesToDataUrls = async (images: File[]): Promise<ImageData[]> => {
-  console.log('Preparing image data...');
+export const uploadImagesAndGetUrls = async (images: File[], storyId: string, userId: string) => {
+  console.log('Preparing image data by uploading to storage...');
   
-  const imageDataArray = await Promise.all(
-    images.map(async (file, index) => {
-      return new Promise<ImageData>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({
-          dataUrl: reader.result as string,
-          pageNumber: index + 1
-        });
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    })
-  );
-
-  console.log('Uploaded images:', imageDataArray.length);
-  return imageDataArray;
+  const imageUrls = await uploadImagesToStorage(images, storyId, userId);
+  console.log('Images uploaded to storage:', imageUrls.length);
+  
+  return imageUrls;
 };
 
-export const callTransformStoryFunction = async (storyId: string, imageDataArray: ImageData[], artStyle: string) => {
+export const callTransformStoryFunction = async (storyId: string, imageUrls: any[], artStyle: string) => {
   console.log('=== CLIENT SIDE EDGE FUNCTION CALL ===');
   console.log('Story ID:', storyId);
-  console.log('Images count:', imageDataArray.length);
+  console.log('Images count:', imageUrls.length);
   console.log('Art style:', artStyle);
-  console.log('Sample image data structure:', {
-    hasDataUrl: !!imageDataArray[0]?.dataUrl,
-    dataUrlLength: imageDataArray[0]?.dataUrl?.length,
-    dataUrlPrefix: imageDataArray[0]?.dataUrl?.substring(0, 50),
-    pageNumber: imageDataArray[0]?.pageNumber
+  console.log('Sample image URL structure:', {
+    hasStorageUrl: !!imageUrls[0]?.storageUrl,
+    storageUrl: imageUrls[0]?.storageUrl?.substring(0, 100) + '...',
+    pageNumber: imageUrls[0]?.pageNumber
   });
   
   const payload = {
     storyId: storyId,
-    images: imageDataArray,
+    imageUrls: imageUrls,
     artStyle
   };
   
-  console.log('Full payload structure:', {
+  console.log('Payload structure:', {
     storyId: typeof payload.storyId,
-    images: Array.isArray(payload.images) ? `array[${payload.images.length}]` : typeof payload.images,
+    imageUrls: Array.isArray(payload.imageUrls) ? `array[${payload.imageUrls.length}]` : typeof payload.imageUrls,
     artStyle: typeof payload.artStyle
   });
   
@@ -95,7 +82,7 @@ export const callTransformStoryFunction = async (storyId: string, imageDataArray
   }
 };
 
-export const pollForStoryCompletion = async (storyId: string, updateProgress: (progress: number) => void) => {
+export const pollForStoryCompletion = async (storyId: string, userId: string, updateProgress: (progress: number) => void) => {
   console.log('Starting polling for story completion...');
   let attempts = 0;
   const maxAttempts = 180; // 15 minutes with 5-second intervals
@@ -124,6 +111,8 @@ export const pollForStoryCompletion = async (storyId: string, updateProgress: (p
       // Check if story is completed, failed, or partially completed
       if (['completed', 'failed', 'partial'].includes(updatedStory.status)) {
         console.log('Story processing completed via polling');
+        // Clean up temporary images
+        await cleanupTempImages(storyId, userId);
         return updatedStory;
       }
 
@@ -137,5 +126,7 @@ export const pollForStoryCompletion = async (storyId: string, updateProgress: (p
     }
   }
   
+  // Clean up temporary images even on timeout
+  await cleanupTempImages(storyId, userId);
   throw new Error('Story processing timeout');
 };

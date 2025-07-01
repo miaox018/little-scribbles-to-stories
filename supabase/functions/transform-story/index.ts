@@ -10,7 +10,6 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 import { processStoryPage } from './story-processor.ts';
-import type { ImageData } from './types.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -36,7 +35,6 @@ serve(async (req) => {
     const bodyText = await req.text();
     console.log('Raw body received - length:', bodyText.length);
     console.log('Raw body first 500 chars:', bodyText.substring(0, 500));
-    console.log('Raw body last 100 chars:', bodyText.substring(Math.max(0, bodyText.length - 100)));
     
     // Check if body is empty or invalid
     if (!bodyText || bodyText.trim() === '') {
@@ -63,7 +61,7 @@ serve(async (req) => {
       console.log('Request body keys:', Object.keys(requestBody));
       console.log('Request body structure:', {
         storyId: requestBody.storyId ? 'present' : 'missing',
-        images: requestBody.images ? `array of ${requestBody.images.length}` : 'missing',
+        imageUrls: requestBody.imageUrls ? `array of ${requestBody.imageUrls.length}` : 'missing',
         artStyle: requestBody.artStyle || 'missing'
       });
     } catch (parseError) {
@@ -82,9 +80,9 @@ serve(async (req) => {
       );
     }
     
-    const { storyId, images, artStyle = 'classic_watercolor' } = requestBody;
+    const { storyId, imageUrls, artStyle = 'classic_watercolor' } = requestBody;
 
-    console.log(`Processing story ${storyId} with ${images?.length || 0} images in ${artStyle} style`);
+    console.log(`Processing story ${storyId} with ${imageUrls?.length || 0} image URLs in ${artStyle} style`);
 
     // Validate required fields more thoroughly
     if (!storyId) {
@@ -98,12 +96,12 @@ serve(async (req) => {
       );
     }
 
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      console.error('ERROR: Invalid or missing images array');
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+      console.error('ERROR: Invalid or missing imageUrls array');
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid or missing images array', 
-          received_images: images ? `type: ${typeof images}, length: ${images.length}` : 'null'
+          error: 'Invalid or missing imageUrls array', 
+          received_imageUrls: imageUrls ? `type: ${typeof imageUrls}, length: ${imageUrls.length}` : 'null'
         }),
         { 
           status: 400,
@@ -140,7 +138,7 @@ serve(async (req) => {
       .from('stories')
       .update({ 
         status: 'processing',
-        total_pages: images.length
+        total_pages: imageUrls.length
       })
       .eq('id', storyId);
 
@@ -158,13 +156,13 @@ serve(async (req) => {
 
     console.log('Starting image processing...');
     
-    // Process each image with longer delays and better error handling
-    for (let i = 0; i < images.length; i++) {
+    // Process each image URL with longer delays and better error handling
+    for (let i = 0; i < imageUrls.length; i++) {
       try {
-        console.log(`Processing page ${i + 1} of ${images.length}`);
+        console.log(`Processing page ${i + 1} of ${imageUrls.length}`);
         
         const result = await processStoryPage({
-          imageData: images[i], 
+          imageData: imageUrls[i], 
           pageNumber: i + 1, 
           storyId, 
           userId,
@@ -186,7 +184,7 @@ serve(async (req) => {
 - Portrait orientation (3:4 aspect ratio) with safe margins`;
         }
 
-        console.log(`Completed page ${i + 1} of ${images.length} with ${artStyle} style`);
+        console.log(`Completed page ${i + 1} of ${imageUrls.length} with ${artStyle} style`);
       } catch (error) {
         if (error.message === 'Story transformation was cancelled') {
           console.log(`Story ${storyId} was cancelled, stopping processing`);
@@ -202,7 +200,7 @@ serve(async (req) => {
       }
 
       // Add longer delay between pages to avoid rate limiting (except after the last page)
-      if (i < images.length - 1) {
+      if (i < imageUrls.length - 1) {
         const delayMs = 8000; // Increased to 8 seconds between pages for better rate limiting
         console.log(`Waiting ${delayMs}ms before processing next page...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -223,7 +221,7 @@ serve(async (req) => {
       .from('stories')
       .update({ 
         status: finalStatus,
-        total_pages: images.length
+        total_pages: imageUrls.length
       })
       .eq('id', storyId);
 
@@ -233,7 +231,7 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
-        pages_processed: images.length,
+        pages_processed: imageUrls.length,
         successful_pages: successfulPages,
         failed_pages: failedPages,
         status: finalStatus
