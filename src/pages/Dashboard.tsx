@@ -36,6 +36,10 @@ const Dashboard = () => {
     await signOut();
   };
 
+  const handleNavigateToCreate = () => {
+    setActiveTab("create");
+  };
+
   const getTabTitle = () => {
     switch (activeTab) {
       case "create": return "Create Story";
@@ -86,7 +90,7 @@ const Dashboard = () => {
               </div>
             )}
             {activeTab === "create" && <CreateStory />}
-            {activeTab === "library" && <Library />}
+            {activeTab === "library" && <Library onNavigateToCreate={handleNavigateToCreate} />}
           </div>
         </main>
       </div>

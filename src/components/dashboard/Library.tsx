@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,11 @@ import { ShareStoryDialog } from "./ShareStoryDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-export function Library() {
+interface LibraryProps {
+  onNavigateToCreate?: () => void;
+}
+
+export function Library({ onNavigateToCreate }: LibraryProps) {
   const { stories, isLoading, refetch } = useStories();
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [storyToDelete, setStoryToDelete] = useState<any>(null);
@@ -91,7 +94,10 @@ export function Library() {
             <p className="text-gray-500 mb-6">
               Create and save your first magical storybook to see it here!
             </p>
-            <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+            <Button 
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              onClick={onNavigateToCreate}
+            >
               Create Your First Story
             </Button>
           </CardContent>
