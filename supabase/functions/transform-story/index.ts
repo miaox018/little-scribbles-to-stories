@@ -23,7 +23,24 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { storyId, images, artStyle = 'classic_watercolor' } = await req.json();
+    
+    let requestBody;
+    try {
+      const text = await req.text();
+      console.log('Request body text:', text);
+      requestBody = JSON.parse(text);
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
+    const { storyId, images, artStyle = 'classic_watercolor' } = requestBody;
 
     console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
 
