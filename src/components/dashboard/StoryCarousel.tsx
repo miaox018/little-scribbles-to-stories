@@ -72,7 +72,8 @@ export function StoryCarousel({
     }));
   }, [currentPage, scale, showOriginals, story.id]);
 
-  const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
+  // Safely handle story_pages that might be undefined
+  const sortedPages = (story.story_pages || []).sort((a, b) => a.page_number - b.page_number);
   const displayImages = showOriginals ? originalImages : sortedPages.map(p => p.generated_image_url).filter(Boolean);
 
   const handleSave = async () => {

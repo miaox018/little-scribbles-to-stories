@@ -61,18 +61,28 @@ export const useStoryTransformation = () => {
         duration: 4000,
       });
 
+      // Dispatch event to switch to library tab
+      window.dispatchEvent(new CustomEvent('storyProcessingStarted'));
+
       // Reset the transformation state but keep story info for potential redirect
+      // Ensure story_pages is always an array to prevent the sorting error
+      const storyWithPages = { 
+        ...story, 
+        status: 'processing',
+        story_pages: [] // Initialize as empty array
+      };
+      
       setState(prev => ({ 
         ...prev, 
         progress: 0, 
-        transformedStory: { ...story, status: 'processing' },
+        transformedStory: storyWithPages,
         isTransforming: false 
       }));
 
       await trackPageUploads(user!.id, story.id, images.length);
 
       // Return story info immediately instead of waiting for completion
-      return { ...story, status: 'processing' };
+      return storyWithPages;
 
     } catch (error: any) {
       console.error('Story transformation error:', error);
