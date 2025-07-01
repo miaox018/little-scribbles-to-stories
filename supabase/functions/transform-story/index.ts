@@ -16,33 +16,65 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 serve(async (req) => {
+  console.log('=== EDGE FUNCTION START ===');
+  console.log('Request URL:', req.url);
+  console.log('Request method:', req.method);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    console.log('Request method:', req.method);
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
+    // Get the raw request body
+    console.log('Reading request body...');
+    const bodyText = await req.text();
+    console.log('Raw body received - length:', bodyText.length);
+    console.log('Raw body first 500 chars:', bodyText.substring(0, 500));
+    console.log('Raw body last 100 chars:', bodyText.substring(Math.max(0, bodyText.length - 100)));
+    
+    // Check if body is empty or invalid
+    if (!bodyText || bodyText.trim() === '') {
+      console.error('ERROR: Empty request body received');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Empty request body', 
+          received_length: bodyText?.length || 0,
+          received_content: bodyText || 'null'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Try to parse JSON
     let requestBody;
     try {
-      const text = await req.text();
-      console.log('Request body text length:', text.length);
-      console.log('Request body text preview:', text.substring(0, 200));
-      
-      if (!text || text.trim() === '') {
-        throw new Error('Empty request body');
-      }
-      
-      requestBody = JSON.parse(text);
-      console.log('Parsed request body keys:', Object.keys(requestBody));
+      console.log('Attempting to parse JSON...');
+      requestBody = JSON.parse(bodyText);
+      console.log('JSON parsed successfully');
+      console.log('Request body keys:', Object.keys(requestBody));
+      console.log('Request body structure:', {
+        storyId: requestBody.storyId ? 'present' : 'missing',
+        images: requestBody.images ? `array of ${requestBody.images.length}` : 'missing',
+        artStyle: requestBody.artStyle || 'missing'
+      });
     } catch (parseError) {
-      console.error('Failed to parse request body:', parseError);
+      console.error('JSON parsing failed:', parseError);
+      console.error('Parse error details:', parseError.message);
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body', details: parseError.message }),
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body', 
+          details: parseError.message,
+          received_body: bodyText.substring(0, 1000) // First 1000 chars for debugging
+        }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -54,12 +86,34 @@ serve(async (req) => {
 
     console.log(`Processing story ${storyId} with ${images?.length || 0} images in ${artStyle} style`);
 
-    // Validate that we have images to process
-    if (!images || images.length === 0) {
-      throw new Error('No images provided for processing');
+    // Validate required fields more thoroughly
+    if (!storyId) {
+      console.error('ERROR: Missing storyId');
+      return new Response(
+        JSON.stringify({ error: 'Missing storyId in request body' }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      console.error('ERROR: Invalid or missing images array');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid or missing images array', 
+          received_images: images ? `type: ${typeof images}, length: ${images.length}` : 'null'
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     // Get the user ID from the story
+    console.log('Fetching story data...');
     const { data: storyData, error: storyError } = await supabase
       .from('stories')
       .select('user_id')
@@ -67,19 +121,32 @@ serve(async (req) => {
       .single();
 
     if (storyError || !storyData) {
-      throw new Error('Story not found');
+      console.error('Story fetch error:', storyError);
+      return new Response(
+        JSON.stringify({ error: 'Story not found', details: storyError?.message }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const userId = storyData.user_id;
+    console.log('Found story for user:', userId);
 
     // Update story status to processing with exact page count
-    await supabase
+    console.log('Updating story status to processing...');
+    const { error: updateError } = await supabase
       .from('stories')
       .update({ 
         status: 'processing',
         total_pages: images.length
       })
       .eq('id', storyId);
+
+    if (updateError) {
+      console.error('Story update error:', updateError);
+    }
 
     // Get art style prompt
     const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
@@ -89,6 +156,8 @@ serve(async (req) => {
     let successfulPages = 0;
     let failedPages = 0;
 
+    console.log('Starting image processing...');
+    
     // Process each image with longer delays and better error handling
     for (let i = 0; i < images.length; i++) {
       try {
@@ -149,6 +218,7 @@ serve(async (req) => {
     }
 
     // Update story status
+    console.log('Updating final story status...');
     await supabase
       .from('stories')
       .update({ 
@@ -175,11 +245,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    console.error('=== EDGE FUNCTION ERROR ===');
     console.error('Error in transform-story function:', error);
+    console.error('Error stack:', error.stack);
     
     // Try to update story status to failed for better error tracking
     try {
-      const { storyId } = await req.json().catch(() => ({}));
+      const bodyText = await req.text().catch(() => '{}');
+      const { storyId } = JSON.parse(bodyText).catch(() => ({}));
       if (storyId) {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         await supabase
@@ -192,7 +265,11 @@ serve(async (req) => {
     }
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack,
+        type: error.constructor.name
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

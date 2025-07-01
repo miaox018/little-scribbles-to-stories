@@ -45,26 +45,51 @@ export const convertImagesToDataUrls = async (images: File[]): Promise<ImageData
 };
 
 export const callTransformStoryFunction = async (storyId: string, imageDataArray: ImageData[], artStyle: string) => {
-  console.log('Calling transform-story edge function...');
-  console.log('Payload:', { storyId, images: imageDataArray.length, artStyle });
+  console.log('=== CLIENT SIDE EDGE FUNCTION CALL ===');
+  console.log('Story ID:', storyId);
+  console.log('Images count:', imageDataArray.length);
+  console.log('Art style:', artStyle);
+  console.log('Sample image data structure:', {
+    hasDataUrl: !!imageDataArray[0]?.dataUrl,
+    dataUrlLength: imageDataArray[0]?.dataUrl?.length,
+    dataUrlPrefix: imageDataArray[0]?.dataUrl?.substring(0, 50),
+    pageNumber: imageDataArray[0]?.pageNumber
+  });
+  
+  const payload = {
+    storyId: storyId,
+    images: imageDataArray,
+    artStyle
+  };
+  
+  console.log('Full payload structure:', {
+    storyId: typeof payload.storyId,
+    images: Array.isArray(payload.images) ? `array[${payload.images.length}]` : typeof payload.images,
+    artStyle: typeof payload.artStyle
+  });
+  
+  console.log('Payload JSON string length:', JSON.stringify(payload).length);
   
   try {
+    console.log('Calling supabase.functions.invoke...');
     const { data, error } = await supabase.functions.invoke('transform-story', {
-      body: {
-        storyId: storyId,
-        images: imageDataArray,
-        artStyle
-      }
+      body: payload
     });
 
     if (error) {
-      console.error('Edge function error:', error);
+      console.error('Edge function error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        context: error.context
+      });
       throw error;
     }
     console.log('Transform result:', data);
     return data;
   } catch (edgeFunctionError) {
-    console.error('Edge function call failed:', edgeFunctionError);
+    console.error('Edge function call failed with full error:', edgeFunctionError);
+    console.error('Error properties:', Object.getOwnPropertyNames(edgeFunctionError));
     // Continue with polling - the story might still be processing
     return null;
   }
