@@ -43,11 +43,12 @@ export function StoryCarousel({
     try {
       console.log('Saving story to library:', story.id);
       
-      // Update story status to 'saved'
+      // Update story status to 'completed' and mark as saved in description
       const { error } = await supabase
         .from('stories')
         .update({ 
-          status: 'saved',
+          status: 'completed',
+          description: 'saved_to_library',
           updated_at: new Date().toISOString()
         })
         .eq('id', story.id);
@@ -94,7 +95,7 @@ export function StoryCarousel({
 
   return (
     <Dialog open={true} onOpenChange={() => onClose?.()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+      <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
         <div className="relative bg-white rounded-lg overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
@@ -122,12 +123,12 @@ export function StoryCarousel({
           </div>
 
           {/* Image Display */}
-          <div className="relative aspect-[3/4] bg-gray-100 flex items-center justify-center">
+          <div className="relative h-[calc(95vh-200px)] bg-gray-100 flex items-center justify-center overflow-hidden">
             {currentStoryPage?.generated_image_url ? (
               <img
                 src={currentStoryPage.generated_image_url}
                 alt={`Page ${currentPage + 1}`}
-                className="max-w-full max-h-full object-contain"
+                className="w-full h-full object-contain"
                 onError={(e) => {
                   console.log('Generated image failed to load, trying original:', currentStoryPage.original_image_url);
                   e.currentTarget.style.display = 'none';
@@ -137,13 +138,13 @@ export function StoryCarousel({
               <img
                 src={currentStoryPage.original_image_url}
                 alt={`Page ${currentPage + 1} (Original)`}
-                className="max-w-full max-h-full object-contain"
+                className="w-full h-full object-contain"
               />
             ) : originalImages[currentPage] ? (
               <img
                 src={originalImages[currentPage]}
                 alt={`Page ${currentPage + 1} (Preview)`}
-                className="max-w-full max-h-full object-contain"
+                className="w-full h-full object-contain"
               />
             ) : (
               <div className="text-gray-400 text-center">

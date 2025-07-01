@@ -20,8 +20,10 @@ export function Library({ onNavigateToCreate }: LibraryProps) {
   const [storyToShare, setStoryToShare] = useState<any>(null);
   const [isDeletingStory, setIsDeletingStory] = useState(false);
 
-  // Filter only saved stories for the library
-  const savedStories = stories.filter(story => story.status === 'saved');
+  // Filter only saved stories for the library (completed stories with saved description)
+  const savedStories = stories.filter(story => 
+    story.status === 'completed' && story.description === 'saved_to_library'
+  );
 
   console.log('All stories:', stories);
   console.log('Saved stories:', savedStories);
