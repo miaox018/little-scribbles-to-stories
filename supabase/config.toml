@@ -1,1 +1,4 @@
 project_id = "mpmbduoffaldnkhrkxxp"
+
+[functions.transform-story]
+verify_jwt = false

@@ -53,14 +53,20 @@ export const callTransformStoryFunction = async (storyId: string, imageDataArray
         storyId: storyId,
         images: imageDataArray,
         artStyle
+      },
+      headers: {
+        'Content-Type': 'application/json',
       }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Edge function error:', error);
+      throw error;
+    }
     console.log('Transform result:', data);
     return data;
   } catch (edgeFunctionError) {
-    console.log('Edge function call failed, but story may still be processing:', edgeFunctionError);
+    console.error('Edge function call failed:', edgeFunctionError);
     // Continue with polling - the story might still be processing
     return null;
   }
