@@ -24,15 +24,25 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
     let requestBody;
     try {
       const text = await req.text();
-      console.log('Request body text:', text);
+      console.log('Request body text length:', text.length);
+      console.log('Request body text preview:', text.substring(0, 200));
+      
+      if (!text || text.trim() === '') {
+        throw new Error('Empty request body');
+      }
+      
       requestBody = JSON.parse(text);
+      console.log('Parsed request body keys:', Object.keys(requestBody));
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        JSON.stringify({ error: 'Invalid JSON in request body', details: parseError.message }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -42,7 +52,7 @@ serve(async (req) => {
     
     const { storyId, images, artStyle = 'classic_watercolor' } = requestBody;
 
-    console.log(`Processing story ${storyId} with ${images.length} images in ${artStyle} style`);
+    console.log(`Processing story ${storyId} with ${images?.length || 0} images in ${artStyle} style`);
 
     // Validate that we have images to process
     if (!images || images.length === 0) {

@@ -46,6 +46,7 @@ export const convertImagesToDataUrls = async (images: File[]): Promise<ImageData
 
 export const callTransformStoryFunction = async (storyId: string, imageDataArray: ImageData[], artStyle: string) => {
   console.log('Calling transform-story edge function...');
+  console.log('Payload:', { storyId, images: imageDataArray.length, artStyle });
   
   try {
     const { data, error } = await supabase.functions.invoke('transform-story', {
@@ -53,9 +54,6 @@ export const callTransformStoryFunction = async (storyId: string, imageDataArray
         storyId: storyId,
         images: imageDataArray,
         artStyle
-      },
-      headers: {
-        'Content-Type': 'application/json',
       }
     });
 
