@@ -99,7 +99,7 @@ const Dashboard = () => {
                 <AdminPanel />
               </div>
             )}
-            {activeTab === "create" && <CreateStory onStoryCreated={() => setActiveTab("library")} />}
+            {activeTab === "create" && <CreateStory />}
             {activeTab === "library" && <Library />}
           </div>
         </main>
