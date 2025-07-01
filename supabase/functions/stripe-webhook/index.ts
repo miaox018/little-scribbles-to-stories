@@ -3,68 +3,32 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+  apiVersion: '2023-10-16',
+});
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
   const signature = req.headers.get('stripe-signature');
-  const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-  
-  console.log('[WEBHOOK] Function started');
-  console.log('[WEBHOOK] Signature present:', !!signature);
-  console.log('[WEBHOOK] Webhook secret configured:', !!webhookSecret);
-
-  if (!signature) {
-    console.error('[WEBHOOK] No stripe-signature header found');
-    return new Response('No stripe-signature header found', { 
-      status: 400,
-      headers: corsHeaders 
-    });
-  }
-
-  if (!webhookSecret) {
-    console.error('[WEBHOOK] STRIPE_WEBHOOK_SECRET not configured');
-    return new Response('Webhook secret not configured', { 
-      status: 500,
-      headers: corsHeaders 
-    });
-  }
-
   const body = await req.text();
-  console.log('[WEBHOOK] Body length:', body.length);
-
-  const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-    apiVersion: '2023-10-16',
-  });
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  );
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    console.log('[WEBHOOK] Event constructed successfully:', event.type);
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature!,
+      Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+    );
   } catch (err) {
-    console.error('[WEBHOOK] Webhook signature verification failed:', err);
-    return new Response(`Webhook signature verification failed: ${err.message}`, { 
-      status: 400,
-      headers: corsHeaders 
-    });
+    console.error('Webhook signature verification failed:', err);
+    return new Response('Webhook signature verification failed', { status: 400 });
   }
 
   try {
-    console.log('[WEBHOOK] Processing event:', event.type);
-    
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -72,12 +36,7 @@ serve(async (req) => {
         const tier = session.metadata?.tier;
         const couponCode = session.metadata?.coupon_code;
 
-        console.log('[WEBHOOK] Checkout session completed:', { 
-          userId, 
-          tier, 
-          customerId: session.customer,
-          subscriptionId: session.subscription 
-        });
+        console.log('Checkout session completed:', { userId, tier, customerId: session.customer });
 
         if (userId && tier) {
           // Update subscriber record with new tier
@@ -97,9 +56,9 @@ serve(async (req) => {
             });
 
           if (upsertError) {
-            console.error('[WEBHOOK] Error updating subscriber:', upsertError);
+            console.error('Error updating subscriber:', upsertError);
           } else {
-            console.log('[WEBHOOK] Successfully updated subscriber to tier:', tier);
+            console.log('Successfully updated subscriber to tier:', tier);
           }
 
           // Record coupon redemption if coupon was used
@@ -117,9 +76,8 @@ serve(async (req) => {
                 p_tier: tier,
                 p_discount_applied: discountApplied
               });
-              console.log('[WEBHOOK] Coupon redemption recorded:', couponCode);
             } catch (error) {
-              console.error('[WEBHOOK] Error recording coupon redemption:', error);
+              console.error('Error recording coupon redemption:', error);
               // Don't fail the webhook for coupon tracking errors
             }
           }
@@ -132,26 +90,18 @@ serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
-        console.log('[WEBHOOK] Subscription event:', event.type, { 
-          customerId, 
-          status: subscription.status,
-          priceId: subscription.items.data[0]?.price.id 
-        });
+        console.log('Subscription event:', event.type, { customerId, status: subscription.status });
 
         // Determine tier from price
         let tier = 'free';
         if (subscription.items.data.length > 0) {
           const priceId = subscription.items.data[0].price.id;
-          console.log('[WEBHOOK] Price ID:', priceId);
-          
           if (priceId === 'price_1RekA5Dc4yn7CE70Ob9Vjrpc') {
             tier = 'storypro';
           } else if (priceId === 'price_1RekAoDc4yn7CE70xnx1E5NJ') {
             tier = 'storypro_plus';
           }
         }
-
-        console.log('[WEBHOOK] Determined tier:', tier);
 
         const { error } = await supabase
           .from('subscribers')
@@ -166,9 +116,9 @@ serve(async (req) => {
           .eq('stripe_customer_id', customerId);
 
         if (error) {
-          console.error('[WEBHOOK] Error updating subscription:', error);
+          console.error('Error updating subscription:', error);
         } else {
-          console.log('[WEBHOOK] Successfully updated subscription status:', { tier, status: subscription.status });
+          console.log('Successfully updated subscription status:', { tier, status: subscription.status });
         }
         break;
       }
@@ -177,7 +127,7 @@ serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
 
-        console.log('[WEBHOOK] Subscription deleted:', { customerId });
+        console.log('Subscription deleted:', { customerId });
 
         const { error } = await supabase
           .from('subscribers')
@@ -190,24 +140,17 @@ serve(async (req) => {
           .eq('stripe_customer_id', customerId);
 
         if (error) {
-          console.error('[WEBHOOK] Error updating deleted subscription:', error);
+          console.error('Error updating deleted subscription:', error);
         } else {
-          console.log('[WEBHOOK] Successfully updated deleted subscription');
+          console.log('Successfully updated deleted subscription');
         }
         break;
       }
-
-      default:
-        console.log('[WEBHOOK] Unhandled event type:', event.type);
     }
 
-    console.log('[WEBHOOK] Event processed successfully');
-    return new Response('OK', { status: 200, headers: corsHeaders });
+    return new Response('OK', { status: 200 });
   } catch (error) {
-    console.error('[WEBHOOK] Error processing webhook:', error);
-    return new Response(`Webhook error: ${error.message}`, { 
-      status: 400,
-      headers: corsHeaders 
-    });
+    console.error('Webhook error:', error);
+    return new Response('Webhook error', { status: 400 });
   }
 });
