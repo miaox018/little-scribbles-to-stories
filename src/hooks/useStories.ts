@@ -11,6 +11,8 @@ export const useStories = () => {
     queryFn: async () => {
       if (!user) return [];
 
+      console.log('Fetching stories for user:', user.id);
+
       const { data, error } = await supabase
         .from('stories')
         .select(`
@@ -26,8 +28,13 @@ export const useStories = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error('Error fetching stories:', error);
+        throw error;
+      }
+      
+      console.log('Fetched stories:', data);
+      return data || [];
     },
     enabled: !!user,
   });

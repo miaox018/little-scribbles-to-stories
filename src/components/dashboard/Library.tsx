@@ -1,8 +1,8 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Mail, Eye, Loader2, X, AlertCircle, Trash2 } from "lucide-react";
+import { BookOpen, Mail, Eye, Loader2, Trash2 } from "lucide-react";
 import { useStories } from "@/hooks/useStories";
 import { StoryCarousel } from "./StoryCarousel";
 import { DeleteStoryDialog } from "./DeleteStoryDialog";
@@ -19,6 +19,14 @@ export function Library() {
 
   // Filter only saved stories for the library
   const savedStories = stories.filter(story => story.status === 'saved');
+
+  console.log('All stories:', stories);
+  console.log('Saved stories:', savedStories);
+
+  // Refetch stories when component mounts to ensure fresh data
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   const handleDeleteStory = async () => {
     if (!storyToDelete) return;
@@ -67,6 +75,9 @@ export function Library() {
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Your Story Library</h1>
         <p className="text-gray-600">
           All your saved storybooks in one magical place. Click to read or share with family and friends.
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          Total stories: {stories.length} | Saved stories: {savedStories.length}
         </p>
       </div>
 

@@ -1,259 +1,217 @@
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { RefreshCw, Save, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
-import { PaywallModal } from '@/components/paywall/PaywallModal';
-import { useSubscription } from '@/hooks/useSubscription';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-
-interface StoryPage {
-  id: string;
-  page_number: number;
-  original_image_url: string | null;
-  generated_image_url: string | null;
-  transformation_status: string | null;
-}
-
-interface Story {
-  id: string;
-  title: string;
-  status: string;
-  total_pages: number;
-  story_pages: StoryPage[];
-}
+import { useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, X, Heart } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface StoryCarouselProps {
-  story: Story;
-  originalImages?: string[]; // URLs of original uploaded images
-  onSave?: () => void;
-  onRegenerate?: (pageNumber: number) => void;
+  story: any;
+  originalImages?: string[];
   onClose?: () => void;
+  onSave?: () => void;
   showSaveButton?: boolean;
-  isGenerating?: boolean;
 }
 
 export function StoryCarousel({ 
   story, 
   originalImages = [], 
+  onClose, 
   onSave, 
-  onRegenerate, 
-  onClose,
-  showSaveButton = true,
-  isGenerating = false
+  showSaveButton = false 
 }: StoryCarouselProps) {
   const [currentPage, setCurrentPage] = useState(0);
-  const [showOriginals, setShowOriginals] = useState(false);
-  const [scale, setScale] = useState(0.75);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
-  const { subscription } = useSubscription();
-  const { user } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Persist user's viewing state
-  useEffect(() => {
-    const savedState = localStorage.getItem(`story-carousel-${story.id}`);
-    if (savedState) {
-      const { currentPage: savedPage, scale: savedScale, showOriginals: savedShowOriginals } = JSON.parse(savedState);
-      setCurrentPage(savedPage || 0);
-      setScale(savedScale || 0.75);
-      setShowOriginals(savedShowOriginals || false);
-    }
-  }, [story.id]);
+  // Ensure story_pages is always an array and sort by page_number
+  const pages = (story?.story_pages || []).sort((a: any, b: any) => a.page_number - b.page_number);
+  const totalPages = pages.length;
 
-  useEffect(() => {
-    localStorage.setItem(`story-carousel-${story.id}`, JSON.stringify({
-      currentPage,
-      scale,
-      showOriginals
-    }));
-  }, [currentPage, scale, showOriginals, story.id]);
+  const nextPage = () => {
+    setCurrentPage((prev) => (prev + 1) % totalPages);
+  };
 
-  const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
-  const displayImages = showOriginals ? originalImages : sortedPages.map(p => p.generated_image_url).filter(Boolean);
+  const prevPage = () => {
+    setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+  };
 
-  const handleSave = async () => {
-    if (!subscription.subscribed && subscription.subscription_tier === 'free') {
-      setShowPaywall(true);
-      return;
-    }
+  const handleSaveToLibrary = async () => {
+    if (!story?.id) return;
     
+    setIsSaving(true);
     try {
-      await supabase
-        .from('stories')
-        .update({ status: 'saved' })
-        .eq('id', story.id);
+      console.log('Saving story to library:', story.id);
       
+      // Update story status to 'saved'
+      const { error } = await supabase
+        .from('stories')
+        .update({ 
+          status: 'saved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', story.id);
+
+      if (error) {
+        console.error('Error saving story:', error);
+        throw error;
+      }
+
       toast({
         title: "Story Saved! 📚",
-        description: "Your masterpiece has been added to your library.",
+        description: `"${story.title}" has been saved to your library!`,
       });
-      
-      onSave?.();
-    } catch (error) {
+
+      // Call the onSave callback if provided
+      if (onSave) {
+        onSave();
+      }
+    } catch (error: any) {
+      console.error('Failed to save story:', error);
       toast({
         title: "Save Failed",
-        description: "Unable to save your story. Please try again.",
+        description: error.message || "Failed to save story. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleRegenerate = (pageNumber: number) => {
-    if (!subscription.subscribed && subscription.subscription_tier === 'free') {
-      setShowPaywall(true);
-      return;
-    }
-    onRegenerate?.(pageNumber);
-  };
-
-  const handleImageError = (pageIndex: number) => {
-    setImageErrors(prev => new Set([...prev, pageIndex]));
-  };
-
-  const handleZoomIn = () => setScale(prev => Math.min(prev + 0.25, 2));
-  const handleZoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.25));
-
-  const renderPageCard = (imageUrl: string | null, pageIndex: number) => {
-    const hasError = imageErrors.has(pageIndex);
-    const isProcessing = !imageUrl && !hasError;
-    
+  if (!story || totalPages === 0) {
     return (
-      <Card className="relative h-[600px] w-[400px] mx-auto shadow-2xl rounded-2xl overflow-hidden bg-gradient-to-br from-white to-gray-50 border-0">
-        <CardContent className="p-0 h-full flex items-center justify-center">
-          {isProcessing ? (
-            <div className="flex flex-col items-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
-              <p className="text-sm text-gray-600">Crafting page {pageIndex + 1}...</p>
-            </div>
-          ) : hasError ? (
-            <div className="flex flex-col items-center space-y-4 p-6 text-center">
-              <AlertCircle className="h-12 w-12 text-red-400" />
-              <p className="text-sm text-gray-600">Failed to load page {pageIndex + 1}</p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setImageErrors(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete(pageIndex);
-                    return newSet;
-                  });
-                  handleRegenerate(pageIndex + 1);
-                }}
-              >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Retry
-              </Button>
-            </div>
-          ) : imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={`Page ${pageIndex + 1}`}
-              className="w-full h-full object-contain transition-transform duration-200"
-              style={{ transform: `scale(${scale})` }}
-              onError={() => handleImageError(pageIndex)}
-            />
-          ) : (
-            <div className="text-gray-400">No image available</div>
-          )}
-        </CardContent>
-        
-        {/* Page number indicator */}
-        <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white text-xs px-3 py-1 rounded-full">
-          {pageIndex + 1} / {displayImages.length}
-        </div>
-      </Card>
+      <Dialog open={true} onOpenChange={() => onClose?.()}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <div className="flex items-center justify-center h-96">
+            <p className="text-gray-500">No pages to display</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     );
-  };
+  }
+
+  const currentStoryPage = pages[currentPage];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-50 p-4">
-      {/* Header Controls */}
-      <div className="w-full max-w-4xl flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-2xl font-bold text-white">{story.title}</h2>
-          {originalImages.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowOriginals(!showOriginals)}
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
-            >
-              {showOriginals ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-              {showOriginals ? 'Show Enhanced' : 'View Originals'}
-            </Button>
-          )}
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          {/* Zoom Controls */}
-          <div className="flex items-center space-x-1 bg-white/10 rounded-lg p-1">
-            <Button variant="ghost" size="sm" onClick={handleZoomOut} className="text-white hover:bg-white/20">-</Button>
-            <span className="text-white text-sm px-2">{Math.round(scale * 100)}%</span>
-            <Button variant="ghost" size="sm" onClick={handleZoomIn} className="text-white hover:bg-white/20">+</Button>
+    <Dialog open={true} onOpenChange={() => onClose?.()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+        <div className="relative bg-white rounded-lg overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
+            <h2 className="text-xl font-bold text-gray-800">{story.title}</h2>
+            <div className="flex items-center gap-2">
+              {showSaveButton && (
+                <Button
+                  onClick={handleSaveToLibrary}
+                  disabled={isSaving}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                >
+                  <Heart className="mr-2 h-4 w-4" />
+                  {isSaving ? "Saving..." : "Save to Library"}
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onClose?.()}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          
-          {/* Regenerate Button */}
-          <Button
-            onClick={() => handleRegenerate(currentPage + 1)}
-            disabled={isGenerating || showOriginals}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-          >
-            {isGenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+
+          {/* Image Display */}
+          <div className="relative aspect-[3/4] bg-gray-100 flex items-center justify-center">
+            {currentStoryPage?.generated_image_url ? (
+              <img
+                src={currentStoryPage.generated_image_url}
+                alt={`Page ${currentPage + 1}`}
+                className="max-w-full max-h-full object-contain"
+                onError={(e) => {
+                  console.log('Generated image failed to load, trying original:', currentStoryPage.original_image_url);
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : currentStoryPage?.original_image_url ? (
+              <img
+                src={currentStoryPage.original_image_url}
+                alt={`Page ${currentPage + 1} (Original)`}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : originalImages[currentPage] ? (
+              <img
+                src={originalImages[currentPage]}
+                alt={`Page ${currentPage + 1} (Preview)`}
+                className="max-w-full max-h-full object-contain"
+              />
             ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <div className="text-gray-400 text-center">
+                <p>No image available</p>
+              </div>
             )}
-            Regenerate Page
-          </Button>
-          
-          {onClose && (
-            <Button variant="outline" onClick={onClose} className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-              ×
-            </Button>
-          )}
+
+            {/* Navigation Arrows */}
+            {totalPages > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={prevPage}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white shadow-md h-10 w-10 p-0"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={nextPage}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white shadow-md h-10 w-10 p-0"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 border-t bg-gray-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                {currentStoryPage?.transformation_status && (
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    currentStoryPage.transformation_status === 'completed' 
+                      ? 'bg-green-100 text-green-800' 
+                      : currentStoryPage.transformation_status === 'failed'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {currentStoryPage.transformation_status}
+                  </span>
+                )}
+              </div>
+              
+              {/* Page Navigation Dots */}
+              {totalPages > 1 && (
+                <div className="flex gap-1">
+                  {pages.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentPage(index)}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        index === currentPage ? 'bg-purple-600' : 'bg-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Carousel */}
-      <div className="flex-1 flex items-center justify-center w-full max-w-5xl">
-        <Carousel className="w-full">
-          <CarouselContent className="-ml-4">
-            {displayImages.map((imageUrl, index) => (
-              <CarouselItem key={index} className="pl-4 basis-full flex justify-center">
-                {renderPageCard(imageUrl, index)}
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="left-4 bg-white/20 border-white/30 text-white hover:bg-white/30" />
-          <CarouselNext className="right-4 bg-white/20 border-white/30 text-white hover:bg-white/30" />
-        </Carousel>
-      </div>
-
-      {/* Bottom Save Button */}
-      {showSaveButton && (
-        <div className="w-full max-w-4xl flex justify-center mt-6">
-          <Button
-            onClick={handleSave}
-            size="lg"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 text-lg rounded-2xl shadow-2xl"
-          >
-            <Save className="h-5 w-5 mr-2" />
-            Save to Library
-          </Button>
-        </div>
-      )}
-
-      {/* Paywall Modal */}
-      <PaywallModal
-        isOpen={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        storyTitle={story.title}
-      />
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
