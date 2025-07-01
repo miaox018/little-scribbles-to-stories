@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,6 +96,8 @@ export function StoryCarousel({
   return (
     <Dialog open={true} onOpenChange={() => onClose?.()}>
       <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
+        <DialogTitle className="sr-only">{story.title}</DialogTitle>
+        <DialogDescription className="sr-only">Story viewer displaying pages of {story.title}</DialogDescription>
         <div className="relative bg-white rounded-lg overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
