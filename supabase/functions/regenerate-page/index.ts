@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
@@ -19,6 +20,23 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Function to safely convert ArrayBuffer to base64 using chunked processing
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 32768; // 32KB chunks to avoid stack overflow
+  let binary = '';
+  
+  console.log(`Converting ArrayBuffer to base64: ${bytes.length} bytes`);
+  
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    // Use Array.from to convert chunk to regular array, then apply String.fromCharCode
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
 }
 
 async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCount = 0): Promise<string> {
@@ -140,7 +158,7 @@ async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumb
   let imageBuffer;
   
   if (imageUrl.startsWith('data:image/')) {
-    // Handle base64 data URL
+    // Handle base64 data URL using chunked processing
     const base64Data = imageUrl.split(',')[1];
     const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
@@ -229,9 +247,15 @@ serve(async (req) => {
       throw new Error(`Failed to retrieve original image: ${imageError.message}`);
     }
 
-    // Convert to data URL
+    // Convert to data URL using chunked processing
     const arrayBuffer = await imageData.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    
+    // Log warning for large images
+    if (arrayBuffer.byteLength > 10 * 1024 * 1024) { // 10MB
+      console.warn(`Large image detected: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
+    }
+    
+    const base64 = arrayBufferToBase64(arrayBuffer);
     const dataUrl = `data:image/png;base64,${base64}`;
 
     // Build prompt

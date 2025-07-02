@@ -4,6 +4,23 @@ import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-
 import { buildPrompt } from './prompt-builder.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
+// Function to safely convert ArrayBuffer to base64 using chunked processing
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 32768; // 32KB chunks to avoid stack overflow
+  let binary = '';
+  
+  console.log(`Converting ArrayBuffer to base64: ${bytes.length} bytes`);
+  
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    // Use Array.from to convert chunk to regular array, then apply String.fromCharCode
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
 // Function to fetch image from URL and convert to base64
 async function fetchImageAsDataUrl(imageUrl: string): Promise<string> {
   try {
@@ -15,10 +32,19 @@ async function fetchImageAsDataUrl(imageUrl: string): Promise<string> {
     }
     
     const arrayBuffer = await response.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     
+    console.log(`Image fetched successfully: ${arrayBuffer.byteLength} bytes, type: ${contentType}`);
+    
+    // Log warning for large images
+    if (arrayBuffer.byteLength > 10 * 1024 * 1024) { // 10MB
+      console.warn(`Large image detected: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
+    }
+    
+    // Use chunked processing to avoid stack overflow
+    const base64 = arrayBufferToBase64(arrayBuffer);
     const dataUrl = `data:${contentType};base64,${base64}`;
+    
     console.log(`Successfully converted image to data URL (length: ${dataUrl.length})`);
     
     return dataUrl;
