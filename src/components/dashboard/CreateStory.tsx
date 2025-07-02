@@ -1,184 +1,102 @@
-
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Wand2 } from "lucide-react";
-import { useStoryTransformation } from "@/hooks/useStoryTransformation";
-import { StoryCarousel } from "./StoryCarousel";
-import { ArtStyleSelector } from "./ArtStyleSelector";
-import { TransformationProgress } from "./TransformationProgress";
-import { PaywallModal } from "@/components/paywall/PaywallModal";
-import { useSubscription } from "@/hooks/useSubscription";
-import { toast } from "@/hooks/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StoryTitleInput } from "./create-story/StoryTitleInput";
 import { ImageUploadSection } from "./create-story/ImageUploadSection";
+import { ArtStyleSelector } from "./ArtStyleSelector";
 import { TransformButton } from "./create-story/TransformButton";
-import { SubscriptionInfoCard } from "./create-story/SubscriptionInfoCard";
 import { ErrorDisplay } from "./create-story/ErrorDisplay";
+import { SubscriptionInfoCard } from "./create-story/SubscriptionInfoCard";
+import { TransformationProgress } from "./TransformationProgress";
+import { useStoryTransformation } from "@/hooks/useStoryTransformation";
 
-export function CreateStory() {
+interface CreateStoryProps {
+  onNavigateToInProgress?: () => void;
+}
+
+export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
   const [title, setTitle] = useState("");
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [images, setImages] = useState<File[]>([]);
   const [artStyle, setArtStyle] = useState("classic_watercolor");
-  const [showPaywall, setShowPaywall] = useState(false);
   
-  const { subscription, limits } = useSubscription();
   const { 
     isTransforming, 
     transformedStory, 
-    progress, 
     error, 
+    progress, 
     transformStory, 
     resetTransformation 
   } = useStoryTransformation();
 
-  const maxPages = limits?.pages_per_story || 3;
-
   const handleTransform = async () => {
-    if (!title.trim()) {
-      toast({
-        title: "Title Required",
-        description: "Please enter a title for your story.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (selectedImages.length === 0) {
-      toast({
-        title: "Images Required", 
-        description: "Please upload at least one image for your story.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Check subscription limits
-    if (selectedImages.length > maxPages) {
-      setShowPaywall(true);
-      return;
-    }
-
+    if (!title.trim() || images.length === 0) return;
+    
     try {
-      const result = await transformStory(title, selectedImages, artStyle);
+      await transformStory(title, images, artStyle);
       
-      // Show different messages based on processing mode
-      if (selectedImages.length > 3) {
-        toast({
-          title: "Story Processing Started! 🚀",
-          description: `Your ${selectedImages.length}-page story is being processed in the background. Check "Stories In Progress" for updates!`,
-          duration: 8000,
-        });
+      // For stories with more than 3 pages, navigate to in-progress tab
+      if (images.length > 3 && onNavigateToInProgress) {
+        setTimeout(() => {
+          onNavigateToInProgress();
+        }, 2000); // Give user a moment to see the progress started
       }
     } catch (error) {
-      // Error is already handled in the hook
+      console.error('Transform error:', error);
     }
   };
 
-  const handleStartOver = () => {
+  const handleCancel = () => {
     resetTransformation();
+  };
+
+  const handleReset = () => {
     setTitle("");
-    setSelectedImages([]);
+    setImages([]);
     setArtStyle("classic_watercolor");
+    resetTransformation();
   };
-
-  const handleUpgradeClick = () => {
-    setShowPaywall(true);
-  };
-
-  // Show the carousel if story is completed
-  if (transformedStory && !isTransforming) {
-    const originalImageUrls = selectedImages.map(file => URL.createObjectURL(file));
-    
-    return (
-      <StoryCarousel
-        story={transformedStory}
-        originalImages={originalImageUrls}
-        onSave={handleStartOver}
-        showSaveButton={true}
-      />
-    );
-  }
-
-  // Show progress if transforming
-  if (isTransforming) {
-    return (
-      <TransformationProgress
-        progress={progress}
-        storyTitle={title}
-        totalPages={selectedImages.length}
-        onCancel={resetTransformation}
-      />
-    );
-  }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wand2 className="h-6 w-6 text-purple-600" />
-            Create Your Magical Story
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <StoryTitleInput title={title} onTitleChange={setTitle} />
-
-          <ImageUploadSection
-            selectedImages={selectedImages}
-            onImagesChange={setSelectedImages}
-            maxPages={maxPages}
-            subscriptionTier={subscription.subscription_tier}
-            isTransforming={isTransforming}
-          />
-
-          <ArtStyleSelector
-            selectedStyle={artStyle}
-            onStyleChange={setArtStyle}
-          />
-
-          {/* Processing Mode Indicator */}
-          {selectedImages.length > 0 && (
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 text-blue-800">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm font-medium">
-                  {selectedImages.length <= 3 
-                    ? `Quick Processing: ${selectedImages.length} pages (1-2 minutes)`
-                    : `Background Processing: ${selectedImages.length} pages (2-${Math.ceil(selectedImages.length * 20 / 60)} minutes)`
-                  }
-                </span>
-              </div>
-              {selectedImages.length > 3 && (
-                <p className="text-xs text-blue-600 mt-1">
-                  Large stories are processed in the background. You'll be notified when complete!
-                </p>
-              )}
-            </div>
-          )}
-
-          <TransformButton
-            isTransforming={isTransforming}
-            isDisabled={isTransforming || !title.trim() || selectedImages.length === 0}
-            onTransform={handleTransform}
-          />
-
-          {error && (
-            <ErrorDisplay error={error} onRetry={resetTransformation} />
-          )}
-        </CardContent>
-      </Card>
-
-      <SubscriptionInfoCard
-        subscriptionTier={subscription.subscription_tier}
-        maxPages={maxPages}
-        onUpgradeClick={handleUpgradeClick}
-      />
-
-      <PaywallModal
-        isOpen={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        storyTitle={title}
-      />
+    <div className="max-w-4xl mx-auto space-y-6">
+      <SubscriptionInfoCard />
+      
+      {isTransforming ? (
+        <TransformationProgress
+          progress={progress}
+          storyTitle={title}
+          totalPages={images.length}
+          onCancel={handleCancel}
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              Create Your Story
+            </CardTitle>
+            <CardDescription>
+              Upload your hand-drawn images and we'll transform them into a beautiful illustrated story
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <StoryTitleInput value={title} onChange={setTitle} />
+            
+            <ImageUploadSection 
+              images={images} 
+              onImagesChange={setImages}
+            />
+            
+            <ArtStyleSelector value={artStyle} onChange={setArtStyle} />
+            
+            <TransformButton
+              title={title}
+              images={images}
+              isTransforming={isTransforming}
+              onTransform={handleTransform}
+            />
+            
+            {error && <ErrorDisplay error={error} onReset={handleReset} />}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -3,19 +3,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { CreateStory } from "@/components/dashboard/CreateStory";
 import { Library } from "@/components/dashboard/Library";
+import { InProgressStories } from "@/components/dashboard/InProgressStories";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { AdminPanel } from "@/components/dashboard/AdminPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useUserRoles } from "@/hooks/useUserRoles";
+import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Shield } from "lucide-react";
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<"create" | "library">("create");
+  const [activeTab, setActiveTab] = useState<"create" | "library" | "in-progress">("create");
   const { user, signOut } = useAuth();
   const { isAdmin, assignAdminByEmail } = useUserRoles();
+  const { inProgressStories } = useInProgressStories();
   const hasAttemptedAssignment = useRef(false);
+
+  // Count processing stories for badge
+  const processingCount = inProgressStories.filter(story => story.status === 'processing').length;
 
   // Auto-assign admin role to the specified email on first load only
   useEffect(() => {
@@ -40,10 +46,15 @@ const Dashboard = () => {
     setActiveTab("create");
   };
 
+  const handleNavigateToInProgress = () => {
+    setActiveTab("in-progress");
+  };
+
   const getTabTitle = () => {
     switch (activeTab) {
       case "create": return "Create Story";
       case "library": return "My Library";
+      case "in-progress": return "Stories In Progress";
       default: return "Dashboard";
     }
   };
@@ -51,7 +62,11 @@ const Dashboard = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gray-50 flex w-full">
-        <DashboardSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <DashboardSidebar 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          processingCount={processingCount}
+        />
         
         <main className="flex-1 overflow-auto">
           <header className="bg-white shadow-sm border-b px-6 py-4">
@@ -60,7 +75,7 @@ const Dashboard = () => {
                 {getTabTitle()}
               </h1>
               <div className="flex items-center space-x-4">
-                {activeTab === "library" && <RecoveryButton />}
+                {(activeTab === "library" || activeTab === "in-progress") && <RecoveryButton />}
                 <div className="flex items-center space-x-2 text-gray-600">
                   <User className="h-4 w-4" />
                   <span className="text-sm">{user?.email}</span>
@@ -89,8 +104,9 @@ const Dashboard = () => {
                 <AdminPanel />
               </div>
             )}
-            {activeTab === "create" && <CreateStory />}
+            {activeTab === "create" && <CreateStory onNavigateToInProgress={handleNavigateToInProgress} />}
             {activeTab === "library" && <Library onNavigateToCreate={handleNavigateToCreate} />}
+            {activeTab === "in-progress" && <InProgressStories />}
           </div>
         </main>
       </div>

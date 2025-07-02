@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle } from "lucide-react";
@@ -10,13 +10,26 @@ import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { toast } from "@/hooks/use-toast";
 
 export function InProgressStories() {
-  const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary } = useInProgressStories();
+  const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, refetch } = useInProgressStories();
   const { subscription } = useSubscription();
   const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
   const [savingStories, setSavingStories] = useState<Set<string>>(new Set());
   const [paywallStory, setPaywallStory] = useState<any>(null);
+
+  // Auto-refresh for processing stories
+  useEffect(() => {
+    const hasProcessingStories = inProgressStories.some(story => story.status === 'processing');
+    
+    if (hasProcessingStories) {
+      const interval = setInterval(() => {
+        refetch();
+      }, 30000); // Refresh every 30 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [inProgressStories, refetch]);
 
   const handleRegeneratePage = async (pageId: string, storyId: string, artStyle: string) => {
     // Check if user can regenerate more pages

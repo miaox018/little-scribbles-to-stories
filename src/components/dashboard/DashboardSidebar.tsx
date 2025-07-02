@@ -1,15 +1,17 @@
 
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Plus, Clock } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader } from "@/components/ui/sidebar";
 
 interface DashboardSidebarProps {
-  activeTab: "create" | "library";
-  onTabChange: (tab: "create" | "library") => void;
+  activeTab: "create" | "library" | "in-progress";
+  onTabChange: (tab: "create" | "library" | "in-progress") => void;
+  processingCount?: number;
 }
 
 export function DashboardSidebar({
   activeTab,
-  onTabChange
+  onTabChange,
+  processingCount = 0
 }: DashboardSidebarProps) {
   return (
     <Sidebar>
@@ -31,6 +33,21 @@ export function DashboardSidebar({
                 >
                   <Plus className="h-4 w-4" />
                   <span>Create Story</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  onClick={() => onTabChange("in-progress")} 
+                  isActive={activeTab === "in-progress"} 
+                  className="flex items-center space-x-2"
+                >
+                  <Clock className="h-4 w-4" />
+                  <span>Stories In Progress</span>
+                  {processingCount > 0 && (
+                    <span className="ml-auto bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">
+                      {processingCount}
+                    </span>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
