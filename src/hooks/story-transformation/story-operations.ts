@@ -37,6 +37,11 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
   console.log('Story ID:', storyId);
   console.log('Images count:', imageUrls.length);
   console.log('Art style:', artStyle);
+  console.log('Sample image URL structure:', {
+    hasStorageUrl: !!imageUrls[0]?.storageUrl,
+    storageUrl: imageUrls[0]?.storageUrl?.substring(0, 100) + '...',
+    pageNumber: imageUrls[0]?.pageNumber
+  });
   
   const payload = {
     storyId: storyId,
@@ -50,6 +55,8 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
     artStyle: typeof payload.artStyle
   });
   
+  console.log('Payload JSON string length:', JSON.stringify(payload).length);
+  
   try {
     console.log('Calling supabase.functions.invoke...');
     const { data, error } = await supabase.functions.invoke('transform-story', {
@@ -57,14 +64,20 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
     });
 
     if (error) {
-      console.error('Edge function error details:', error);
+      console.error('Edge function error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        context: error.context
+      });
       throw error;
     }
     console.log('Transform result:', data);
     return data;
   } catch (edgeFunctionError) {
-    console.error('Edge function call failed:', edgeFunctionError);
-    // For background processing mode, this might be expected
+    console.error('Edge function call failed with full error:', edgeFunctionError);
+    console.error('Error properties:', Object.getOwnPropertyNames(edgeFunctionError));
+    // Continue with polling - the story might still be processing
     return null;
   }
 };
@@ -72,7 +85,7 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
 export const pollForStoryCompletion = async (storyId: string, userId: string, updateProgress: (progress: number) => void) => {
   console.log('Starting polling for story completion...');
   let attempts = 0;
-  const maxAttempts = 60; // Reduced from 180 to 5 minutes max polling
+  const maxAttempts = 180; // 15 minutes with 5-second intervals
   
   while (attempts < maxAttempts) {
     try {
@@ -103,23 +116,11 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
         return updatedStory;
       }
 
-      // For background processing, exit polling earlier and let user check progress later
-      if (updatedStory.total_pages > 3 && attempts > 10) {
-        console.log('Background processing detected, exiting polling early');
-        throw new Error('Story is being processed in the background. Please check "Stories In Progress" for updates.');
-      }
-
       // Wait 5 seconds before next poll
       await new Promise(resolve => setTimeout(resolve, 5000));
       attempts++;
     } catch (pollError) {
       console.error('Polling error:', pollError);
-      
-      // If it's a background processing message, throw it up
-      if (pollError.message?.includes('background')) {
-        throw pollError;
-      }
-      
       await new Promise(resolve => setTimeout(resolve, 5000));
       attempts++;
     }
@@ -127,5 +128,5 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
   
   // Clean up temporary images even on timeout
   await cleanupTempImages(storyId, userId);
-  throw new Error('Story processing timeout. Please check "Stories In Progress" for updates.');
+  throw new Error('Story processing timeout');
 };
