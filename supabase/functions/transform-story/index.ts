@@ -14,6 +14,127 @@ import { processStoryPage } from './story-processor.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Background processing function (no timeout limits)
+async function processStoryAsync(storyId: string, imageUrls: any[], artStyle: string, userId: string) {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  console.log(`[ASYNC] Starting background processing for story ${storyId} with ${imageUrls.length} images`);
+  
+  try {
+    // Get art style prompt
+    const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
+
+    let characterDescriptions = "";
+    let artStyleGuidelines = "";
+    let successfulPages = 0;
+    let failedPages = 0;
+
+    // Process each image with proper delays
+    for (let i = 0; i < imageUrls.length; i++) {
+      try {
+        // Check if story was cancelled
+        const { data: story } = await supabase
+          .from('stories')
+          .select('status')
+          .eq('id', storyId)
+          .single();
+
+        if (story?.status === 'cancelled') {
+          console.log(`[ASYNC] Story ${storyId} was cancelled, stopping processing`);
+          return;
+        }
+
+        // Update progress in database
+        const progressPercent = Math.round((i / imageUrls.length) * 100);
+        await supabase
+          .from('stories')
+          .update({ 
+            status: 'processing',
+            description: `Processing page ${i + 1} of ${imageUrls.length} (${progressPercent}%)`
+          })
+          .eq('id', storyId);
+
+        console.log(`[ASYNC] Processing page ${i + 1} of ${imageUrls.length}`);
+        
+        const result = await processStoryPage({
+          imageData: imageUrls[i], 
+          pageNumber: i + 1, 
+          storyId, 
+          userId,
+          stylePrompt,
+          characterDescriptions,
+          artStyleGuidelines,
+          supabase
+        });
+
+        successfulPages++;
+
+        // Update context for next pages
+        if (i === 0) {
+          characterDescriptions = `- Character designs and appearances established in page 1
+- Clothing styles and color schemes from page 1`;
+          artStyleGuidelines = `- Art style: ${stylePrompt}
+- Visual language and composition style from page 1
+- Text typography and placement style from page 1
+- Portrait orientation (3:4 aspect ratio) with safe margins`;
+        }
+
+        console.log(`[ASYNC] Completed page ${i + 1} of ${imageUrls.length}`);
+      } catch (error) {
+        if (error.message === 'Story transformation was cancelled') {
+          console.log(`[ASYNC] Story ${storyId} was cancelled, stopping processing`);
+          return;
+        }
+        
+        console.error(`[ASYNC] Failed to process page ${i + 1}:`, error);
+        failedPages++;
+      }
+
+      // Add delay between pages (except after the last page)
+      if (i < imageUrls.length - 1) {
+        const delayMs = 8000; // 8 seconds between pages
+        console.log(`[ASYNC] Waiting ${delayMs}ms before processing next page...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+
+    // Determine final status
+    let finalStatus = 'completed';
+    if (failedPages > 0 && successfulPages > 0) {
+      finalStatus = 'partial';
+    } else if (successfulPages === 0) {
+      finalStatus = 'failed';
+    }
+
+    // Update final story status
+    console.log(`[ASYNC] Story ${storyId} transformation completed: ${successfulPages} successful, ${failedPages} failed pages`);
+    await supabase
+      .from('stories')
+      .update({ 
+        status: finalStatus,
+        total_pages: imageUrls.length,
+        description: finalStatus === 'completed' 
+          ? `Story completed with ${successfulPages} pages` 
+          : finalStatus === 'partial'
+          ? `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages`
+          : `Story processing failed: ${failedPages} pages failed`
+      })
+      .eq('id', storyId);
+
+  } catch (error) {
+    console.error(`[ASYNC] Error in background processing for story ${storyId}:`, error);
+    
+    // Update story status to failed
+    await supabase
+      .from('stories')
+      .update({ 
+        status: 'failed',
+        description: `Processing failed: ${error.message}`
+      })
+      .eq('id', storyId);
+  }
+}
+
 serve(async (req) => {
   console.log('=== EDGE FUNCTION START ===');
   console.log('Request URL:', req.url);
@@ -71,7 +192,7 @@ serve(async (req) => {
         JSON.stringify({ 
           error: 'Invalid JSON in request body', 
           details: parseError.message,
-          received_body: bodyText.substring(0, 1000) // First 1000 chars for debugging
+          received_body: bodyText.substring(0, 1000)
         }),
         { 
           status: 400,
@@ -84,7 +205,7 @@ serve(async (req) => {
 
     console.log(`Processing story ${storyId} with ${imageUrls?.length || 0} image URLs in ${artStyle} style`);
 
-    // Validate required fields more thoroughly
+    // Validate required fields
     if (!storyId) {
       console.error('ERROR: Missing storyId');
       return new Response(
@@ -132,135 +253,157 @@ serve(async (req) => {
     const userId = storyData.user_id;
     console.log('Found story for user:', userId);
 
-    // Update story status to processing with exact page count
-    console.log('Updating story status to processing...');
-    const { error: updateError } = await supabase
-      .from('stories')
-      .update({ 
-        status: 'processing',
-        total_pages: imageUrls.length
-      })
-      .eq('id', storyId);
-
-    if (updateError) {
-      console.error('Story update error:', updateError);
-    }
-
-    // Get art style prompt
-    const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
-
-    let characterDescriptions = "";
-    let artStyleGuidelines = "";
-    let successfulPages = 0;
-    let failedPages = 0;
-
-    console.log('Starting image processing...');
+    // HYBRID PROCESSING LOGIC
+    const SYNC_THRESHOLD = 3; // Process ≤3 images synchronously, >3 asynchronously
     
-    // Process each image URL with longer delays and better error handling
-    for (let i = 0; i < imageUrls.length; i++) {
-      try {
-        console.log(`Processing page ${i + 1} of ${imageUrls.length}`);
-        
-        const result = await processStoryPage({
-          imageData: imageUrls[i], 
-          pageNumber: i + 1, 
-          storyId, 
-          userId,
-          stylePrompt,
-          characterDescriptions,
-          artStyleGuidelines,
-          supabase
-        });
+    if (imageUrls.length <= SYNC_THRESHOLD) {
+      console.log(`[SYNC] Processing ${imageUrls.length} images synchronously`);
+      
+      // Update story status to processing
+      await supabase
+        .from('stories')
+        .update({ 
+          status: 'processing',
+          total_pages: imageUrls.length,
+          description: `Processing ${imageUrls.length} pages synchronously...`
+        })
+        .eq('id', storyId);
 
-        successfulPages++;
+      // Process synchronously (current method)
+      const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
+      let characterDescriptions = "";
+      let artStyleGuidelines = "";
+      let successfulPages = 0;
+      let failedPages = 0;
 
-        // Update context for next pages (extract from first page to maintain consistency)
-        if (i === 0) {
-          characterDescriptions = `- Character designs and appearances established in page 1
+      // Process each image
+      for (let i = 0; i < imageUrls.length; i++) {
+        try {
+          console.log(`[SYNC] Processing page ${i + 1} of ${imageUrls.length}`);
+          
+          const result = await processStoryPage({
+            imageData: imageUrls[i], 
+            pageNumber: i + 1, 
+            storyId, 
+            userId,
+            stylePrompt,
+            characterDescriptions,
+            artStyleGuidelines,
+            supabase
+          });
+
+          successfulPages++;
+
+          // Update context for next pages
+          if (i === 0) {
+            characterDescriptions = `- Character designs and appearances established in page 1
 - Clothing styles and color schemes from page 1`;
-          artStyleGuidelines = `- Art style: ${stylePrompt}
+            artStyleGuidelines = `- Art style: ${stylePrompt}
 - Visual language and composition style from page 1
 - Text typography and placement style from page 1
 - Portrait orientation (3:4 aspect ratio) with safe margins`;
+          }
+
+          console.log(`[SYNC] Completed page ${i + 1} of ${imageUrls.length}`);
+        } catch (error) {
+          if (error.message === 'Story transformation was cancelled') {
+            console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing`);
+            return new Response(
+              JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          console.error(`[SYNC] Failed to process page ${i + 1}:`, error);
+          failedPages++;
         }
 
-        console.log(`Completed page ${i + 1} of ${imageUrls.length} with ${artStyle} style`);
-      } catch (error) {
-        if (error.message === 'Story transformation was cancelled') {
-          console.log(`Story ${storyId} was cancelled, stopping processing`);
-          return new Response(
-            JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        // Add delay between pages (except after the last page)
+        if (i < imageUrls.length - 1) {
+          const delayMs = 8000;
+          console.log(`[SYNC] Waiting ${delayMs}ms before processing next page...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
         }
-        
-        console.error(`Failed to process page ${i + 1}:`, error);
-        failedPages++;
-        // Continue processing other pages
       }
 
-      // Add longer delay between pages to avoid rate limiting (except after the last page)
-      if (i < imageUrls.length - 1) {
-        const delayMs = 8000; // Increased to 8 seconds between pages for better rate limiting
-        console.log(`Waiting ${delayMs}ms before processing next page...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+      // Determine final status
+      let finalStatus = 'completed';
+      if (failedPages > 0 && successfulPages > 0) {
+        finalStatus = 'partial';
+      } else if (successfulPages === 0) {
+        finalStatus = 'failed';
       }
+
+      // Update story status
+      await supabase
+        .from('stories')
+        .update({ 
+          status: finalStatus,
+          total_pages: imageUrls.length,
+          description: finalStatus === 'completed' 
+            ? `Story completed with ${successfulPages} pages` 
+            : `Story processing failed: ${failedPages} pages failed`
+        })
+        .eq('id', storyId);
+
+      console.log(`[SYNC] Story ${storyId} transformation completed: ${successfulPages} successful, ${failedPages} failed pages`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
+          pages_processed: imageUrls.length,
+          successful_pages: successfulPages,
+          failed_pages: failedPages,
+          status: finalStatus,
+          processing_mode: 'synchronous'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+
+    } else {
+      console.log(`[ASYNC] Processing ${imageUrls.length} images asynchronously`);
+      
+      // Update story status to processing
+      await supabase
+        .from('stories')
+        .update({ 
+          status: 'processing',
+          total_pages: imageUrls.length,
+          description: `Processing ${imageUrls.length} pages in background. Check back in 2-3 minutes...`
+        })
+        .eq('id', storyId);
+
+      // Start background processing (no await - fire and forget)
+      setTimeout(() => {
+        processStoryAsync(storyId, imageUrls, artStyle, userId);
+      }, 100); // Small delay to ensure response is sent first
+
+      // Return immediately
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Story processing started in background. ${imageUrls.length} pages will be processed over the next 2-3 minutes.`,
+          pages_to_process: imageUrls.length,
+          estimated_completion_time: `${Math.ceil(imageUrls.length * 20 / 60)} minutes`,
+          status: 'processing',
+          processing_mode: 'asynchronous',
+          instructions: 'Check your "Stories In Progress" section for real-time updates. Refresh the page to see progress.'
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
-
-    // Determine final status
-    let finalStatus = 'completed';
-    if (failedPages > 0 && successfulPages > 0) {
-      finalStatus = 'partial';
-    } else if (successfulPages === 0) {
-      finalStatus = 'failed';
-    }
-
-    // Update story status
-    console.log('Updating final story status...');
-    await supabase
-      .from('stories')
-      .update({ 
-        status: finalStatus,
-        total_pages: imageUrls.length
-      })
-      .eq('id', storyId);
-
-    console.log(`Story ${storyId} transformation completed: ${successfulPages} successful, ${failedPages} failed pages`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
-        pages_processed: imageUrls.length,
-        successful_pages: successfulPages,
-        failed_pages: failedPages,
-        status: finalStatus
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
 
   } catch (error) {
     console.error('=== EDGE FUNCTION ERROR ===');
     console.error('Error in transform-story function:', error);
     console.error('Error stack:', error.stack);
-    
-    // Try to update story status to failed for better error tracking
-    try {
-      const bodyText = await req.text().catch(() => '{}');
-      const { storyId } = JSON.parse(bodyText).catch(() => ({}));
-      if (storyId) {
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        await supabase
-          .from('stories')
-          .update({ status: 'failed' })
-          .eq('id', storyId);
-      }
-    } catch (updateError) {
-      console.error('Failed to update story status to failed:', updateError);
-    }
     
     return new Response(
       JSON.stringify({ 

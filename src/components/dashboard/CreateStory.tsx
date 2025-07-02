@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wand2 } from "lucide-react";
@@ -58,7 +59,16 @@ export function CreateStory() {
     }
 
     try {
-      await transformStory(title, selectedImages, artStyle);
+      const result = await transformStory(title, selectedImages, artStyle);
+      
+      // Show different messages based on processing mode
+      if (selectedImages.length > 3) {
+        toast({
+          title: "Story Processing Started! 🚀",
+          description: `Your ${selectedImages.length}-page story is being processed in the background. Check "Stories In Progress" for updates!`,
+          duration: 8000,
+        });
+      }
     } catch (error) {
       // Error is already handled in the hook
     }
@@ -125,6 +135,26 @@ export function CreateStory() {
             selectedStyle={artStyle}
             onStyleChange={setArtStyle}
           />
+
+          {/* Processing Mode Indicator */}
+          {selectedImages.length > 0 && (
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2 text-blue-800">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm font-medium">
+                  {selectedImages.length <= 3 
+                    ? `Quick Processing: ${selectedImages.length} pages (1-2 minutes)`
+                    : `Background Processing: ${selectedImages.length} pages (2-${Math.ceil(selectedImages.length * 20 / 60)} minutes)`
+                  }
+                </span>
+              </div>
+              {selectedImages.length > 3 && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Large stories are processed in the background. You'll be notified when complete!
+                </p>
+              )}
+            </div>
+          )}
 
           <TransformButton
             isTransforming={isTransforming}

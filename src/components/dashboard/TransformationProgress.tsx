@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Clock, CheckCircle } from "lucide-react";
 
 interface TransformationProgressProps {
   progress: number;
@@ -17,7 +17,9 @@ export function TransformationProgress({
   totalPages,
   onCancel
 }: TransformationProgressProps) {
+  const isLargeStory = totalPages > 3;
   const estimatedTimeRemaining = Math.max(0, ((100 - progress) / 100) * totalPages * 2); // 2 minutes per page estimate
+  const processingMode = isLargeStory ? "Background Processing" : "Quick Processing";
 
   return (
     <Card>
@@ -41,7 +43,7 @@ export function TransformationProgress({
           <div className="flex items-center space-x-3">
             <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
             <span className="text-sm">
-              Processing {totalPages} pages...
+              {processingMode}: {totalPages} pages...
             </span>
           </div>
           
@@ -54,10 +56,35 @@ export function TransformationProgress({
             </span>
           </div>
           
-          <p className="text-sm text-gray-600 text-center">
-            We're analyzing your drawings and creating professional illustrations. This process may take a few minutes. 
-            Feel free to grab a coffee and check back later!
-          </p>
+          {isLargeStory ? (
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-3">
+                <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800 mb-1">
+                    Background Processing Active
+                  </p>
+                  <p className="text-xs text-blue-600 mb-2">
+                    Your {totalPages}-page story is being processed in the background. 
+                    This will take approximately {Math.ceil(totalPages * 20 / 60)} minutes.
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-blue-700">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>You can safely close this page and check back later</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-blue-700 mt-1">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Progress updates in "Stories In Progress" section</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600 text-center">
+              We're analyzing your drawings and creating professional illustrations. 
+              This should only take a minute or two!
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>
