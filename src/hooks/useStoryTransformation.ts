@@ -39,46 +39,74 @@ export const useStoryTransformation = () => {
       
       await validatePageUpload(user!.id, story.id, images.length);
 
-      // Upload images to storage and get URLs instead of converting to base64
+      // Upload images to storage and get URLs
       const imageUrls = await uploadImagesAndGetUrls(images, story.id, user!.id);
       
       setState(prev => ({ ...prev, progress: 20 }));
 
-      await callTransformStoryFunction(story.id, imageUrls, artStyle);
+      const result = await callTransformStoryFunction(story.id, imageUrls, artStyle);
       
       setState(prev => ({ ...prev, progress: 50 }));
 
-      const completedStory = await pollForStoryCompletion(story.id, user!.id, updateProgress);
-      
-      setState(prev => ({ 
-        ...prev, 
-        progress: 100, 
-        transformedStory: completedStory,
-        isTransforming: false 
-      }));
+      // Handle different processing modes
+      if (images.length > 3) {
+        // Background processing mode
+        console.log('Large story - switching to background processing mode');
+        
+        setState(prev => ({ 
+          ...prev, 
+          progress: 100, 
+          isTransforming: false 
+        }));
 
-      await trackPageUploads(user!.id, story.id, images.length);
+        await trackPageUploads(user!.id, story.id, images.length);
 
-      if (completedStory.status === 'completed') {
         toast({
-          title: "Story Transformed! ✨",
-          description: `Your story "${title}" has been magically transformed!`,
+          title: "Story Processing Started! 🚀",
+          description: `Your ${images.length}-page story is being processed in the background. Check "Stories In Progress" for updates!`,
+          duration: 8000,
         });
-      } else if (completedStory.status === 'partial') {
-        toast({
-          title: "Story Partially Complete",
-          description: "Some pages were transformed successfully. You can regenerate failed pages.",
-          variant: "destructive"
-        });
+
+        // Return a partial story object for background processing
+        return {
+          ...story,
+          status: 'processing',
+          story_pages: []
+        };
       } else {
-        toast({
-          title: "Story Transformation Failed",
-          description: "We couldn't transform your story. Please try again with different images.",
-          variant: "destructive"
-        });
-      }
+        // Synchronous processing mode - continue with polling
+        const completedStory = await pollForStoryCompletion(story.id, user!.id, updateProgress);
+        
+        setState(prev => ({ 
+          ...prev, 
+          progress: 100, 
+          transformedStory: completedStory,
+          isTransforming: false 
+        }));
 
-      return completedStory;
+        await trackPageUploads(user!.id, story.id, images.length);
+
+        if (completedStory.status === 'completed') {
+          toast({
+            title: "Story Transformed! ✨",
+            description: `Your story "${title}" has been magically transformed!`,
+          });
+        } else if (completedStory.status === 'partial') {
+          toast({
+            title: "Story Partially Complete",
+            description: "Some pages were transformed successfully. You can regenerate failed pages.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Story Transformation Failed",
+            description: "We couldn't transform your story. Please try again with different images.",
+            variant: "destructive"
+          });
+        }
+
+        return completedStory;
+      }
 
     } catch (error: any) {
       console.error('Story transformation error:', error);
@@ -89,11 +117,14 @@ export const useStoryTransformation = () => {
         progress: 0
       }));
       
-      toast({
-        title: "Transformation Failed",
-        description: error.message || "Something went wrong. Please try again.",
-        variant: "destructive"
-      });
+      // Don't show error toast for background processing messages
+      if (!error.message?.includes('background')) {
+        toast({
+          title: "Transformation Failed",
+          description: error.message || "Something went wrong. Please try again.",
+          variant: "destructive"
+        });
+      }
       
       throw error;
     }

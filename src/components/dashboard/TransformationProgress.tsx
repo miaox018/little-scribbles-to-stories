@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, X, Clock, CheckCircle } from "lucide-react";
+import { Loader2, X, Clock, CheckCircle, RefreshCw } from "lucide-react";
 
 interface TransformationProgressProps {
   progress: number;
@@ -26,7 +26,7 @@ export function TransformationProgress({
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Transforming "{storyTitle}"</h3>
-          {onCancel && (
+          {onCancel && !isLargeStory && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -52,7 +52,12 @@ export function TransformationProgress({
           <div className="flex justify-between text-xs text-gray-600">
             <span>{Math.round(progress)}% complete</span>
             <span>
-              {estimatedTimeRemaining > 0 ? `~${Math.ceil(estimatedTimeRemaining)} minutes remaining` : "Almost done!"}
+              {!isLargeStory && estimatedTimeRemaining > 0 
+                ? `~${Math.ceil(estimatedTimeRemaining)} minutes remaining` 
+                : isLargeStory 
+                ? "Processing in background..." 
+                : "Almost done!"
+              }
             </span>
           </div>
           
@@ -66,15 +71,15 @@ export function TransformationProgress({
                   </p>
                   <p className="text-xs text-blue-600 mb-2">
                     Your {totalPages}-page story is being processed in the background. 
-                    This will take approximately {Math.ceil(totalPages * 20 / 60)} minutes.
+                    This will take approximately {Math.ceil(totalPages * 2)} minutes.
                   </p>
                   <div className="flex items-center gap-2 text-xs text-blue-700">
                     <CheckCircle className="h-3 w-3" />
                     <span>You can safely close this page and check back later</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-blue-700 mt-1">
-                    <CheckCircle className="h-3 w-3" />
-                    <span>Progress updates in "Stories In Progress" section</span>
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Progress updates available in "Stories In Progress" section</span>
                   </div>
                 </div>
               </div>

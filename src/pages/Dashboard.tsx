@@ -8,6 +8,7 @@ import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { AdminPanel } from "@/components/dashboard/AdminPanel";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useUserRoles } from "@/hooks/useUserRoles";
+import { useStoryRecovery } from "@/hooks/useStoryRecovery";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Shield } from "lucide-react";
 
@@ -15,7 +16,9 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<"create" | "library">("create");
   const { user, signOut } = useAuth();
   const { isAdmin, assignAdminByEmail } = useUserRoles();
+  const { checkForUnfinishedStories } = useStoryRecovery();
   const hasAttemptedAssignment = useRef(false);
+  const hasCheckedUnfinished = useRef(false);
 
   // Auto-assign admin role to the specified email on first load only
   useEffect(() => {
@@ -31,6 +34,17 @@ const Dashboard = () => {
       }, 1000);
     }
   }, [user?.email, isAdmin, assignAdminByEmail]);
+
+  // Check for unfinished stories on dashboard load
+  useEffect(() => {
+    if (user && !hasCheckedUnfinished.current) {
+      hasCheckedUnfinished.current = true;
+      // Wait a bit for initial load to complete
+      setTimeout(() => {
+        checkForUnfinishedStories();
+      }, 2000);
+    }
+  }, [user, checkForUnfinishedStories]);
 
   const handleSignOut = async () => {
     await signOut();
