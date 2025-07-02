@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StoryTitleInput } from "./create-story/StoryTitleInput";
@@ -8,6 +9,7 @@ import { ErrorDisplay } from "./create-story/ErrorDisplay";
 import { SubscriptionInfoCard } from "./create-story/SubscriptionInfoCard";
 import { TransformationProgress } from "./TransformationProgress";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
+import { useSubscription } from "@/hooks/useSubscription";
 
 interface CreateStoryProps {
   onNavigateToInProgress?: () => void;
@@ -17,6 +19,8 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
   const [title, setTitle] = useState("");
   const [images, setImages] = useState<File[]>([]);
   const [artStyle, setArtStyle] = useState("classic_watercolor");
+  
+  const { subscription, limits, createCheckoutSession } = useSubscription();
   
   const { 
     isTransforming, 
@@ -55,9 +59,20 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
     resetTransformation();
   };
 
+  const handleUpgrade = () => {
+    // Open upgrade modal or redirect to pricing
+    createCheckoutSession('storypro').catch(console.error);
+  };
+
+  const isDisabled = !title.trim() || images.length === 0 || isTransforming;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <SubscriptionInfoCard />
+      <SubscriptionInfoCard 
+        subscriptionTier={limits.subscription_tier}
+        maxPages={limits.pages_per_story}
+        onUpgradeClick={handleUpgrade}
+      />
       
       {isTransforming ? (
         <TransformationProgress
@@ -77,23 +92,25 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <StoryTitleInput value={title} onChange={setTitle} />
+            <StoryTitleInput title={title} onTitleChange={setTitle} />
             
             <ImageUploadSection 
-              images={images} 
+              selectedImages={images} 
               onImagesChange={setImages}
+              maxPages={limits.pages_per_story}
+              subscriptionTier={limits.subscription_tier}
+              isTransforming={isTransforming}
             />
             
-            <ArtStyleSelector value={artStyle} onChange={setArtStyle} />
+            <ArtStyleSelector selectedStyle={artStyle} onStyleChange={setArtStyle} disabled={isTransforming} />
             
             <TransformButton
-              title={title}
-              images={images}
               isTransforming={isTransforming}
+              isDisabled={isDisabled}
               onTransform={handleTransform}
             />
             
-            {error && <ErrorDisplay error={error} onReset={handleReset} />}
+            {error && <ErrorDisplay error={error} onRetry={handleReset} />}
           </CardContent>
         </Card>
       )}
