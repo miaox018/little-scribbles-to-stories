@@ -37,6 +37,54 @@ export const useInProgressStories = () => {
     }
   };
 
+  const cancelStory = async (storyId: string) => {
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          description: 'Story processing was cancelled by user'
+        })
+        .eq('id', storyId);
+
+      if (error) throw error;
+
+      // Remove from in-progress list immediately
+      setInProgressStories(prev => prev.filter(story => story.id !== storyId));
+      
+      return true;
+    } catch (error) {
+      console.error('Error cancelling story:', error);
+      throw error;
+    }
+  };
+
+  const cancelAllProcessingStories = async () => {
+    try {
+      const processingStories = inProgressStories.filter(story => story.status === 'processing');
+      
+      const { error } = await supabase
+        .from('stories')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          description: 'Story processing was cancelled by user (bulk cancel)'
+        })
+        .in('id', processingStories.map(story => story.id));
+
+      if (error) throw error;
+
+      // Remove all processing stories from the list
+      setInProgressStories(prev => prev.filter(story => story.status !== 'processing'));
+      
+      return processingStories.length;
+    } catch (error) {
+      console.error('Error cancelling all stories:', error);
+      throw error;
+    }
+  };
+
   const regeneratePage = async (pageId: string, storyId: string, artStyle: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('regenerate-page', {
@@ -81,6 +129,8 @@ export const useInProgressStories = () => {
   return {
     inProgressStories,
     isLoading,
+    cancelStory,
+    cancelAllProcessingStories,
     regeneratePage,
     saveStoryToLibrary,
     refetch: fetchInProgressStories

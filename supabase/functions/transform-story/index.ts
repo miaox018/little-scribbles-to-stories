@@ -235,7 +235,7 @@ serve(async (req) => {
     console.log('Fetching story data...');
     const { data: storyData, error: storyError } = await supabase
       .from('stories')
-      .select('user_id')
+      .select('user_id, status')
       .eq('id', storyId)
       .single();
 
@@ -245,6 +245,21 @@ serve(async (req) => {
         JSON.stringify({ error: 'Story not found', details: storyError?.message }),
         { 
           status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check if story is already cancelled
+    if (storyData.status === 'cancelled') {
+      console.log('Story is already cancelled, aborting processing');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'Story processing was cancelled before it could start' 
+        }),
+        { 
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -279,6 +294,21 @@ serve(async (req) => {
       // Process each image
       for (let i = 0; i < imageUrls.length; i++) {
         try {
+          // Check if story was cancelled during processing
+          const { data: currentStory } = await supabase
+            .from('stories')
+            .select('status')
+            .eq('id', storyId)
+            .single();
+
+          if (currentStory?.status === 'cancelled') {
+            console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing`);
+            return new Response(
+              JSON.stringify({ success: false, message: 'Story transformation was cancelled' }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
           console.log(`[SYNC] Processing page ${i + 1} of ${imageUrls.length}`);
           
           const result = await processStoryPage({

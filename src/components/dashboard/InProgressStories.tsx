@@ -1,22 +1,34 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle } from "lucide-react";
+import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle, X, Trash2 } from "lucide-react";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { StoryViewer } from "./StoryViewer";
 import { PaywallModal } from "@/components/paywall/PaywallModal";
+import { CancelStoryDialog } from "./CancelStoryDialog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { toast } from "@/hooks/use-toast";
 
 export function InProgressStories() {
-  const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, refetch } = useInProgressStories();
+  const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, cancelStory, cancelAllProcessingStories, refetch } = useInProgressStories();
   const { subscription } = useSubscription();
   const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
   const [savingStories, setSavingStories] = useState<Set<string>>(new Set());
+  const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
   const [paywallStory, setPaywallStory] = useState<any>(null);
+  const [cancelDialog, setCancelDialog] = useState<{
+    isOpen: boolean;
+    storyId?: string;
+    storyTitle?: string;
+    isBulk?: boolean;
+    bulkCount?: number;
+  }>({ isOpen: false });
+
+  // Count processing stories
+  const processingStories = inProgressStories.filter(story => story.status === 'processing');
 
   // Auto-refresh for processing stories
   useEffect(() => {
@@ -90,6 +102,59 @@ export function InProgressStories() {
     }
   };
 
+  const handleCancelStory = (storyId: string, storyTitle: string) => {
+    setCancelDialog({
+      isOpen: true,
+      storyId,
+      storyTitle,
+      isBulk: false
+    });
+  };
+
+  const handleBulkCancel = () => {
+    setCancelDialog({
+      isOpen: true,
+      isBulk: true,
+      bulkCount: processingStories.length
+    });
+  };
+
+  const confirmCancel = async () => {
+    const { storyId, isBulk } = cancelDialog;
+    
+    try {
+      if (isBulk) {
+        const cancelledCount = await cancelAllProcessingStories();
+        toast({
+          title: "Success",
+          description: `Cancelled ${cancelledCount} processing stories`
+        });
+      } else if (storyId) {
+        setCancellingStories(prev => new Set(prev).add(storyId));
+        await cancelStory(storyId);
+        toast({
+          title: "Success",
+          description: "Story processing cancelled"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to cancel story processing",
+        variant: "destructive"
+      });
+    } finally {
+      if (!isBulk && storyId) {
+        setCancellingStories(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(storyId);
+          return newSet;
+        });
+      }
+      setCancelDialog({ isOpen: false });
+    }
+  };
+
   const handlePaywallClose = () => {
     setPaywallStory(null);
   };
@@ -123,11 +188,25 @@ export function InProgressStories() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Stories In Progress</h1>
-        <p className="text-gray-600">
-          Review your generated stories, regenerate individual pages, and save completed stories to your library.
-        </p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Stories In Progress</h1>
+          <p className="text-gray-600">
+            Review your generated stories, regenerate individual pages, and save completed stories to your library.
+          </p>
+        </div>
+        
+        {processingStories.length > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkCancel}
+            className="flex items-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Cancel All Processing ({processingStories.length})
+          </Button>
+        )}
       </div>
 
       {inProgressStories.length === 0 ? (
@@ -161,6 +240,21 @@ export function InProgressStories() {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  {story.status === 'processing' && (
+                    <Button 
+                      size="sm" 
+                      variant="destructive"
+                      onClick={() => handleCancelStory(story.id, story.title)}
+                      disabled={cancellingStories.has(story.id)}
+                    >
+                      {cancellingStories.has(story.id) ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="mr-1 h-3 w-3" />
+                      )}
+                      Cancel
+                    </Button>
+                  )}
                   <Button 
                     size="sm" 
                     variant="outline"
@@ -254,6 +348,15 @@ export function InProgressStories() {
           storyTitle={paywallStory.title}
         />
       )}
+
+      <CancelStoryDialog
+        isOpen={cancelDialog.isOpen}
+        onClose={() => setCancelDialog({ isOpen: false })}
+        onConfirm={confirmCancel}
+        storyTitle={cancelDialog.storyTitle}
+        isBulk={cancelDialog.isBulk}
+        bulkCount={cancelDialog.bulkCount}
+      />
     </div>
   );
 }
