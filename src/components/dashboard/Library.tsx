@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,9 @@ export function Library({ onNavigateToCreate }: LibraryProps) {
   const [storyToShare, setStoryToShare] = useState<any>(null);
   const [isDeletingStory, setIsDeletingStory] = useState(false);
 
-  // Filter only saved stories for the library (completed stories with saved description)
+  // Filter only saved stories for the library (stories with status 'saved' or description 'saved_to_library')
   const savedStories = stories.filter(story => 
-    story.status === 'completed' && story.description === 'saved_to_library'
+    story.status === 'saved' || story.description === 'saved_to_library'
   );
 
   console.log('All stories:', stories);
@@ -80,9 +81,6 @@ export function Library({ onNavigateToCreate }: LibraryProps) {
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Your Story Library</h1>
         <p className="text-gray-600">
           All your saved storybooks in one magical place. Click to read or share with family and friends.
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Total stories: {stories.length} | Saved stories: {savedStories.length}
         </p>
       </div>
 

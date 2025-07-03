@@ -26,6 +26,7 @@ export const useInProgressStories = () => {
         `)
         .eq('user_id', user.id)
         .in('status', ['processing', 'completed', 'partial', 'failed'])
+        .neq('description', 'saved_to_library') // Exclude stories already saved to library
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -107,7 +108,11 @@ export const useInProgressStories = () => {
     try {
       const { error } = await supabase
         .from('stories')
-        .update({ status: 'saved' })
+        .update({ 
+          status: 'saved',
+          description: 'saved_to_library',
+          updated_at: new Date().toISOString()
+        })
         .eq('id', storyId);
 
       if (error) throw error;
