@@ -12,7 +12,10 @@ interface StoryViewerDialogProps {
 export function StoryViewerDialog({ isOpen, onClose, children, hasPages }: StoryViewerDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-[98vw] h-[98vh] max-h-screen p-0 overflow-hidden">
+      <DialogContent 
+        className="max-w-6xl w-[98vw] h-[98vh] max-h-screen p-0 overflow-hidden"
+        hideCloseButton={true}
+      >
         <div className="flex flex-col h-full">
           {hasPages ? (
             children
