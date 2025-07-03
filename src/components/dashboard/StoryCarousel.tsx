@@ -1,9 +1,11 @@
+
 import { useState } from "react";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { CarouselDialog } from "./story-carousel/CarouselDialog";
+import { CarouselHeader } from "./story-carousel/CarouselHeader";
+import { CarouselImageDisplay } from "./story-carousel/CarouselImageDisplay";
+import { CarouselFooter } from "./story-carousel/CarouselFooter";
 
 interface StoryCarouselProps {
   story: any;
@@ -86,142 +88,50 @@ export function StoryCarousel({
 
   if (!story || totalPages === 0) {
     return (
-      <Dialog open={true} onOpenChange={handleClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-          <DialogTitle className="sr-only">Story Carousel - No Content</DialogTitle>
-          <DialogDescription className="sr-only">No pages available to display</DialogDescription>
-          <div className="flex items-center justify-center h-96">
-            <p className="text-gray-500">No pages to display</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CarouselDialog 
+        isOpen={true} 
+        onOpenChange={handleClose} 
+        title="Story Carousel - No Content"
+      >
+        <div className="flex items-center justify-center h-96">
+          <p className="text-gray-500">No pages to display</p>
+        </div>
+      </CarouselDialog>
     );
   }
 
   const currentStoryPage = pages[currentPage];
 
   return (
-    <Dialog open={true} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
-        <DialogTitle className="sr-only">{story.title}</DialogTitle>
-        <DialogDescription className="sr-only">Story viewer displaying pages of {story.title}</DialogDescription>
-        <div className="relative bg-white rounded-lg overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
-            <h2 className="text-xl font-bold text-gray-800">{story.title}</h2>
-            <div className="flex items-center gap-2">
-              {showSaveButton && (
-                <Button
-                  onClick={handleSaveToLibrary}
-                  disabled={isSaving}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-                >
-                  <Heart className="mr-2 h-4 w-4" />
-                  {isSaving ? "Saving..." : "Save to Library"}
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClose}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+    <CarouselDialog 
+      isOpen={true} 
+      onOpenChange={handleClose} 
+      title={story.title}
+    >
+      <CarouselHeader
+        title={story.title}
+        showSaveButton={showSaveButton}
+        isSaving={isSaving}
+        onSave={handleSaveToLibrary}
+        onClose={handleClose}
+      />
 
-          {/* Image Display */}
-          <div className="relative h-[calc(95vh-200px)] bg-gray-100 flex items-center justify-center overflow-hidden">
-            {currentStoryPage?.generated_image_url ? (
-              <img
-                src={currentStoryPage.generated_image_url}
-                alt={`Page ${currentPage + 1}`}
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  console.log('Generated image failed to load, trying original:', currentStoryPage.original_image_url);
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            ) : currentStoryPage?.original_image_url ? (
-              <img
-                src={currentStoryPage.original_image_url}
-                alt={`Page ${currentPage + 1} (Original)`}
-                className="w-full h-full object-contain"
-              />
-            ) : originalImages[currentPage] ? (
-              <img
-                src={originalImages[currentPage]}
-                alt={`Page ${currentPage + 1} (Preview)`}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="text-gray-400 text-center">
-                <p>No image available</p>
-              </div>
-            )}
+      <CarouselImageDisplay
+        currentPage={currentStoryPage}
+        currentPageIndex={currentPage}
+        totalPages={totalPages}
+        originalImages={originalImages}
+        onPrevPage={prevPage}
+        onNextPage={nextPage}
+      />
 
-            {/* Navigation Arrows */}
-            {totalPages > 1 && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={prevPage}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white shadow-md h-10 w-10 p-0"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={nextPage}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white shadow-md h-10 w-10 p-0"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-4 border-t bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">
-                  Page {currentPage + 1} of {totalPages}
-                </span>
-                {currentStoryPage?.transformation_status && (
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    currentStoryPage.transformation_status === 'completed' 
-                      ? 'bg-green-100 text-green-800' 
-                      : currentStoryPage.transformation_status === 'failed'
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {currentStoryPage.transformation_status}
-                  </span>
-                )}
-              </div>
-              
-              {/* Page Navigation Dots */}
-              {totalPages > 1 && (
-                <div className="flex gap-1">
-                  {pages.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentPage(index)}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        index === currentPage ? 'bg-purple-600' : 'bg-gray-300'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      <CarouselFooter
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pages={pages}
+        currentStoryPage={currentStoryPage}
+        onPageSelect={setCurrentPage}
+      />
+    </CarouselDialog>
   );
 }
