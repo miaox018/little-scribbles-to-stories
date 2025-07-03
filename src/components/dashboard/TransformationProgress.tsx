@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, X, Clock, CheckCircle } from "lucide-react";
+import { Loader2, X, Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface TransformationProgressProps {
   progress: number;
@@ -18,8 +18,8 @@ export function TransformationProgress({
   onCancel
 }: TransformationProgressProps) {
   const isLargeStory = totalPages > 3;
-  const estimatedTimeRemaining = Math.max(0, ((100 - progress) / 100) * totalPages * 2); // 2 minutes per page estimate
-  const processingMode = isLargeStory ? "Background Processing" : "Quick Processing";
+  const estimatedTimeRemaining = Math.max(0, ((100 - progress) / 100) * totalPages * 1.5); // Updated estimate
+  const processingMode = isLargeStory ? "Enhanced Background Processing" : "Quick Processing";
 
   return (
     <Card>
@@ -62,29 +62,52 @@ export function TransformationProgress({
                 <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-blue-800 mb-1">
-                    Background Processing Active
+                    Enhanced Background Processing Active
                   </p>
                   <p className="text-xs text-blue-600 mb-2">
-                    Your {totalPages}-page story is being processed in the background. 
-                    This will take approximately {Math.ceil(totalPages * 20 / 60)} minutes.
+                    Your {totalPages}-page story is being processed with our enhanced system that prevents timeouts. 
+                    Estimated completion: {Math.ceil(totalPages * 15 / 60)} minutes.
                   </p>
+                  <div className="flex items-center gap-2 text-xs text-blue-700 mb-1">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Processing continues even if you close this page</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-blue-700 mb-1">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Automatic recovery from network issues</span>
+                  </div>
                   <div className="flex items-center gap-2 text-xs text-blue-700">
                     <CheckCircle className="h-3 w-3" />
-                    <span>You can safely close this page and check back later</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-blue-700 mt-1">
-                    <CheckCircle className="h-3 w-3" />
-                    <span>Progress updates in "Stories In Progress" section</span>
+                    <span>Real-time progress updates in "Stories In Progress"</span>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-600 text-center">
-              We're analyzing your drawings and creating professional illustrations. 
-              This should only take a minute or two!
-            </p>
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-green-800 mb-1">
+                    Quick Processing Mode
+                  </p>
+                  <p className="text-xs text-green-600">
+                    We're analyzing your drawings and creating professional illustrations. 
+                    This should complete in just a few minutes!
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
+          
+          <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
+              <p className="text-xs text-yellow-700">
+                If processing appears stuck, use the "Recover Stories" button in your Stories In Progress section.
+              </p>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

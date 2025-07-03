@@ -9,7 +9,7 @@ export async function processSynchronously(
   userId: string, 
   supabase: any
 ) {
-  console.log(`[SYNC] Processing ${imageUrls.length} images synchronously`);
+  console.log(`[SYNC] Processing ${imageUrls.length} images synchronously with enhanced error handling`);
   
   // Update story status to processing
   await supabase
@@ -17,19 +17,21 @@ export async function processSynchronously(
     .update({ 
       status: 'processing',
       total_pages: imageUrls.length,
-      description: `Processing ${imageUrls.length} pages synchronously...`
+      description: `Processing page 1 of ${imageUrls.length} (synchronous mode)...`,
+      updated_at: new Date().toISOString()
     })
     .eq('id', storyId);
 
-  // Process synchronously (current method)
   const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
   let characterDescriptions = "";
   let artStyleGuidelines = "";
   let successfulPages = 0;
   let failedPages = 0;
 
-  // Process each image
+  // Process each image with enhanced error handling
   for (let i = 0; i < imageUrls.length; i++) {
+    const currentPage = i + 1;
+    
     try {
       // Check if story was cancelled during processing
       const { data: currentStory } = await supabase
@@ -39,7 +41,7 @@ export async function processSynchronously(
         .single();
 
       if (currentStory?.status === 'cancelled') {
-        console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing`);
+        console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing at page ${currentPage}`);
         return {
           success: false, 
           message: 'Story transformation was cancelled',
@@ -47,18 +49,34 @@ export async function processSynchronously(
         };
       }
 
-      console.log(`[SYNC] Processing page ${i + 1} of ${imageUrls.length}`);
+      // Update progress with detailed status
+      const progressPercent = Math.round((i / imageUrls.length) * 100);
+      await supabase
+        .from('stories')
+        .update({ 
+          description: `Processing page ${currentPage} of ${imageUrls.length} (${progressPercent}%)`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', storyId);
+
+      console.log(`[SYNC] Processing page ${currentPage} of ${imageUrls.length}`);
       
-      const result = await processStoryPage({
-        imageData: imageUrls[i], 
-        pageNumber: i + 1, 
-        storyId, 
-        userId,
-        stylePrompt,
-        characterDescriptions,
-        artStyleGuidelines,
-        supabase
-      });
+      // Process with timeout protection
+      const result = await Promise.race([
+        processStoryPage({
+          imageData: imageUrls[i], 
+          pageNumber: currentPage, 
+          storyId, 
+          userId,
+          stylePrompt,
+          characterDescriptions,
+          artStyleGuidelines,
+          supabase
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Page processing timeout')), 120000) // 2 minute timeout per page
+        )
+      ]);
 
       successfulPages++;
 
@@ -72,10 +90,10 @@ export async function processSynchronously(
 - Portrait orientation (3:4 aspect ratio) with safe margins`;
       }
 
-      console.log(`[SYNC] Completed page ${i + 1} of ${imageUrls.length}`);
+      console.log(`[SYNC] Completed page ${currentPage} of ${imageUrls.length}`);
     } catch (error) {
       if (error.message === 'Story transformation was cancelled') {
-        console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing`);
+        console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing at page ${currentPage}`);
         return {
           success: false, 
           message: 'Story transformation was cancelled',
@@ -83,13 +101,27 @@ export async function processSynchronously(
         };
       }
       
-      console.error(`[SYNC] Failed to process page ${i + 1}:`, error);
+      console.error(`[SYNC] Failed to process page ${currentPage}:`, error);
       failedPages++;
+      
+      // Mark this specific page as failed
+      await supabase
+        .from('story_pages')
+        .upsert({
+          story_id: storyId,
+          page_number: currentPage,
+          original_image_url: imageUrls[i].storageUrl || null,
+          generated_image_url: null,
+          enhanced_prompt: null,
+          transformation_status: 'failed'
+        }, {
+          onConflict: 'story_id,page_number'
+        });
     }
 
-    // Add delay between pages (except after the last page)
+    // Reduced delay between pages for faster processing
     if (i < imageUrls.length - 1) {
-      const delayMs = 8000;
+      const delayMs = 5000; // Reduced from 8000ms to 5000ms
       console.log(`[SYNC] Waiting ${delayMs}ms before processing next page...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
@@ -97,10 +129,16 @@ export async function processSynchronously(
 
   // Determine final status
   let finalStatus = 'completed';
+  let finalDescription = '';
+  
   if (failedPages > 0 && successfulPages > 0) {
     finalStatus = 'partial';
+    finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. You can regenerate the failed pages.`;
   } else if (successfulPages === 0) {
     finalStatus = 'failed';
+    finalDescription = `Story processing failed: All ${failedPages} pages failed to process.`;
+  } else {
+    finalDescription = `Story completed successfully with ${successfulPages} pages.`;
   }
 
   // Update story status
@@ -109,9 +147,8 @@ export async function processSynchronously(
     .update({ 
       status: finalStatus,
       total_pages: imageUrls.length,
-      description: finalStatus === 'completed' 
-        ? `Story completed with ${successfulPages} pages` 
-        : `Story processing failed: ${failedPages} pages failed`
+      description: finalDescription,
+      updated_at: new Date().toISOString()
     })
     .eq('id', storyId);
 
@@ -119,7 +156,7 @@ export async function processSynchronously(
 
   return {
     success: true, 
-    message: `Story transformation completed: ${successfulPages} successful, ${failedPages} failed pages`,
+    message: finalDescription,
     pages_processed: imageUrls.length,
     successful_pages: successfulPages,
     failed_pages: failedPages,

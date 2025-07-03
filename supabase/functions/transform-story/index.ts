@@ -11,10 +11,18 @@ import { startAsyncProcessing } from './async-processor.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+// Add shutdown handling
+addEventListener('beforeunload', (ev) => {
+  console.log('=== Edge Function Shutdown ===');
+  console.log('Shutdown reason:', ev.detail?.reason);
+  console.log('Function instance is shutting down. Background tasks should continue via EdgeRuntime.waitUntil()');
+});
+
 serve(async (req) => {
-  console.log('=== EDGE FUNCTION START ===');
+  console.log('=== ENHANCED EDGE FUNCTION START ===');
   console.log('Request URL:', req.url);
   console.log('Request method:', req.method);
+  console.log('Timestamp:', new Date().toISOString());
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -44,13 +52,14 @@ serve(async (req) => {
       );
     }
 
-    // HYBRID PROCESSING LOGIC
+    // ENHANCED HYBRID PROCESSING LOGIC
     const SYNC_THRESHOLD = 3; // Process ≤3 images synchronously, >3 asynchronously
     
     let result;
     
     if (imageUrls.length <= SYNC_THRESHOLD) {
-      // Process synchronously
+      console.log(`[PROCESSING] Using synchronous mode for ${imageUrls.length} pages`);
+      // Process synchronously with enhanced error handling
       result = await processSynchronously(storyId, imageUrls, artStyle, userId, supabase);
       
       if (result.cancelled) {
@@ -60,9 +69,13 @@ serve(async (req) => {
         );
       }
     } else {
-      // Process asynchronously
+      console.log(`[PROCESSING] Using enhanced asynchronous mode for ${imageUrls.length} pages`);
+      // Process asynchronously with proper background handling
       result = await startAsyncProcessing(storyId, imageUrls, artStyle, userId, supabase);
     }
+
+    console.log('=== EDGE FUNCTION SUCCESS ===');
+    console.log('Result:', result);
 
     return new Response(
       JSON.stringify(result),
@@ -76,6 +89,7 @@ serve(async (req) => {
     console.error('=== EDGE FUNCTION ERROR ===');
     console.error('Error in transform-story function:', error);
     console.error('Error stack:', error.stack);
+    console.error('Timestamp:', new Date().toISOString());
     
     // Try to parse error message if it's JSON
     let errorResponse;
@@ -85,7 +99,8 @@ serve(async (req) => {
       errorResponse = { 
         error: error.message,
         stack: error.stack,
-        type: error.constructor.name
+        type: error.constructor.name,
+        timestamp: new Date().toISOString()
       };
     }
     
