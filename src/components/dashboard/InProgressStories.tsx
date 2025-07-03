@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle, X, Trash2, Clock } from "lucide-react";
+import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle, X, Trash2 } from "lucide-react";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { StoryViewer } from "./StoryViewer";
 import { PaywallModal } from "@/components/paywall/PaywallModal";
@@ -179,33 +178,6 @@ export function InProgressStories() {
     }
   };
 
-  const getProcessingDuration = (createdAt: string) => {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffMs = now.getTime() - created.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    
-    if (diffMins < 60) {
-      return `${diffMins}m`;
-    } else {
-      const hours = Math.floor(diffMins / 60);
-      const remainingMins = diffMins % 60;
-      return `${hours}h ${remainingMins}m`;
-    }
-  };
-
-  const isStuckInProcessing = (story: any) => {
-    if (story.status !== 'processing') return false;
-    
-    const created = new Date(story.created_at);
-    const now = new Date();
-    const diffMs = now.getTime() - created.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    
-    // Consider stuck if processing for more than 15 minutes
-    return diffMins > 15;
-  };
-
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto flex items-center justify-center py-12">
@@ -263,36 +235,15 @@ export function InProgressStories() {
                     <span className={`inline-flex items-center gap-1 ml-1 ${getStatusColor(story.status)}`}>
                       {getStatusIcon(story.status)}
                       {story.status}
-                      {story.status === 'processing' && (
-                        <>
-                          <Clock className="h-3 w-3 ml-1" />
-                          <span className={isStuckInProcessing(story) ? 'text-red-600 font-semibold' : ''}>
-                            {getProcessingDuration(story.created_at)}
-                            {isStuckInProcessing(story) && ' (STUCK)'}
-                          </span>
-                        </>
-                      )}
                     </span> • 
                     Created {new Date(story.created_at).toLocaleDateString()}
                   </p>
-                  {story.description && (
-                    <p className="text-xs text-gray-400 mb-2">
-                      {story.description}
-                    </p>
-                  )}
-                  {isStuckInProcessing(story) && (
-                    <div className="bg-red-50 border border-red-200 rounded p-2 mb-2">
-                      <p className="text-red-700 text-xs">
-                        ⚠️ This story appears to be stuck in processing. Consider canceling it and trying again.
-                      </p>
-                    </div>
-                  )}
                 </div>
                 <div className="flex gap-2">
                   {story.status === 'processing' && (
                     <Button 
                       size="sm" 
-                      variant={isStuckInProcessing(story) ? "destructive" : "outline"}
+                      variant="destructive"
                       onClick={() => handleCancelStory(story.id, story.title)}
                       disabled={cancellingStories.has(story.id)}
                     >
@@ -301,7 +252,7 @@ export function InProgressStories() {
                       ) : (
                         <X className="mr-1 h-3 w-3" />
                       )}
-                      {isStuckInProcessing(story) ? 'Force Cancel' : 'Cancel'}
+                      Cancel
                     </Button>
                   )}
                   <Button 
