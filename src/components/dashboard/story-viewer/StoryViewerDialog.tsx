@@ -1,5 +1,5 @@
 
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertCircle } from 'lucide-react';
 
 interface StoryViewerDialogProps {
@@ -16,6 +16,11 @@ export function StoryViewerDialog({ isOpen, onClose, children, hasPages }: Story
         className="max-w-6xl w-[98vw] h-[98vh] max-h-screen p-0 overflow-hidden"
         hideCloseButton={true}
       >
+        <DialogTitle className="sr-only">Story Viewer</DialogTitle>
+        <DialogDescription className="sr-only">
+          {hasPages ? "View and navigate through your story pages" : "No pages available for this story"}
+        </DialogDescription>
+        
         <div className="flex flex-col h-full">
           {hasPages ? (
             children

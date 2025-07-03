@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -37,6 +36,12 @@ export function InProgressStoryCarousel({
 
   const prevPage = () => {
     setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
   };
 
   const handleSaveToLibrary = async () => {
@@ -96,8 +101,10 @@ export function InProgressStoryCarousel({
 
   if (!story || totalPages === 0) {
     return (
-      <Dialog open={true} onOpenChange={() => onClose?.()}>
+      <Dialog open={true} onOpenChange={handleClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogTitle className="sr-only">In Progress Story - No Content</DialogTitle>
+          <DialogDescription className="sr-only">No pages available to display</DialogDescription>
           <div className="flex items-center justify-center h-96">
             <p className="text-gray-500">No pages to display</p>
           </div>
@@ -110,7 +117,7 @@ export function InProgressStoryCarousel({
 
   return (
     <>
-      <Dialog open={true} onOpenChange={() => onClose?.()}>
+      <Dialog open={true} onOpenChange={handleClose}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
           <DialogTitle className="sr-only">{story.title}</DialogTitle>
           <DialogDescription className="sr-only">Story viewer displaying pages of {story.title}</DialogDescription>
@@ -133,8 +140,8 @@ export function InProgressStoryCarousel({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onClose?.()}
-                  className="h-8 w-8 p-0"
+                  onClick={handleClose}
+                  className="h-8 w-8 p-0 hover:bg-gray-100"
                 >
                   <X className="h-4 w-4" />
                 </Button>
