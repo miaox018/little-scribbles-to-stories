@@ -18,6 +18,55 @@ const artStylePrompts = {
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+// Enhanced authentication validation
+async function validateUserAuthentication(req: Request): Promise<{ userId: string }> {
+  const authHeader = req.headers.get('Authorization');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  
+  if (!token || token.length < 20) {
+    throw new Error('Invalid authentication token');
+  }
+
+  // Extract user ID from the request context (Supabase handles JWT verification)
+  const userId = req.headers.get('x-user-id');
+  if (!userId) {
+    throw new Error('User ID not found in request context');
+  }
+
+  return { userId };
+}
+
+// Enhanced input validation
+function validateInput(input: any) {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Invalid request body');
+  }
+
+  const { storyId, pageId, artStyle } = input;
+
+  // Validate UUIDs
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  
+  if (!storyId || !uuidRegex.test(storyId)) {
+    throw new Error('Invalid story ID format');
+  }
+  
+  if (!pageId || !uuidRegex.test(pageId)) {
+    throw new Error('Invalid page ID format');
+  }
+
+  // Validate art style
+  const allowedStyles = Object.keys(artStylePrompts);
+  const validatedArtStyle = artStyle && allowedStyles.includes(artStyle) ? artStyle : 'classic_watercolor';
+
+  return { storyId, pageId, artStyle: validatedArtStyle };
+}
+
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -32,7 +81,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   
   for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
     const chunk = bytes.subarray(i, i + CHUNK_SIZE);
-    // Use Array.from to convert chunk to regular array, then apply String.fromCharCode
     binary += String.fromCharCode.apply(null, Array.from(chunk));
   }
   
@@ -44,9 +92,8 @@ async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCo
   const baseDelay = 2000; // 2 seconds
   
   try {
-    // Add delay between requests to avoid rate limiting
     if (retryCount > 0) {
-      const delayMs = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+      const delayMs = baseDelay * Math.pow(2, retryCount - 1);
       console.log(`Retrying after ${delayMs}ms delay (attempt ${retryCount + 1}/${maxRetries + 1})`);
       await delay(delayMs);
     }
@@ -75,7 +122,6 @@ async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCo
     if (!response.ok) {
       const errorText = await response.text();
       
-      // Check if it's a rate limit error
       if (response.status === 429 || errorText.includes('rate limit') || errorText.includes('Error 1015')) {
         if (retryCount < maxRetries) {
           console.log(`Rate limited, retrying... (attempt ${retryCount + 1}/${maxRetries + 1})`);
@@ -101,12 +147,11 @@ async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCo
 
 async function generateImageWithGPT(prompt: string, retryCount = 0): Promise<string> {
   const maxRetries = 3;
-  const baseDelay = 3000; // 3 seconds for image generation
+  const baseDelay = 3000;
   
   try {
-    // Add delay between requests to avoid rate limiting
     if (retryCount > 0) {
-      const delayMs = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+      const delayMs = baseDelay * Math.pow(2, retryCount - 1);
       console.log(`Retrying image generation after ${delayMs}ms delay (attempt ${retryCount + 1}/${maxRetries + 1})`);
       await delay(delayMs);
     }
@@ -118,10 +163,10 @@ async function generateImageWithGPT(prompt: string, retryCount = 0): Promise<str
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-image-1',  // Correct: Using GPT-image-1 as intended
+        model: 'gpt-image-1',
         prompt: prompt,
-        size: '1024x1536',     // Portrait format for children's books
-        quality: 'medium',   // Standard quality for cost optimization
+        size: '1024x1536',
+        quality: 'medium',
         n: 1
       }),
     });
@@ -129,7 +174,6 @@ async function generateImageWithGPT(prompt: string, retryCount = 0): Promise<str
     if (!response.ok) {
       const errorText = await response.text();
       
-      // Check if it's a rate limit error
       if (response.status === 429 || errorText.includes('rate limit') || errorText.includes('Error 1015')) {
         if (retryCount < maxRetries) {
           console.log(`Image generation rate limited, retrying... (attempt ${retryCount + 1}/${maxRetries + 1})`);
@@ -143,7 +187,6 @@ async function generateImageWithGPT(prompt: string, retryCount = 0): Promise<str
     }
 
     const data = await response.json();
-    // GPT-image-1 returns base64 data directly for some configurations
     return data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
   } catch (error) {
     if (retryCount < maxRetries && (error.message.includes('rate limit') || error.message.includes('Error 1015'))) {
@@ -158,7 +201,6 @@ async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumb
   let imageBuffer;
   
   if (imageUrl.startsWith('data:image/')) {
-    // Handle base64 data URL using chunked processing
     const base64Data = imageUrl.split(',')[1];
     const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
@@ -167,7 +209,6 @@ async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumb
     }
     imageBuffer = new Uint8Array(byteNumbers);
   } else {
-    // Handle regular URL
     const imageResponse = await fetch(imageUrl);
     imageBuffer = await imageResponse.arrayBuffer();
   }
@@ -195,16 +236,21 @@ serve(async (req) => {
   }
 
   try {
+    // Validate authentication
+    const { userId } = await validateUserAuthentication(req);
+    console.log('Authenticated user:', userId);
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { storyId, pageId, artStyle = 'classic_watercolor' } = await req.json();
+    const requestBody = await req.json();
+    const { storyId, pageId, artStyle } = validateInput(requestBody);
 
     console.log(`Regenerating page ${pageId} for story ${storyId}`);
 
-    // Get the page and story data
+    // Get the page and story data with ownership validation
     const { data: page, error: pageError } = await supabase
       .from('story_pages')
       .select('*, stories(user_id, title, art_style)')
@@ -215,17 +261,19 @@ serve(async (req) => {
       throw new Error('Page not found');
     }
 
+    // Validate user ownership
+    if (page.stories.user_id !== userId) {
+      throw new Error('Unauthorized: User does not own this story');
+    }
+
     // Extract the file path from the original_image_url
     let filePath;
     if (page.original_image_url) {
-      // Handle both full URLs and relative paths
       const urlParts = page.original_image_url.split('/');
       const storageIndex = urlParts.findIndex(part => part === 'story-images');
       if (storageIndex !== -1 && storageIndex < urlParts.length - 1) {
-        // Extract everything after 'story-images/'
         filePath = urlParts.slice(storageIndex + 1).join('/');
       } else {
-        // Fallback: try to extract from the end of the URL
         const fileName = urlParts[urlParts.length - 1];
         filePath = `${page.stories.user_id}/${storyId}/${fileName}`;
       }
@@ -237,7 +285,6 @@ serve(async (req) => {
 
     console.log(`Downloading file from path: ${filePath}`);
 
-    // Get the original image data from storage
     const { data: imageData, error: imageError } = await supabase.storage
       .from('story-images')
       .download(filePath);
@@ -247,18 +294,15 @@ serve(async (req) => {
       throw new Error(`Failed to retrieve original image: ${imageError.message}`);
     }
 
-    // Convert to data URL using chunked processing
     const arrayBuffer = await imageData.arrayBuffer();
     
-    // Log warning for large images
-    if (arrayBuffer.byteLength > 10 * 1024 * 1024) { // 10MB
+    if (arrayBuffer.byteLength > 10 * 1024 * 1024) {
       console.warn(`Large image detected: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)}MB`);
     }
     
     const base64 = arrayBufferToBase64(arrayBuffer);
     const dataUrl = `data:image/png;base64,${base64}`;
 
-    // Build prompt
     const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
     const prompt = `Transform this child's hand-drawn story page into a professional ${stylePrompt} illustration. 
     
@@ -271,11 +315,9 @@ serve(async (req) => {
     
     Maintain the essence and charm of the original drawing while making it publication-ready.`;
 
-    // Analyze and generate new image
     const analysisText = await analyzeImageWithGPT(dataUrl, prompt);
     const imageUrl = await generateImageWithGPT(analysisText);
     
-    // Upload new generated image
     const generatedImageUrl = await uploadImageToSupabase(
       imageUrl, 
       storyId, 
@@ -284,7 +326,6 @@ serve(async (req) => {
       supabase
     );
 
-    // Update the page record
     await supabase
       .from('story_pages')
       .update({
@@ -308,10 +349,14 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in regenerate-page function:', error);
+    
+    const statusCode = error.message.includes('Unauthorized') ? 403 :
+                      error.message.includes('Invalid') ? 400 : 500;
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        status: 500,
+        status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
