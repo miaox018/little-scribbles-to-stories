@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +18,7 @@ export function InProgressStories() {
   const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [showCarousel, setShowCarousel] = useState(false);
+  const [userClosedCarousel, setUserClosedCarousel] = useState(false);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
   const [savingStory, setSavingStory] = useState(false);
   const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
@@ -35,16 +35,21 @@ export function InProgressStories() {
   const currentStory = inProgressStories[0] || null;
   const processingStories = inProgressStories.filter(story => story.status === 'processing');
 
-  // Auto-show carousel when story is available
+  // Auto-show carousel when story is available (only if user hasn't closed it)
   useEffect(() => {
     console.log('🔴 InProgressStories - currentStory changed:', !!currentStory);
-    console.log('🔴 InProgressStories - showCarousel:', showCarousel);
+    console.log('🔴 InProgressStories - userClosedCarousel:', userClosedCarousel);
     
-    if (currentStory && !showCarousel) {
-      console.log('🔴 Setting showCarousel to true');
+    if (currentStory && !userClosedCarousel) {
+      console.log('🔴 Setting showCarousel to true (auto-show)');
       setShowCarousel(true);
     }
-  }, [currentStory, showCarousel]);
+    
+    // Reset user closed flag when a new story arrives
+    if (currentStory) {
+      setUserClosedCarousel(false);
+    }
+  }, [currentStory]); // Removed showCarousel from dependencies to prevent loop
 
   // Auto-refresh for processing stories
   useEffect(() => {
@@ -62,6 +67,7 @@ export function InProgressStories() {
   const handleCloseCarousel = () => {
     console.log('🔴 InProgressStories handleCloseCarousel called');
     setShowCarousel(false);
+    setUserClosedCarousel(true); // Mark that user explicitly closed it
   };
 
   const handleRegeneratePage = async (pageId: string) => {
@@ -218,7 +224,10 @@ export function InProgressStories() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">{currentStory.title}</h3>
                 <Button
-                  onClick={() => setShowCarousel(true)}
+                  onClick={() => {
+                    setShowCarousel(true);
+                    setUserClosedCarousel(false); // Reset when user manually opens
+                  }}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
                   View Story
