@@ -14,7 +14,7 @@ export function DashboardSidebar({
       <SidebarHeader>
         <div className="flex items-center space-x-2 px-4 py-2">
           <BookOpen className="h-8 w-8 text-purple-600" />
-          <span className="text-xl font-bold text-gray-800">My-Little-Illustrator
+          <span className="text-xl font-bold text-gray-800">StoryMagic
         </span>
         </div>
       </SidebarHeader>
