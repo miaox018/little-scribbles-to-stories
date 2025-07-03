@@ -10,6 +10,8 @@ import { SubscriptionInfoCard } from "./create-story/SubscriptionInfoCard";
 import { TransformationProgress } from "./TransformationProgress";
 import { useStoryTransformation } from "@/hooks/useStoryTransformation";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useInProgressStories } from "@/hooks/useInProgressStories";
+import { ConfirmNewStoryDialog } from "./create-story/ConfirmNewStoryDialog";
 
 interface CreateStoryProps {
   onNavigateToInProgress?: () => void;
@@ -19,8 +21,10 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
   const [title, setTitle] = useState("");
   const [images, setImages] = useState<File[]>([]);
   const [artStyle, setArtStyle] = useState("classic_watercolor");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   const { subscription, limits, createCheckoutSession } = useSubscription();
+  const { inProgressStories, cancelAllProcessingStories } = useInProgressStories();
   
   const { 
     isTransforming, 
@@ -31,9 +35,22 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
     resetTransformation 
   } = useStoryTransformation();
 
+  // Check if there are any in-progress stories
+  const hasInProgressStories = inProgressStories.length > 0;
+
   const handleTransform = async () => {
     if (!title.trim() || images.length === 0) return;
     
+    // Check if there are in-progress stories that need to be handled
+    if (hasInProgressStories) {
+      setShowConfirmDialog(true);
+      return;
+    }
+    
+    await startTransformation();
+  };
+
+  const startTransformation = async () => {
     try {
       await transformStory(title, images, artStyle);
       
@@ -41,11 +58,21 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
       if (images.length > 3 && onNavigateToInProgress) {
         setTimeout(() => {
           onNavigateToInProgress();
-        }, 2000); // Give user a moment to see the progress started
+        }, 2000);
       }
     } catch (error) {
       console.error('Transform error:', error);
     }
+  };
+
+  const handleConfirmNewStory = async () => {
+    setShowConfirmDialog(false);
+    
+    // Cancel all existing in-progress stories
+    await cancelAllProcessingStories();
+    
+    // Start the new transformation
+    await startTransformation();
   };
 
   const handleCancel = () => {
@@ -60,7 +87,6 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
   };
 
   const handleUpgrade = () => {
-    // Open upgrade modal or redirect to pricing
     createCheckoutSession('storypro').catch(console.error);
   };
 
@@ -114,6 +140,13 @@ export function CreateStory({ onNavigateToInProgress }: CreateStoryProps) {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmNewStoryDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={handleConfirmNewStory}
+        inProgressCount={inProgressStories.length}
+      />
     </div>
   );
 }

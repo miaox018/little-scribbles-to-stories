@@ -10,7 +10,7 @@ import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { toast } from "@/hooks/use-toast";
 import { InProgressStoriesHeader } from "./in-progress-stories/InProgressStoriesHeader";
 import { EmptyState } from "./in-progress-stories/EmptyState";
-import { StoryCard } from "./in-progress-stories/StoryCard";
+import { InProgressStoryCarousel } from "./in-progress-stories/InProgressStoryCarousel";
 
 export function InProgressStories() {
   const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, cancelStory, cancelAllProcessingStories, refetch } = useInProgressStories();
@@ -18,7 +18,7 @@ export function InProgressStories() {
   const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
-  const [savingStories, setSavingStories] = useState<Set<string>>(new Set());
+  const [savingStory, setSavingStory] = useState(false);
   const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
   const [paywallStory, setPaywallStory] = useState<any>(null);
   const [cancelDialog, setCancelDialog] = useState<{
@@ -29,7 +29,8 @@ export function InProgressStories() {
     bulkCount?: number;
   }>({ isOpen: false });
 
-  // Count processing stories
+  // Get the first (and should be only) in-progress story
+  const currentStory = inProgressStories[0] || null;
   const processingStories = inProgressStories.filter(story => story.status === 'processing');
 
   // Auto-refresh for processing stories
@@ -81,7 +82,7 @@ export function InProgressStories() {
     }
 
     // For paid users, save directly
-    setSavingStories(prev => new Set(prev).add(story.id));
+    setSavingStory(true);
     
     try {
       await saveStoryToLibrary(story.id);
@@ -96,11 +97,7 @@ export function InProgressStories() {
         variant: "destructive"
       });
     } finally {
-      setSavingStories(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(story.id);
-        return newSet;
-      });
+      setSavingStory(false);
     }
   };
 
@@ -176,24 +173,19 @@ export function InProgressStories() {
         onBulkCancel={handleBulkCancel}
       />
 
-      {inProgressStories.length === 0 ? (
+      {!currentStory ? (
         <EmptyState />
       ) : (
-        <div className="space-y-6">
-          {inProgressStories.map((story) => (
-            <StoryCard
-              key={story.id}
-              story={story}
-              regeneratingPages={regeneratingPages}
-              savingStories={savingStories}
-              cancellingStories={cancellingStories}
-              onRegenerate={handleRegeneratePage}
-              onSaveToLibrary={handleSaveToLibrary}
-              onPreview={setSelectedStory}
-              onCancel={handleCancelStory}
-            />
-          ))}
-        </div>
+        <InProgressStoryCarousel
+          story={currentStory}
+          regeneratingPages={regeneratingPages}
+          savingStory={savingStory}
+          cancellingStories={cancellingStories}
+          onRegenerate={handleRegeneratePage}
+          onSaveToLibrary={handleSaveToLibrary}
+          onPreview={setSelectedStory}
+          onCancel={handleCancelStory}
+        />
       )}
 
       {selectedStory && (
