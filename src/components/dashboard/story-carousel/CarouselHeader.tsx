@@ -8,6 +8,7 @@ interface CarouselHeaderProps {
   isSaving?: boolean;
   onSave?: () => void;
   onClose?: () => void;
+  statusBadge?: React.ReactNode;
 }
 
 export function CarouselHeader({ 
@@ -15,11 +16,15 @@ export function CarouselHeader({
   showSaveButton = false, 
   isSaving = false, 
   onSave, 
-  onClose 
+  onClose,
+  statusBadge
 }: CarouselHeaderProps) {
   return (
     <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
-      <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+      <div className="flex items-center gap-3">
+        <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+        {statusBadge}
+      </div>
       <div className="flex items-center gap-2">
         {showSaveButton && onSave && (
           <Button
@@ -35,8 +40,14 @@ export function CarouselHeader({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
+            onClick={(e) => {
+              console.log('🔴 X button clicked - event:', e);
+              console.log('🔴 X button clicked - preventDefault check');
+              e.stopPropagation();
+              onClose();
+            }}
+            className="h-8 w-8 p-0 hover:bg-gray-100 transition-colors"
+            style={{ pointerEvents: 'auto' }}
           >
             <X className="h-4 w-4" />
           </Button>

@@ -1,4 +1,6 @@
 
+import { StoryStatusBadge } from "../in-progress-stories/StoryStatusBadge";
+
 interface CarouselFooterProps {
   currentPage: number;
   totalPages: number;
@@ -22,15 +24,7 @@ export function CarouselFooter({
             Page {currentPage + 1} of {totalPages}
           </span>
           {currentStoryPage?.transformation_status && (
-            <span className={`text-xs px-2 py-1 rounded-full ${
-              currentStoryPage.transformation_status === 'completed' 
-                ? 'bg-green-100 text-green-800' 
-                : currentStoryPage.transformation_status === 'failed'
-                ? 'bg-red-100 text-red-800'
-                : 'bg-yellow-100 text-yellow-800'
-            }`}>
-              {currentStoryPage.transformation_status}
-            </span>
+            <StoryStatusBadge status={currentStoryPage.transformation_status} className="text-xs" />
           )}
         </div>
         
