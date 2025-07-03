@@ -1,7 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { BookOpen, RefreshCw, Save, Eye, Loader2, AlertCircle, X, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { StoryViewer } from "./StoryViewer";
 import { PaywallModal } from "@/components/paywall/PaywallModal";
@@ -9,6 +8,9 @@ import { CancelStoryDialog } from "./CancelStoryDialog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { toast } from "@/hooks/use-toast";
+import { InProgressStoriesHeader } from "./in-progress-stories/InProgressStoriesHeader";
+import { EmptyState } from "./in-progress-stories/EmptyState";
+import { StoryCard } from "./in-progress-stories/StoryCard";
 
 export function InProgressStories() {
   const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, cancelStory, cancelAllProcessingStories, refetch } = useInProgressStories();
@@ -159,25 +161,6 @@ export function InProgressStories() {
     setPaywallStory(null);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'text-green-600';
-      case 'partial': return 'text-yellow-600';
-      case 'processing': return 'text-blue-600';
-      case 'failed': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'processing': return <Loader2 className="h-3 w-3 animate-spin" />;
-      case 'failed': return <AlertCircle className="h-3 w-3" />;
-      case 'partial': return <AlertCircle className="h-3 w-3" />;
-      default: return null;
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto flex items-center justify-center py-12">
@@ -188,147 +171,27 @@ export function InProgressStories() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Stories In Progress</h1>
-          <p className="text-gray-600">
-            Review your generated stories, regenerate individual pages, and save completed stories to your library.
-          </p>
-        </div>
-        
-        {processingStories.length > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleBulkCancel}
-            className="flex items-center gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            Cancel All Processing ({processingStories.length})
-          </Button>
-        )}
-      </div>
+      <InProgressStoriesHeader 
+        processingCount={processingStories.length}
+        onBulkCancel={handleBulkCancel}
+      />
 
       {inProgressStories.length === 0 ? (
-        <Card className="text-center p-12">
-          <CardContent>
-            <BookOpen className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              No stories in progress
-            </h3>
-            <p className="text-gray-500 mb-6">
-              Create your first story to see it here for review and editing!
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState />
       ) : (
         <div className="space-y-6">
           {inProgressStories.map((story) => (
-            <Card key={story.id} className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-1">
-                    {story.title}
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-2">
-                    {story.total_pages || story.story_pages?.length || 0} pages • 
-                    <span className={`inline-flex items-center gap-1 ml-1 ${getStatusColor(story.status)}`}>
-                      {getStatusIcon(story.status)}
-                      {story.status}
-                    </span> • 
-                    Created {new Date(story.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {story.status === 'processing' && (
-                    <Button 
-                      size="sm" 
-                      variant="destructive"
-                      onClick={() => handleCancelStory(story.id, story.title)}
-                      disabled={cancellingStories.has(story.id)}
-                    >
-                      {cancellingStories.has(story.id) ? (
-                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      ) : (
-                        <X className="mr-1 h-3 w-3" />
-                      )}
-                      Cancel
-                    </Button>
-                  )}
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setSelectedStory(story)}
-                    disabled={story.status === 'processing'}
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    Preview
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                    onClick={() => handleSaveToLibrary(story)}
-                    disabled={story.status === 'processing' || savingStories.has(story.id)}
-                  >
-                    {savingStories.has(story.id) ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    ) : (
-                      <Save className="mr-1 h-3 w-3" />
-                    )}
-                    Save to Library
-                  </Button>
-                </div>
-              </div>
-
-              {/* Pages Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {story.story_pages?.sort((a: any, b: any) => a.page_number - b.page_number).map((page: any) => (
-                  <div 
-                    key={page.id}
-                    className="relative group"
-                  >
-                    <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
-                      {page.generated_image_url ? (
-                        <img 
-                          src={page.generated_image_url}
-                          alt={`Page ${page.page_number}`}
-                          className="w-full h-full object-cover"
-                          style={{ transform: 'scale(0.5)', transformOrigin: 'center' }}
-                        />
-                      ) : page.transformation_status === 'failed' ? (
-                        <div className="w-full h-full flex items-center justify-center bg-red-50">
-                          <AlertCircle className="h-8 w-8 text-red-400" />
-                        </div>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                      {page.page_number}
-                    </div>
-
-                    {page.transformation_status === 'failed' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                        onClick={() => handleRegeneratePage(page.id, story.id, story.art_style)}
-                        disabled={regeneratingPages.has(page.id)}
-                      >
-                        {regeneratingPages.has(page.id) ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Card>
+            <StoryCard
+              key={story.id}
+              story={story}
+              regeneratingPages={regeneratingPages}
+              savingStories={savingStories}
+              cancellingStories={cancellingStories}
+              onRegenerate={handleRegeneratePage}
+              onSaveToLibrary={handleSaveToLibrary}
+              onPreview={setSelectedStory}
+              onCancel={handleCancelStory}
+            />
           ))}
         </div>
       )}
