@@ -117,12 +117,12 @@ export function StoryCarousel({
       />
 
       <CarouselImageDisplay
-        currentPage={currentStoryPage}
-        currentPageIndex={currentPage}
+        currentStoryPage={currentStoryPage}
+        currentPage={currentPage}
         totalPages={totalPages}
-        originalImages={originalImages}
         onPrevPage={prevPage}
         onNextPage={nextPage}
+        onRegeneratePage={() => {}} // Empty function for this carousel type
       />
 
       <CarouselFooter
