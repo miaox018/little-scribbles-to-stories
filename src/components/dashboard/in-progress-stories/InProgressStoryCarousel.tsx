@@ -238,8 +238,7 @@ export function InProgressStoryCarousel({
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
-        feature="save stories to library"
-        description="Upgrade to save your beautiful stories to your personal library and access them anytime!"
+        storyTitle={story.title}
       />
     </>
   );

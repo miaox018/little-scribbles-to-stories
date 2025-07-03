@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
@@ -46,15 +45,17 @@ export function InProgressStories() {
     }
   }, [inProgressStories, refetch]);
 
-  const handleRegeneratePage = async (pageId: string, storyId: string, artStyle: string) => {
+  const handleRegeneratePage = async (pageId: string) => {
+    if (!currentStory) return;
+    
     // Check if user can regenerate more pages
-    const canRegenerate = await trackPageRegeneration(storyId);
+    const canRegenerate = await trackPageRegeneration(currentStory.id);
     if (!canRegenerate) return;
 
     setRegeneratingPages(prev => new Set(prev).add(pageId));
     
     try {
-      await regeneratePage(pageId, storyId, artStyle);
+      await regeneratePage(pageId, currentStory.id, currentStory.art_style || 'watercolor');
       toast({
         title: "Success",
         description: "Page regenerated successfully!"
@@ -178,13 +179,8 @@ export function InProgressStories() {
       ) : (
         <InProgressStoryCarousel
           story={currentStory}
-          regeneratingPages={regeneratingPages}
-          savingStory={savingStory}
-          cancellingStories={cancellingStories}
           onRegenerate={handleRegeneratePage}
-          onSaveToLibrary={handleSaveToLibrary}
-          onPreview={setSelectedStory}
-          onCancel={handleCancelStory}
+          onSave={() => handleSaveToLibrary(currentStory)}
         />
       )}
 
