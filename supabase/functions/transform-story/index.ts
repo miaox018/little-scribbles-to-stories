@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { corsHeaders } from './config.ts';
 import { handleCorsRequest, validateRequest, validateRequestBody } from './request-handler.ts';
 import { validateStoryExists } from './story-validation.ts';
@@ -8,9 +7,6 @@ import { processSynchronously } from './sync-processor.ts';
 import { startAsyncProcessing } from './async-processor.ts';
 import { validateUserAuthentication, validateUserOwnership } from './auth-validation.ts';
 import { validateStoryId, validateImageUrls, validateArtStyle, validateRequestSize } from './input-validation.ts';
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // Add shutdown handling
 addEventListener('beforeunload', (ev) => {
@@ -31,11 +27,9 @@ serve(async (req) => {
   }
 
   try {
-    // Validate authentication first
-    const { userId } = await validateUserAuthentication(req);
+    // Validate authentication and get authenticated Supabase client
+    const { userId, supabase } = await validateUserAuthentication(req);
     console.log('Authenticated user:', userId);
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     // Validate and parse request with enhanced security
     const { requestBody, bodyText } = await validateRequest(req);

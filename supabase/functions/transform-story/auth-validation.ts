@@ -1,5 +1,7 @@
 
-export async function validateUserAuthentication(req: Request): Promise<{ userId: string; authError?: string }> {
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+
+export async function validateUserAuthentication(req: Request): Promise<{ userId: string; supabase: any }> {
   const authHeader = req.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -11,7 +13,6 @@ export async function validateUserAuthentication(req: Request): Promise<{ userId
 
   const token = authHeader.replace('Bearer ', '');
   
-  // Additional token validation can be added here
   if (!token || token.length < 20) {
     throw new Error(JSON.stringify({ 
       error: 'Invalid authentication token',
@@ -19,16 +20,28 @@ export async function validateUserAuthentication(req: Request): Promise<{ userId
     }));
   }
 
-  // Extract user ID from the request context (Supabase handles JWT verification)
-  const userId = req.headers.get('x-user-id');
-  if (!userId) {
+  // Create authenticated Supabase client
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  });
+
+  // Get the authenticated user
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
     throw new Error(JSON.stringify({ 
-      error: 'User ID not found in request context',
-      code: 'USER_ID_MISSING'
+      error: 'Invalid or expired authentication token',
+      code: 'INVALID_TOKEN'
     }));
   }
 
-  return { userId };
+  return { userId: user.id, supabase };
 }
 
 export async function validateUserOwnership(supabase: any, userId: string, storyId: string): Promise<boolean> {
