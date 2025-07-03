@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export function InProgressStoryCarousel({
   const [currentPage, setCurrentPage] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(true); // Add local state for dialog
   const { subscription } = useSubscription();
 
   // Ensure story_pages is always an array and sort by page_number
@@ -39,12 +41,30 @@ export function InProgressStoryCarousel({
   };
 
   const handleClose = () => {
+    console.log('🔴 InProgressStoryCarousel handleClose called');
+    console.log('🔴 onClose function exists:', !!onClose);
+    console.log('🔴 Setting isDialogOpen to false');
+    
+    setIsDialogOpen(false);
+    
     if (onClose) {
+      console.log('🔴 Calling onClose callback');
       onClose();
+    } else {
+      console.log('🔴 No onClose callback provided');
+    }
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    console.log('🔴 Dialog onOpenChange called with:', open);
+    if (!open) {
+      handleClose();
     }
   };
 
   const handleSaveToLibrary = async () => {
+    console.log('💾 Save to library clicked');
+    
     if (!story?.id) return;
     
     // Check if user has paid subscription
@@ -94,14 +114,20 @@ export function InProgressStoryCarousel({
   };
 
   const handleRegeneratePage = async (pageId: string) => {
+    console.log('🔄 Regenerate page clicked for:', pageId);
     if (onRegenerate) {
       onRegenerate(pageId);
     }
   };
 
+  // Add debug logging for dialog state
+  console.log('🔴 InProgressStoryCarousel render - isDialogOpen:', isDialogOpen);
+  console.log('🔴 InProgressStoryCarousel render - story exists:', !!story);
+  console.log('🔴 InProgressStoryCarousel render - totalPages:', totalPages);
+
   if (!story || totalPages === 0) {
     return (
-      <Dialog open={true} onOpenChange={handleClose}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
           <DialogTitle className="sr-only">In Progress Story - No Content</DialogTitle>
           <DialogDescription className="sr-only">No pages available to display</DialogDescription>
@@ -117,7 +143,7 @@ export function InProgressStoryCarousel({
 
   return (
     <>
-      <Dialog open={true} onOpenChange={handleClose}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
           <DialogTitle className="sr-only">{story.title}</DialogTitle>
           <DialogDescription className="sr-only">Story viewer displaying pages of {story.title}</DialogDescription>
@@ -140,8 +166,14 @@ export function InProgressStoryCarousel({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleClose}
-                  className="h-8 w-8 p-0 hover:bg-gray-100"
+                  onClick={(e) => {
+                    console.log('🔴 X button clicked - event:', e);
+                    console.log('🔴 X button clicked - preventDefault check');
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  className="h-8 w-8 p-0 hover:bg-gray-100 transition-colors"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   <X className="h-4 w-4" />
                 </Button>

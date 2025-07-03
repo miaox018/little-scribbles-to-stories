@@ -16,6 +16,7 @@ export function InProgressStories() {
   const { subscription } = useSubscription();
   const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
+  const [showCarousel, setShowCarousel] = useState(false);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
   const [savingStory, setSavingStory] = useState(false);
   const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
@@ -32,6 +33,17 @@ export function InProgressStories() {
   const currentStory = inProgressStories[0] || null;
   const processingStories = inProgressStories.filter(story => story.status === 'processing');
 
+  // Auto-show carousel when story is available
+  useEffect(() => {
+    console.log('🔴 InProgressStories - currentStory changed:', !!currentStory);
+    console.log('🔴 InProgressStories - showCarousel:', showCarousel);
+    
+    if (currentStory && !showCarousel) {
+      console.log('🔴 Setting showCarousel to true');
+      setShowCarousel(true);
+    }
+  }, [currentStory, showCarousel]);
+
   // Auto-refresh for processing stories
   useEffect(() => {
     const hasProcessingStories = inProgressStories.some(story => story.status === 'processing');
@@ -44,6 +56,11 @@ export function InProgressStories() {
       return () => clearInterval(interval);
     }
   }, [inProgressStories, refetch]);
+
+  const handleCloseCarousel = () => {
+    console.log('🔴 InProgressStories handleCloseCarousel called');
+    setShowCarousel(false);
+  };
 
   const handleRegeneratePage = async (pageId: string) => {
     if (!currentStory) return;
@@ -91,6 +108,8 @@ export function InProgressStories() {
         title: "Success",
         description: "Story saved to library!"
       });
+      // Close carousel after successful save
+      setShowCarousel(false);
     } catch (error) {
       toast({
         title: "Error", 
@@ -159,6 +178,9 @@ export function InProgressStories() {
     setPaywallStory(null);
   };
 
+  console.log('🔴 InProgressStories render - showCarousel:', showCarousel);
+  console.log('🔴 InProgressStories render - currentStory exists:', !!currentStory);
+
   if (isLoading) {
     return (
       <div className="max-w-6xl mx-auto flex items-center justify-center py-12">
@@ -177,11 +199,38 @@ export function InProgressStories() {
       {!currentStory ? (
         <EmptyState />
       ) : (
-        <InProgressStoryCarousel
-          story={currentStory}
-          onRegenerate={handleRegeneratePage}
-          onSave={() => handleSaveToLibrary(currentStory)}
-        />
+        <>
+          {/* Show carousel only when showCarousel is true */}
+          {showCarousel && (
+            <InProgressStoryCarousel
+              story={currentStory}
+              onClose={handleCloseCarousel}
+              onRegenerate={handleRegeneratePage}
+              onSave={() => handleSaveToLibrary(currentStory)}
+            />
+          )}
+
+          {/* Show story card/preview when carousel is closed */}
+          {!showCarousel && (
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">{currentStory.title}</h3>
+                <Button
+                  onClick={() => setShowCarousel(true)}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  View Story
+                </Button>
+              </div>
+              <p className="text-gray-600 text-sm">
+                Status: <span className="capitalize">{currentStory.status}</span>
+              </p>
+              <p className="text-gray-600 text-sm">
+                Pages: {currentStory.story_pages?.length || 0}
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {selectedStory && (
