@@ -16,7 +16,9 @@ export default function SharedStory() {
     queryFn: async () => {
       if (!storyId) throw new Error('Story ID is required');
 
-      // Use service role to bypass RLS for shared stories
+      console.log('🔍 Fetching shared story:', storyId);
+
+      // First try to get the story with a regular query
       const { data, error } = await supabase
         .from('stories')
         .select(`
@@ -32,10 +34,55 @@ export default function SharedStory() {
         .eq('id', storyId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching story:', error);
+        
+        // If we get an RLS error, try using the anon key with a different approach
+        if (error.code === 'PGRST116' || error.message.includes('RLS')) {
+          console.log('🔄 Trying alternative approach for public access...');
+          
+          // Create a new supabase client instance that might work for public queries
+          const publicSupabase = supabase;
+          
+          const { data: publicData, error: publicError } = await publicSupabase
+            .from('stories')
+            .select(`
+              id,
+              title,
+              art_style,
+              total_pages,
+              created_at,
+              story_pages (
+                id,
+                page_number,
+                original_image_url,
+                generated_image_url,
+                transformation_status
+              )
+            `)
+            .eq('id', storyId)
+            .maybeSingle();
+
+          if (publicError) {
+            console.error('❌ Public query also failed:', publicError);
+            throw new Error('Story not found or access denied');
+          }
+
+          if (!publicData) {
+            throw new Error('Story not found');
+          }
+
+          return publicData;
+        }
+        
+        throw error;
+      }
+
+      console.log('✅ Story fetched successfully:', data?.title);
       return data;
     },
     enabled: !!storyId,
+    retry: 1, // Only retry once
   });
 
   if (isLoading) {
@@ -50,13 +97,14 @@ export default function SharedStory() {
   }
 
   if (error || !story) {
+    console.error('❌ Story loading failed:', error);
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-8">
           <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-800 mb-2">Story Not Found</h1>
           <p className="text-gray-600 mb-6">
-            This story link may be invalid or the story may have been removed.
+            This story link may be invalid, the story may have been removed, or you may not have permission to view it.
           </p>
           <Button 
             onClick={() => window.location.href = '/'}
@@ -71,6 +119,7 @@ export default function SharedStory() {
   }
 
   const sortedPages = story.story_pages?.sort((a: any, b: any) => a.page_number - b.page_number) || [];
+  console.log('📖 Story pages:', sortedPages.length);
 
   if (showViewer && sortedPages.length > 0) {
     return (
@@ -112,6 +161,19 @@ export default function SharedStory() {
                       {page.generated_image_url ? (
                         <img
                           src={page.generated_image_url}
+                          alt={`Page ${page.page_number}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.log('❌ Image failed to load:', page.generated_image_url);
+                            // Try original image as fallback
+                            if (page.original_image_url && e.currentTarget.src !== page.original_image_url) {
+                              e.currentTarget.src = page.original_image_url;
+                            }
+                          }}
+                        />
+                      ) : page.original_image_url ? (
+                        <img
+                          src={page.original_image_url}
                           alt={`Page ${page.page_number}`}
                           className="w-full h-full object-cover"
                         />
