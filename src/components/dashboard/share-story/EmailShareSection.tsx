@@ -68,19 +68,10 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
       
       console.log('✅ Email sent successfully');
       
-      // Check if PDF was included in the response
-      const pdfIncluded = data?.pdfIncluded;
-      const pdfError = data?.pdfError;
-      
-      let successMessage = `Story "${story?.title}" has been shared with ${email}`;
-      if (pdfIncluded) {
-        successMessage += " with PDF attachment! 📎";
-      } else if (pdfError) {
-        successMessage += " (PDF could not be generated, but story details were sent)";
-      }
+      const successMessage = `Story "${story?.title}" has been shared with ${email}! They can view it online anytime. 🌐`;
       
       toast({
-        title: pdfIncluded ? "Story Shared with PDF! 📚📎" : "Story Shared! 📚",
+        title: "Story Shared! 📚🌐",
         description: successMessage,
       });
       
@@ -125,7 +116,7 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
         Share Story via Email
       </Label>
       <p className="text-sm text-gray-600 mb-3">
-        Send your magical story with PDF attachment to family and friends via email.
+        Send your magical story link to family and friends. They can view it online on any device!
       </p>
       
       {error && (
@@ -167,8 +158,8 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
         </Button>
       </div>
 
-      <div className="text-xs text-gray-500 mt-2">
-        📎 A PDF version of the story will be attached to the email when possible
+      <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+        🌐 Recipients can view the story online - works on any device!
       </div>
     </div>
   );

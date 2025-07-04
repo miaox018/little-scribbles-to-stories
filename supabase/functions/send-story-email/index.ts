@@ -3,7 +3,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
 import { validateAuth } from './auth-validation.ts';
-import { generateStoryPDF } from './pdf-generator.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -146,28 +145,10 @@ const handler = async (req: Request): Promise<Response> => {
     const sortedPages = story.story_pages?.sort((a: any, b: any) => a.page_number - b.page_number) || [];
 
     const sender = senderName || user.email || 'Someone';
+    const storyViewUrl = `${Deno.env.get('SUPABASE_URL')?.replace('//', '//').replace('supabase.co', 'vercel.app') || 'https://your-app.vercel.app'}/shared-story/${storyId}`;
 
-    // Generate PDF
-    let pdfBuffer: Uint8Array | null = null;
-    let pdfError: string | null = null;
-
-    try {
-      console.log('📄 Generating PDF for story...');
-      pdfBuffer = await generateStoryPDF(story, sortedPages);
-      console.log('✅ PDF generated successfully');
-    } catch (error: any) {
-      console.error('❌ PDF generation failed:', error);
-      pdfError = error.message;
-      // Continue without PDF - we'll send the email anyway
-    }
-
-    // Prepare email content
+    // Prepare email content with online viewing link
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
-    const pdfAttachment = pdfBuffer ? {
-      filename: `${storyTitle.replace(/[^a-zA-Z0-9]/g, '_')}_StoryMagic.pdf`,
-      content: Array.from(pdfBuffer),
-      contentType: 'application/pdf'
-    } : null;
 
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -184,19 +165,25 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #555; font-size: 16px; line-height: 1.6;">
             This story contains ${sortedPages.length} magical pages created from children's drawings.
           </p>
-          ${pdfAttachment ? `
-            <div style="background: rgba(139, 92, 246, 0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
-              <p style="color: #8B5CF6; font-weight: bold; margin: 0; font-size: 14px;">
-                📎 PDF attachment included! You can download and keep this magical story forever.
-              </p>
-            </div>
-          ` : `
-            <div style="background: rgba(249, 115, 22, 0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
-              <p style="color: #f97316; font-weight: bold; margin: 0; font-size: 14px;">
-                📋 Note: PDF could not be generated, but the story information is below.
-              </p>
-            </div>
-          `}
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${storyViewUrl}" style="
+              display: inline-block;
+              background: #8B5CF6;
+              color: white;
+              padding: 15px 30px;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: bold;
+              font-size: 16px;
+            ">
+              📖 View Story Online
+            </a>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
+            Click the button above to view the full story with all the magical artwork!
+          </p>
         </div>
         
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -206,7 +193,7 @@ const handler = async (req: Request): Promise<Response> => {
             <li><strong>Pages:</strong> ${sortedPages.length}</li>
             <li><strong>Shared by:</strong> ${sender}</li>
             <li><strong>Art Style:</strong> ${story.art_style || 'Classic Watercolor'}</li>
-            ${pdfAttachment ? '<li><strong>PDF:</strong> Attached to this email</li>' : ''}
+            <li><strong>View online:</strong> Works on any device - phone, tablet, or computer!</li>
           </ul>
         </div>
 
@@ -225,35 +212,27 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log('📧 Sending email with' + (pdfAttachment ? ' PDF attachment...' : 'out PDF...'));
+    console.log('📧 Sending email with online story link...');
 
     try {
-      const emailData: any = {
+      const emailData = {
         from: "StoryMagic <onboarding@resend.dev>",
         to: [recipientEmail],
         subject: emailSubject,
         html: emailHtml,
       };
 
-      // Add PDF attachment if available
-      if (pdfAttachment) {
-        emailData.attachments = [pdfAttachment];
-      }
-
       const emailResponse = await resend.emails.send(emailData);
 
       console.log("✅ Email sent successfully:", emailResponse);
 
-      const responseMessage = pdfAttachment 
-        ? `Story "${storyTitle}" with PDF attachment sent successfully to ${recipientEmail}`
-        : `Story information sent to ${recipientEmail}${pdfError ? ` (PDF generation failed: ${pdfError})` : ''}`;
+      const responseMessage = `Story "${storyTitle}" shared successfully with ${recipientEmail}! They can view it online at any time.`;
 
       return new Response(JSON.stringify({ 
         success: true, 
         message: responseMessage,
         emailId: emailResponse.data?.id,
-        pdfIncluded: !!pdfAttachment,
-        pdfError: pdfError
+        storyViewUrl: storyViewUrl
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
