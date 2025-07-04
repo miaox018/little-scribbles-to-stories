@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Copy, Check, Mail } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ShareStoryDialogProps {
   isOpen: boolean;
@@ -55,11 +56,30 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSending(true);
     try {
-      // Here you would integrate with your email service
-      // For now, we'll just simulate the sharing
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.functions.invoke('send-story-email', {
+        body: {
+          recipientEmail: email,
+          storyTitle: story?.title,
+          storyId: story?.id,
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
       
       toast({
         title: "Story Shared",
@@ -67,10 +87,11 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
       });
       setEmail("");
       onClose();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Email sharing error:', error);
       toast({
         title: "Share Failed",
-        description: "Failed to share story. Please try again.",
+        description: error.message || "Failed to share story. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -139,6 +160,11 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="flex-1"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleShareByEmail();
+                  }
+                }}
               />
               <Button
                 onClick={handleShareByEmail}
