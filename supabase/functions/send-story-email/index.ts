@@ -146,8 +146,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const sender = senderName || user.email || 'Someone';
     
-    // Use production domain for story view URL
-    const storyViewUrl = `https://my-little-illustrator.com/shared-story/${storyId}`;
+    // Use correct app domain for story view URL
+    const storyViewUrl = `https://storymaig.my-little-illustrator.com/shared-story/${storyId}`;
 
     // Prepare email content with online viewing link
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
@@ -214,7 +214,7 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log('📧 Sending email with production story link:', storyViewUrl);
+    console.log('📧 Sending email with correct app domain:', storyViewUrl);
 
     try {
       const emailData = {
