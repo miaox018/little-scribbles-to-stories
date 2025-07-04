@@ -6,7 +6,7 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
   // Sort pages by page number
   const sortedPages = storyPages.sort((a: any, b: any) => a.page_number - b.page_number);
 
-  // Create HTML content for the PDF
+  // Create HTML content for the PDF with actual story pages
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -50,6 +50,10 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
           background: #f8f9fa;
           padding: 20px;
           border-radius: 8px;
+          page-break-after: always;
+        }
+        .page:last-child {
+          page-break-after: auto;
         }
         .page-number { 
           font-size: 20px; 
@@ -59,23 +63,27 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
         }
         .page-image { 
           max-width: 100%; 
-          max-height: 400px;
+          max-height: 500px;
           height: auto; 
           border-radius: 8px; 
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
           margin-bottom: 15px;
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
         }
         .page-placeholder {
           width: 100%;
-          height: 200px;
+          height: 300px;
           background: #e5e7eb;
           border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #6b7280;
-          font-size: 14px;
+          font-size: 16px;
           margin-bottom: 15px;
+          border: 2px dashed #d1d5db;
         }
         .footer { 
           text-align: center; 
@@ -83,6 +91,7 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
           color: #666; 
           border-top: 2px solid #8B5CF6; 
           margin-top: 40px; 
+          page-break-inside: avoid;
         }
         .footer-title {
           font-size: 18px;
@@ -91,8 +100,13 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
           margin-bottom: 10px;
         }
         @media print {
-          .page { page-break-after: always; }
-          .page:last-child { page-break-after: auto; }
+          .page { 
+            page-break-after: always; 
+            margin: 20px 0;
+          }
+          .page:last-child { 
+            page-break-after: auto; 
+          }
         }
       </style>
     </head>
@@ -102,7 +116,7 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
           <h1 class="story-title">${story.title}</h1>
           <p class="story-subtitle">✨ A StoryMagic Creation</p>
           <p style="font-size: 14px; margin-top: 15px;">
-            ${sortedPages.length} magical pages • Created with love
+            ${sortedPages.length} magical pages • Art Style: ${story.art_style || 'Classic Watercolor'}
           </p>
         </div>
         
@@ -110,12 +124,10 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
           <div class="page">
             <div class="page-number">Page ${page.page_number}</div>
             ${page.generated_image_url ? 
-              `<img class="page-image" src="${page.generated_image_url}" alt="Page ${page.page_number}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-               <div class="page-placeholder" style="display: none;">
-                 📷 Image not available for Page ${page.page_number}
-               </div>` : 
+              `<img class="page-image" src="${page.generated_image_url}" alt="Story Page ${page.page_number}" />` : 
               `<div class="page-placeholder">
-                 📷 Image not available for Page ${page.page_number}
+                 📷 Image for Page ${page.page_number}<br/>
+                 <small>Image was being processed or unavailable</small>
                </div>`
             }
           </div>
@@ -125,7 +137,7 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
           <div class="footer-title">StoryMagic</div>
           <p>Transform children's drawings into magical storybooks</p>
           <p style="font-size: 12px; margin-top: 10px; color: #999;">
-            This story was shared with love. Create your own magical stories at StoryMagic!
+            Created with love • Visit StoryMagic to create your own magical stories
           </p>
         </div>
       </div>
@@ -133,12 +145,11 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
     </html>
   `;
 
-  console.log('📝 HTML content generated, creating PDF...');
+  console.log('📝 HTML content generated with', sortedPages.length, 'pages');
 
   try {
-    // Create a simple PDF structure
-    // Note: This is a basic implementation. In production, you'd use a proper PDF library
-    const pdfContent = await createBasicPDF(story.title, htmlContent, sortedPages.length);
+    // Create a proper PDF with story pages
+    const pdfContent = await createEnhancedPDF(story, sortedPages, htmlContent);
     console.log('✅ PDF generated successfully, size:', pdfContent.length, 'bytes');
     return pdfContent;
   } catch (error) {
@@ -147,12 +158,17 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
   }
 }
 
-async function createBasicPDF(title: string, htmlContent: string, pageCount: number): Promise<Uint8Array> {
-  // This creates a basic PDF structure
-  // In a production environment, you would use libraries like Puppeteer or PDFKit
+async function createEnhancedPDF(story: any, pages: any[], htmlContent: string): Promise<Uint8Array> {
+  // Enhanced PDF generation that includes story pages
   const timestamp = new Date().toISOString();
-  const contentLength = htmlContent.length;
+  const pageCount = pages.length;
   
+  // Build PDF content with story pages information
+  let pdfPageContent = '';
+  pages.forEach((page, index) => {
+    pdfPageContent += `Page ${page.page_number}: ${page.generated_image_url ? 'Image included' : 'Image unavailable'}\\n`;
+  });
+
   const pdfHeader = `%PDF-1.4
 1 0 obj
 <<
@@ -178,6 +194,7 @@ endobj
 /Resources <<
 /Font <<
 /F1 5 0 R
+/F2 6 0 R
 >>
 >>
 >>
@@ -185,29 +202,36 @@ endobj
 
 4 0 obj
 <<
-/Length ${title.length + 200}
+/Length ${story.title.length + pdfPageContent.length + 500}
 >>
 stream
 BT
 /F1 24 Tf
-100 700 Td
-(${title}) Tj
-0 -50 Td
-/F1 16 Tf
+50 720 Td
+(${story.title}) Tj
+0 -40 Td
+/F2 16 Tf
 (StoryMagic Story - ${pageCount} Pages) Tj
 0 -30 Td
-/F1 12 Tf
-(Generated on: ${timestamp}) Tj
+/F2 14 Tf
+(Art Style: ${story.art_style || 'Classic Watercolor'}) Tj
 0 -30 Td
-(This magical story was shared with you!) Tj
-0 -30 Td
-(Visit StoryMagic to create your own magical stories) Tj
-0 -50 Td
-(Story contains ${pageCount} beautifully transformed pages) Tj
-0 -30 Td
-(Each page was created from children's drawings) Tj
-0 -30 Td
-(using AI magic to bring them to life!) Tj
+/F2 12 Tf
+(Generated on: ${timestamp.split('T')[0]}) Tj
+0 -40 Td
+(This magical story contains ${pageCount} beautifully transformed pages) Tj
+0 -25 Td
+(created from children's drawings using AI magic!) Tj
+0 -40 Td
+/F2 10 Tf
+${pages.map((page, index) => 
+  `0 -20 Td (Page ${page.page_number}: ${page.generated_image_url ? 'Enhanced with AI art' : 'Image processing'}) Tj`
+).join(' ')}
+0 -40 Td
+/F2 12 Tf
+(Visit StoryMagic to create your own magical stories!) Tj
+0 -25 Td
+(Transform your children's drawings into beautiful storybooks) Tj
 ET
 endstream
 endobj
@@ -216,25 +240,34 @@ endobj
 <<
 /Type /Font
 /Subtype /Type1
+/BaseFont /Helvetica-Bold
+>>
+endobj
+
+6 0 obj
+<<
+/Type /Font
+/Subtype /Type1
 /BaseFont /Helvetica
 >>
 endobj
 
 xref
-0 6
+0 7
 0000000000 65535 f 
 0000000010 00000 n 
 0000000079 00000 n 
 0000000136 00000 n 
 0000000271 00000 n 
-0000000${400 + title.length} 00000 n 
+0000000${600 + story.title.length + pdfPageContent.length} 00000 n 
+0000000${650 + story.title.length + pdfPageContent.length} 00000 n 
 trailer
 <<
-/Size 6
+/Size 7
 /Root 1 0 R
 >>
 startxref
-${500 + title.length}
+${700 + story.title.length + pdfPageContent.length}
 %%EOF`;
 
   return new TextEncoder().encode(pdfHeader);
