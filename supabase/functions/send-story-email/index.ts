@@ -146,8 +146,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     const sender = senderName || user.email || 'Someone';
     
-    // Use correct app domain for story view URL
-    const storyViewUrl = `https://storymaig.my-little-illustrator.com/shared-story/${storyId}`;
+    // Get the correct domain from request origin or use default
+    const origin = req.headers.get('origin') || 'https://storymagic.my-little-illustrator.com';
+    const storyViewUrl = `${origin}/shared-story/${storyId}`;
 
     // Prepare email content with online viewing link
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
@@ -189,7 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
-            Click the button above to view the full story with all the magical artwork!
+            Click the button above to view the complete story with all the magical artwork!
           </p>
         </div>
         
@@ -216,7 +217,7 @@ const handler = async (req: Request): Promise<Response> => {
             This email was sent from StoryMagic. If you didn't expect this email, you can safely ignore it.
           </p>
           <p style="color: #999; font-size: 12px; margin: 10px 0 0 0;">
-            Direct link: <a href="${storyViewUrl}" style="color: #8B5CF6;">${storyViewUrl}</a>
+            Direct link: <a href="${storyViewUrl}" style="color: #8B5CF6; text-decoration: none;">${storyViewUrl}</a>
           </p>
         </div>
       </div>

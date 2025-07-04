@@ -13,7 +13,7 @@ interface LinkShareSectionProps {
 export function LinkShareSection({ story }: LinkShareSectionProps) {
   const [copied, setCopied] = useState(false);
   
-  const shareUrl = `${window.location.origin}/story/${story?.id}`;
+  const shareUrl = `${window.location.origin}/shared-story/${story?.id}`;
 
   const handleCopyLink = async () => {
     try {
