@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
@@ -149,7 +150,7 @@ const handler = async (req: Request): Promise<Response> => {
     const origin = req.headers.get('origin') || 'https://storymagic.my-little-illustrator.com';
     const storyViewUrl = `${origin}/shared-story/${storyId}`;
 
-    // Prepare email content with simplified button structure
+    // Prepare email content with plain text link approach
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
 
     const emailHtml = `
@@ -159,7 +160,7 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #666; margin: 5px 0;">Transform children's drawings into magical storybooks</p>
         </div>
         
-        <div style="background: linear-gradient(135deg, #f3e8ff, #fce7f3); padding: 30px; border-radius: 12px; margin-bottom: 30px;">
+        <div style="background: #f3e8ff; padding: 30px; border-radius: 12px; margin-bottom: 30px;">
           <h2 style="color: #333; margin-top: 0;">📚 You've received a magical story!</h2>
           <p style="color: #555; font-size: 16px; line-height: 1.6;">
             ${sender} has shared the story <strong>"${storyTitle}"</strong> with you through StoryMagic.
@@ -168,17 +169,19 @@ const handler = async (req: Request): Promise<Response> => {
             This story contains ${sortedPages.length} magical pages created from children's drawings.
           </p>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${storyViewUrl}" style="display: inline-block; padding: 15px 30px; background: #8B5CF6; color: #ffffff; text-decoration: none; border-radius: 8px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; margin-bottom: 15px;">📖 View Story Online</a>
+          <!-- 简单的文本链接 -->
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 2px solid #8B5CF6;">
+            <h3 style="color: #8B5CF6; margin-top: 0; text-align: center;">📖 View Your Story</h3>
+            <p style="text-align: center; margin: 10px 0; color: #666;">
+              Copy and paste this link in your browser:
+            </p>
+            <p style="text-align: center; margin: 15px 0;">
+              <span style="background: #f8f9fa; padding: 10px 15px; border-radius: 6px; font-family: monospace; font-size: 14px; word-break: break-all; display: inline-block; border: 1px solid #ddd;">${storyViewUrl}</span>
+            </p>
+            <p style="text-align: center; font-size: 12px; color: #888; margin-bottom: 0;">
+              💡 Tip: Select the link above, copy (Ctrl+C), then paste in your browser address bar
+            </p>
           </div>
-          
-          <p style="text-align: center; margin: 10px 0;">
-            <a href="${storyViewUrl}" style="color: #8B5CF6; text-decoration: none; font-size: 14px;">If the button doesn't work, click here to view the story</a>
-          </p>
-          
-          <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
-            Works on any device - phone, tablet, or computer!
-          </p>
         </div>
         
         <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -188,6 +191,7 @@ const handler = async (req: Request): Promise<Response> => {
             <li><strong>Pages:</strong> ${sortedPages.length}</li>
             <li><strong>Shared by:</strong> ${sender}</li>
             <li><strong>Art Style:</strong> ${story.art_style || 'Classic Watercolor'}</li>
+            <li><strong>Works on:</strong> Any device - phone, tablet, or computer!</li>
           </ul>
         </div>
 
@@ -202,14 +206,11 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #999; font-size: 12px; margin: 0;">
             This email was sent from StoryMagic. If you didn't expect this email, you can safely ignore it.
           </p>
-          <p style="color: #999; font-size: 12px; margin: 10px 0 0 0;">
-            Direct link: <a href="${storyViewUrl}" style="color: #8B5CF6; text-decoration: none;">${storyViewUrl}</a>
-          </p>
         </div>
       </div>
     `;
 
-    console.log('📧 Sending email with simplified button structure:', storyViewUrl);
+    console.log('📧 Sending email with plain text link approach:', storyViewUrl);
 
     try {
       const emailData = {
@@ -223,7 +224,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       console.log("✅ Email sent successfully:", emailResponse);
 
-      const responseMessage = `Story "${storyTitle}" shared successfully with ${recipientEmail}! They can view it online at any time.`;
+      const responseMessage = `Story "${storyTitle}" shared successfully with ${recipientEmail}! They can copy the link from the email to view it online.`;
 
       return new Response(JSON.stringify({ 
         success: true, 
