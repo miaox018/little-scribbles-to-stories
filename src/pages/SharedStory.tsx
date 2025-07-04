@@ -1,3 +1,4 @@
+
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,11 +20,11 @@ export default function SharedStory() {
 
       // Make a direct HTTP request to the edge function with the storyId as a URL parameter
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/get-shared-story?storyId=${encodeURIComponent(storyId)}`,
+        `https://mpmbduoffaldnkhrkxxp.supabase.co/functions/v1/get-shared-story?storyId=${encodeURIComponent(storyId)}`,
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1wbWJkdW9mZmFsZG5raHJreHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1MTc1MDQsImV4cCI6MjA2NjA5MzUwNH0.A2lEnoCvxL8ehRGCwkLtLdHVvB33AlM0oU9NG79EFyE`,
             'Content-Type': 'application/json',
           }
         }
