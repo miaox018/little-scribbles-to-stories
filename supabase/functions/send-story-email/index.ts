@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
 import { validateAuth } from './auth-validation.ts';
+import { generateStoryPDF } from './pdf-generator.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -146,55 +147,113 @@ const handler = async (req: Request): Promise<Response> => {
 
     const sender = senderName || user.email || 'Someone';
 
-    console.log('📧 Sending email...');
+    // Generate PDF
+    let pdfBuffer: Uint8Array | null = null;
+    let pdfError: string | null = null;
 
     try {
-      const emailResponse = await resend.emails.send({
+      console.log('📄 Generating PDF for story...');
+      pdfBuffer = await generateStoryPDF(story, sortedPages);
+      console.log('✅ PDF generated successfully');
+    } catch (error: any) {
+      console.error('❌ PDF generation failed:', error);
+      pdfError = error.message;
+      // Continue without PDF - we'll send the email anyway
+    }
+
+    // Prepare email content
+    const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
+    const pdfAttachment = pdfBuffer ? {
+      filename: `${storyTitle.replace(/[^a-zA-Z0-9]/g, '_')}_StoryMagic.pdf`,
+      content: Array.from(pdfBuffer),
+      contentType: 'application/pdf'
+    } : null;
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #8B5CF6; margin: 0;">✨ StoryMagic</h1>
+          <p style="color: #666; margin: 5px 0;">Transform children's drawings into magical storybooks</p>
+        </div>
+        
+        <div style="background: linear-gradient(135deg, #f3e8ff, #fce7f3); padding: 30px; border-radius: 12px; margin-bottom: 30px;">
+          <h2 style="color: #333; margin-top: 0;">📚 You've received a magical story!</h2>
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            ${sender} has shared the story <strong>"${storyTitle}"</strong> with you through StoryMagic.
+          </p>
+          <p style="color: #555; font-size: 16px; line-height: 1.6;">
+            This story contains ${sortedPages.length} magical pages created from children's drawings.
+          </p>
+          ${pdfAttachment ? `
+            <div style="background: rgba(139, 92, 246, 0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
+              <p style="color: #8B5CF6; font-weight: bold; margin: 0; font-size: 14px;">
+                📎 PDF attachment included! You can download and keep this magical story forever.
+              </p>
+            </div>
+          ` : `
+            <div style="background: rgba(249, 115, 22, 0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
+              <p style="color: #f97316; font-weight: bold; margin: 0; font-size: 14px;">
+                📋 Note: PDF could not be generated, but the story information is below.
+              </p>
+            </div>
+          `}
+        </div>
+        
+        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #333; margin-top: 0;">📖 About this story:</h3>
+          <ul style="color: #666; line-height: 1.6;">
+            <li><strong>Title:</strong> ${storyTitle}</li>
+            <li><strong>Pages:</strong> ${sortedPages.length}</li>
+            <li><strong>Shared by:</strong> ${sender}</li>
+            <li><strong>Art Style:</strong> ${story.art_style || 'Classic Watercolor'}</li>
+            ${pdfAttachment ? '<li><strong>PDF:</strong> Attached to this email</li>' : ''}
+          </ul>
+        </div>
+
+        <div style="text-align: center; padding: 20px; background: #8B5CF6; color: white; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 10px 0;">🎨 Create Your Own Magic</h3>
+          <p style="margin: 0; font-size: 14px;">
+            Visit StoryMagic to transform your children's drawings into magical storybooks!
+          </p>
+        </div>
+        
+        <div style="text-align: center; padding-top: 20px; border-top: 1px solid #eee; margin-top: 30px;">
+          <p style="color: #999; font-size: 12px; margin: 0;">
+            This email was sent from StoryMagic. If you didn't expect this email, you can safely ignore it.
+          </p>
+        </div>
+      </div>
+    `;
+
+    console.log('📧 Sending email with' + (pdfAttachment ? ' PDF attachment...' : 'out PDF...'));
+
+    try {
+      const emailData: any = {
         from: "StoryMagic <onboarding@resend.dev>",
         to: [recipientEmail],
-        subject: `${sender} shared a magical story with you: "${storyTitle}"`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #8B5CF6; margin: 0;">✨ StoryMagic</h1>
-              <p style="color: #666; margin: 5px 0;">Transform children's drawings into magical storybooks</p>
-            </div>
-            
-            <div style="background: linear-gradient(135deg, #f3e8ff, #fce7f3); padding: 30px; border-radius: 12px; margin-bottom: 30px;">
-              <h2 style="color: #333; margin-top: 0;">📚 You've received a magical story!</h2>
-              <p style="color: #555; font-size: 16px; line-height: 1.6;">
-                ${sender} has shared the story <strong>"${storyTitle}"</strong> with you through StoryMagic.
-              </p>
-              <p style="color: #555; font-size: 16px; line-height: 1.6;">
-                This story contains ${sortedPages.length} magical pages created from children's drawings.
-              </p>
-            </div>
-            
-            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="color: #333; margin-top: 0;">📖 About this story:</h3>
-              <ul style="color: #666; line-height: 1.6;">
-                <li><strong>Title:</strong> ${storyTitle}</li>
-                <li><strong>Pages:</strong> ${sortedPages.length}</li>
-                <li><strong>Shared by:</strong> ${sender}</li>
-                <li>Visit StoryMagic to create your own magical stories!</li>
-              </ul>
-            </div>
-            
-            <div style="text-align: center; padding-top: 20px; border-top: 1px solid #eee; margin-top: 30px;">
-              <p style="color: #999; font-size: 12px; margin: 0;">
-                This email was sent from StoryMagic. If you didn't expect this email, you can safely ignore it.
-              </p>
-            </div>
-          </div>
-        `,
-      });
+        subject: emailSubject,
+        html: emailHtml,
+      };
+
+      // Add PDF attachment if available
+      if (pdfAttachment) {
+        emailData.attachments = [pdfAttachment];
+      }
+
+      const emailResponse = await resend.emails.send(emailData);
 
       console.log("✅ Email sent successfully:", emailResponse);
 
+      const responseMessage = pdfAttachment 
+        ? `Story "${storyTitle}" with PDF attachment sent successfully to ${recipientEmail}`
+        : `Story information sent to ${recipientEmail}${pdfError ? ` (PDF generation failed: ${pdfError})` : ''}`;
+
       return new Response(JSON.stringify({ 
         success: true, 
-        message: `Story information sent successfully to ${recipientEmail}`,
-        emailId: emailResponse.data?.id 
+        message: responseMessage,
+        emailId: emailResponse.data?.id,
+        pdfIncluded: !!pdfAttachment,
+        pdfError: pdfError
       }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
