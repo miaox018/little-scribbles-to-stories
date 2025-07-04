@@ -169,18 +169,23 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${storyViewUrl}" style="
-              display: inline-block;
-              background: #8B5CF6;
-              color: white;
-              padding: 15px 30px;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: bold;
-              font-size: 16px;
-            ">
-              📖 View Story Online
-            </a>
+            <table cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
+              <tr>
+                <td style="border-radius: 8px; background: #8B5CF6;">
+                  <a href="${storyViewUrl}" style="
+                    display: inline-block;
+                    padding: 15px 30px;
+                    font-family: Arial, sans-serif;
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #ffffff;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    line-height: 1;
+                  ">📖 View Story Online</a>
+                </td>
+              </tr>
+            </table>
           </div>
           
           <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
@@ -209,6 +214,9 @@ const handler = async (req: Request): Promise<Response> => {
         <div style="text-align: center; padding-top: 20px; border-top: 1px solid #eee; margin-top: 30px;">
           <p style="color: #999; font-size: 12px; margin: 0;">
             This email was sent from StoryMagic. If you didn't expect this email, you can safely ignore it.
+          </p>
+          <p style="color: #999; font-size: 12px; margin: 10px 0 0 0;">
+            Direct link: <a href="${storyViewUrl}" style="color: #8B5CF6;">${storyViewUrl}</a>
           </p>
         </div>
       </div>
