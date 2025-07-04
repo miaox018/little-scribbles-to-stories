@@ -41,7 +41,7 @@ export function ImageUploadSection({
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
     },
     maxFiles: maxPages - selectedImages.length,
-    disabled: isTransforming
+    disabled: isTransforming || selectedImages.length >= maxPages
   });
 
   const handleImageReorder = (newOrder: File[]) => {
@@ -64,12 +64,23 @@ export function ImageUploadSection({
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
             isDragActive 
               ? "border-purple-400 bg-purple-50" 
+              : selectedImages.length >= maxPages
+              ? "border-gray-200 bg-gray-50 cursor-not-allowed opacity-50"
               : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
           }`}
         >
           <input {...getInputProps()} />
           <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          {isDragActive ? (
+          {selectedImages.length >= maxPages ? (
+            <div>
+              <p className="text-lg mb-2 text-gray-500">
+                Maximum images reached ({maxPages})
+              </p>
+              <p className="text-sm text-gray-400">
+                {subscriptionTier === 'free' ? 'Upgrade to upload more images per story' : 'Remove an image to add a new one'}
+              </p>
+            </div>
+          ) : isDragActive ? (
             <p className="text-lg">Drop your images here...</p>
           ) : (
             <div>

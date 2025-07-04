@@ -57,7 +57,7 @@ export const useSubscription = () => {
       return data?.[0] || {
         subscription_tier: 'free',
         stories_per_month: 1,
-        pages_per_story: 8,
+        pages_per_story: 3, // Updated to reflect the correct free tier limit
         regenerations_per_story: 1
       };
     },
@@ -128,7 +128,7 @@ export const useSubscription = () => {
 
   return {
     subscription: subscription || { subscribed: false, subscription_tier: 'free' as SubscriptionTier, subscription_end: null },
-    limits: limits || { subscription_tier: 'free', stories_per_month: 1, pages_per_story: 8, regenerations_per_story: 1 },
+    limits: limits || { subscription_tier: 'free', stories_per_month: 1, pages_per_story: 3, regenerations_per_story: 1 },
     isLoading: subscriptionLoading || limitsLoading,
     createCheckoutSession,
   };
