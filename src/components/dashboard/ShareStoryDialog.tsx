@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Check, Mail } from "lucide-react";
+import { Copy, Check, Mail, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -82,8 +82,8 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
       }
       
       toast({
-        title: "Story Shared",
-        description: `Story "${story?.title}" has been shared with ${email}!`,
+        title: "Story PDF Sent! 📚",
+        description: `A PDF of "${story?.title}" has been sent to ${email}`,
       });
       setEmail("");
       onClose();
@@ -91,7 +91,7 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
       console.error('Email sharing error:', error);
       toast({
         title: "Share Failed",
-        description: error.message || "Failed to share story. Please try again.",
+        description: error.message || "Failed to send story PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -99,7 +99,7 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
     }
   };
 
-  const handleSocialShare = (platform: 'facebook' | 'twitter') => {
+  const handleSocialShare = (platform: 'facebook' | 'twitter') => {destroyed
     const text = `Check out this amazing story: "${story?.title}"`;
     const url = shareUrl;
     
@@ -124,34 +124,15 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Copy Link Section */}
+          {/* Email PDF Sharing Section - Now Primary */}
           <div className="space-y-2">
-            <Label htmlFor="share-url">Share Link</Label>
-            <div className="flex space-x-2">
-              <Input
-                id="share-url"
-                value={shareUrl}
-                readOnly
-                className="flex-1"
-              />
-              <Button
-                onClick={handleCopyLink}
-                size="sm"
-                variant="outline"
-                className="px-3"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-600" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Email Sharing Section */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Share by Email</Label>
+            <Label htmlFor="email" className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-purple-600" />
+              Send Story as PDF
+            </Label>
+            <p className="text-sm text-gray-600 mb-3">
+              Recipients will receive a beautiful PDF version of your story that they can read, print, or share.
+            </p>
             <div className="flex space-x-2">
               <Input
                 id="email"
@@ -170,12 +151,40 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
                 onClick={handleShareByEmail}
                 disabled={isSending}
                 size="sm"
-                className="px-3"
+                className="px-4 bg-purple-600 hover:bg-purple-700"
               >
                 {isSending ? (
                   <Mail className="h-4 w-4 animate-pulse" />
                 ) : (
-                  <Mail className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Copy Link Section - Now Secondary */}
+          <div className="space-y-2">
+            <Label htmlFor="share-url">Or Share Link</Label>
+            <p className="text-sm text-gray-600 mb-2">
+              Note: Recipients will need access to view the story online.
+            </p>
+            <div className="flex space-x-2">
+              <Input
+                id="share-url"
+                value={shareUrl}
+                readOnly
+                className="flex-1 text-sm"
+              />
+              <Button
+                onClick={handleCopyLink}
+                size="sm"
+                variant="outline"
+                className="px-3"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
                 )}
               </Button>
             </div>

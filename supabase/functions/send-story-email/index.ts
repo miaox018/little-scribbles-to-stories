@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
+import { generateStoryPDF } from "./pdf-generator.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -56,10 +57,19 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Verify story ownership
+    // Verify story ownership and fetch story data
     const { data: story, error: storyError } = await supabase
       .from('stories')
-      .select('id, title, user_id')
+      .select(`
+        *,
+        story_pages (
+          id,
+          page_number,
+          original_image_url,
+          generated_image_url,
+          transformation_status
+        )
+      `)
       .eq('id', storyId)
       .eq('user_id', user.id)
       .single();
@@ -71,8 +81,26 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const shareUrl = `${new URL(req.url).origin}/story/${storyId}`;
+    // Sort pages by page number
+    const sortedPages = story.story_pages?.sort((a: any, b: any) => a.page_number - b.page_number) || [];
+
+    console.log('Generating PDF for story:', storyTitle);
+    
+    // Generate PDF
+    let pdfBuffer: Uint8Array;
+    try {
+      pdfBuffer = await generateStoryPDF(story, sortedPages);
+    } catch (pdfError) {
+      console.error('PDF generation failed:', pdfError);
+      return new Response(JSON.stringify({ error: 'Failed to generate PDF' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const sender = senderName || user.email || 'Someone';
+
+    console.log('Sending email with PDF attachment...');
 
     const emailResponse = await resend.emails.send({
       from: "StoryMagic <onboarding@resend.dev>",
@@ -86,31 +114,23 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <div style="background: linear-gradient(135deg, #f3e8ff, #fce7f3); padding: 30px; border-radius: 12px; margin-bottom: 30px;">
-            <h2 style="color: #333; margin-top: 0;">📖 You've received a magical story!</h2>
+            <h2 style="color: #333; margin-top: 0;">📚 You've received a magical story!</h2>
             <p style="color: #555; font-size: 16px; line-height: 1.6;">
               ${sender} has shared the story <strong>"${storyTitle}"</strong> with you through StoryMagic.
             </p>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${shareUrl}" 
-               style="background: linear-gradient(135deg, #8B5CF6, #EC4899); 
-                      color: white; 
-                      text-decoration: none; 
-                      padding: 15px 30px; 
-                      border-radius: 8px; 
-                      display: inline-block; 
-                      font-weight: bold;
-                      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
-              📚 Read the Story
-            </a>
+            <p style="color: #555; font-size: 16px; line-height: 1.6;">
+              📎 <strong>The complete story is attached as a PDF</strong> - perfect for reading, printing, or sharing with family and friends!
+            </p>
           </div>
           
           <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p style="color: #666; margin: 0; font-size: 14px;">
-              If the button doesn't work, copy and paste this link into your browser:<br>
-              <a href="${shareUrl}" style="color: #8B5CF6; word-break: break-all;">${shareUrl}</a>
-            </p>
+            <h3 style="color: #333; margin-top: 0;">📖 How to enjoy your story:</h3>
+            <ul style="color: #666; line-height: 1.6;">
+              <li>Open the attached PDF to read the full story</li>
+              <li>Print it out to create a physical storybook</li>
+              <li>Share it with other family members</li>
+              <li>Visit StoryMagic to create your own magical stories!</li>
+            </ul>
           </div>
           
           <div style="text-align: center; padding-top: 20px; border-top: 1px solid #eee; margin-top: 30px;">
@@ -120,13 +140,19 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
       `,
+      attachments: [
+        {
+          filename: `${storyTitle.replace(/[^a-zA-Z0-9]/g, '_')}_StoryMagic.pdf`,
+          content: Array.from(pdfBuffer)
+        }
+      ]
     });
 
-    console.log("Story sharing email sent successfully:", emailResponse);
+    console.log("Story PDF email sent successfully:", emailResponse);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Story shared successfully with ${recipientEmail}` 
+      message: `Story PDF sent successfully to ${recipientEmail}` 
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
