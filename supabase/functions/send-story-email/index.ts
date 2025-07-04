@@ -146,8 +146,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     const sender = senderName || user.email || 'Someone';
     
-    // Fix URL construction - use the current app's domain instead of hardcoded URL
-    const storyViewUrl = `${req.headers.get('origin') || 'https://lovable.app'}/shared-story/${storyId}`;
+    // Use production domain for story view URL
+    const storyViewUrl = `https://my-little-illustrator.com/shared-story/${storyId}`;
 
     // Prepare email content with online viewing link
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
@@ -214,11 +214,11 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log('📧 Sending email with corrected story link:', storyViewUrl);
+    console.log('📧 Sending email with production story link:', storyViewUrl);
 
     try {
       const emailData = {
-        from: "StoryMagic <onboarding@resend.dev>",
+        from: "StoryMagic <info@my-little-illustrator.com>",
         to: [recipientEmail],
         subject: emailSubject,
         html: emailHtml,
