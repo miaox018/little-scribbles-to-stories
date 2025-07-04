@@ -1,7 +1,7 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { validateUserAuthentication, validateUserOwnership } from './auth-validation.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,29 +17,6 @@ const artStylePrompts = {
 };
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
-// Enhanced authentication validation
-async function validateUserAuthentication(req: Request): Promise<{ userId: string }> {
-  const authHeader = req.headers.get('Authorization');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header');
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  
-  if (!token || token.length < 20) {
-    throw new Error('Invalid authentication token');
-  }
-
-  // Extract user ID from the request context (Supabase handles JWT verification)
-  const userId = req.headers.get('x-user-id');
-  if (!userId) {
-    throw new Error('User ID not found in request context');
-  }
-
-  return { userId };
-}
 
 // Enhanced input validation
 function validateInput(input: any) {
@@ -236,21 +213,19 @@ serve(async (req) => {
   }
 
   try {
-    // Validate authentication
-    const { userId } = await validateUserAuthentication(req);
+    // Validate authentication and get authenticated supabase client
+    const { userId, supabase } = await validateUserAuthentication(req);
     console.log('Authenticated user:', userId);
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
 
     const requestBody = await req.json();
     const { storyId, pageId, artStyle } = validateInput(requestBody);
 
     console.log(`Regenerating page ${pageId} for story ${storyId}`);
 
-    // Get the page and story data with ownership validation
+    // Validate user ownership
+    await validateUserOwnership(supabase, userId, storyId);
+
+    // Get the page and story data
     const { data: page, error: pageError } = await supabase
       .from('story_pages')
       .select('*, stories(user_id, title, art_style)')
@@ -259,11 +234,6 @@ serve(async (req) => {
 
     if (pageError || !page) {
       throw new Error('Page not found');
-    }
-
-    // Validate user ownership
-    if (page.stories.user_id !== userId) {
-      throw new Error('Unauthorized: User does not own this story');
     }
 
     // Extract the file path from the original_image_url
@@ -350,11 +320,23 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in regenerate-page function:', error);
     
-    const statusCode = error.message.includes('Unauthorized') ? 403 :
-                      error.message.includes('Invalid') ? 400 : 500;
+    let errorMessage = error.message;
+    let statusCode = 500;
+    
+    // Parse JSON error messages
+    try {
+      const parsedError = JSON.parse(error.message);
+      errorMessage = parsedError.error;
+      statusCode = parsedError.code === 'UNAUTHORIZED' || parsedError.code === 'INVALID_TOKEN' ? 401 :
+                   parsedError.code === 'OWNERSHIP_VIOLATION' || parsedError.code === 'STORY_ACCESS_DENIED' ? 403 : 500;
+    } catch {
+      // Not a JSON error, use original message
+      statusCode = error.message.includes('Unauthorized') ? 403 :
+                   error.message.includes('Invalid') ? 400 : 500;
+    }
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { 
         status: statusCode,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
