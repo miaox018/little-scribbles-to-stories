@@ -145,7 +145,9 @@ const handler = async (req: Request): Promise<Response> => {
     const sortedPages = story.story_pages?.sort((a: any, b: any) => a.page_number - b.page_number) || [];
 
     const sender = senderName || user.email || 'Someone';
-    const storyViewUrl = `${Deno.env.get('SUPABASE_URL')?.replace('//', '//').replace('supabase.co', 'vercel.app') || 'https://your-app.vercel.app'}/shared-story/${storyId}`;
+    
+    // Fix URL construction - use the current app's domain instead of hardcoded URL
+    const storyViewUrl = `${req.headers.get('origin') || 'https://lovable.app'}/shared-story/${storyId}`;
 
     // Prepare email content with online viewing link
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
@@ -212,7 +214,7 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log('📧 Sending email with online story link...');
+    console.log('📧 Sending email with corrected story link:', storyViewUrl);
 
     try {
       const emailData = {

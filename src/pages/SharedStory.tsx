@@ -16,79 +16,27 @@ export default function SharedStory() {
     queryFn: async () => {
       if (!storyId) throw new Error('Story ID is required');
 
-      console.log('🔍 Fetching shared story:', storyId);
+      console.log('🔍 Fetching shared story via Edge Function:', storyId);
 
-      // First try to get the story with a regular query
-      const { data, error } = await supabase
-        .from('stories')
-        .select(`
-          *,
-          story_pages (
-            id,
-            page_number,
-            original_image_url,
-            generated_image_url,
-            transformation_status
-          )
-        `)
-        .eq('id', storyId)
-        .single();
+      // Use the new Edge Function to bypass RLS issues
+      const { data, error } = await supabase.functions.invoke('get-shared-story', {
+        body: { storyId }
+      });
 
       if (error) {
-        console.error('❌ Error fetching story:', error);
-        
-        // If we get an RLS error, try using the anon key with a different approach
-        if (error.code === 'PGRST116' || error.message.includes('RLS')) {
-          console.log('🔄 Trying alternative approach for public access...');
-          
-          // Create a new supabase client instance that might work for public queries
-          const publicSupabase = supabase;
-          
-          const { data: publicData, error: publicError } = await publicSupabase
-            .from('stories')
-            .select(`
-              id,
-              title,
-              art_style,
-              total_pages,
-              created_at,
-              status,
-              user_id,
-              description,
-              cover_image_url,
-              cancelled_at,
-              updated_at,
-              story_pages (
-                id,
-                page_number,
-                original_image_url,
-                generated_image_url,
-                transformation_status
-              )
-            `)
-            .eq('id', storyId)
-            .maybeSingle();
-
-          if (publicError) {
-            console.error('❌ Public query also failed:', publicError);
-            throw new Error('Story not found or access denied');
-          }
-
-          if (!publicData) {
-            throw new Error('Story not found');
-          }
-
-          return publicData;
-        }
-        
-        throw error;
+        console.error('❌ Error fetching story via Edge Function:', error);
+        throw new Error(error.message || 'Failed to fetch story');
       }
 
-      console.log('✅ Story fetched successfully:', data?.title);
+      if (!data) {
+        throw new Error('Story not found');
+      }
+
+      console.log('✅ Story fetched successfully via Edge Function:', data.title);
       return data;
     },
     enabled: !!storyId,
-    retry: 1, // Only retry once
+    retry: 1,
   });
 
   if (isLoading) {
