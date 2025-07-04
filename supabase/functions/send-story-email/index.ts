@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
@@ -150,7 +149,7 @@ const handler = async (req: Request): Promise<Response> => {
     const origin = req.headers.get('origin') || 'https://storymagic.my-little-illustrator.com';
     const storyViewUrl = `${origin}/shared-story/${storyId}`;
 
-    // Prepare email content with online viewing link
+    // Prepare email content with simplified button structure
     const emailSubject = `${sender} shared a magical story with you: "${storyTitle}"`;
 
     const emailHtml = `
@@ -170,27 +169,15 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <table cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
-              <tr>
-                <td style="border-radius: 8px; background: #8B5CF6;">
-                  <a href="${storyViewUrl}" style="
-                    display: inline-block;
-                    padding: 15px 30px;
-                    font-family: Arial, sans-serif;
-                    font-size: 16px;
-                    font-weight: bold;
-                    color: #ffffff;
-                    text-decoration: none;
-                    border-radius: 8px;
-                    line-height: 1;
-                  ">📖 View Story Online</a>
-                </td>
-              </tr>
-            </table>
+            <a href="${storyViewUrl}" style="display: inline-block; padding: 15px 30px; background: #8B5CF6; color: #ffffff; text-decoration: none; border-radius: 8px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; margin-bottom: 15px;">📖 View Story Online</a>
           </div>
           
+          <p style="text-align: center; margin: 10px 0;">
+            <a href="${storyViewUrl}" style="color: #8B5CF6; text-decoration: none; font-size: 14px;">If the button doesn't work, click here to view the story</a>
+          </p>
+          
           <p style="color: #666; font-size: 14px; text-align: center; margin: 0;">
-            Click the button above to view the complete story with all the magical artwork!
+            Works on any device - phone, tablet, or computer!
           </p>
         </div>
         
@@ -201,7 +188,6 @@ const handler = async (req: Request): Promise<Response> => {
             <li><strong>Pages:</strong> ${sortedPages.length}</li>
             <li><strong>Shared by:</strong> ${sender}</li>
             <li><strong>Art Style:</strong> ${story.art_style || 'Classic Watercolor'}</li>
-            <li><strong>View online:</strong> Works on any device - phone, tablet, or computer!</li>
           </ul>
         </div>
 
@@ -223,7 +209,7 @@ const handler = async (req: Request): Promise<Response> => {
       </div>
     `;
 
-    console.log('📧 Sending email with correct app domain:', storyViewUrl);
+    console.log('📧 Sending email with simplified button structure:', storyViewUrl);
 
     try {
       const emailData = {
