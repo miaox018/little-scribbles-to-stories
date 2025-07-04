@@ -9,7 +9,7 @@ interface SocialShareSectionProps {
 export function SocialShareSection({ story }: SocialShareSectionProps) {
   const shareUrl = `${window.location.origin}/shared-story/${story?.id}`;
 
-  const handleSocialShare = (platform: 'facebook' | 'x' | 'instagram') => {
+  const handleSocialShare = (platform: 'facebook' | 'x' | 'instagram' | 'tiktok') => {
     const text = `Check out this amazing story: "${story?.title}"`;
     const url = shareUrl;
     
@@ -18,10 +18,11 @@ export function SocialShareSection({ story }: SocialShareSectionProps) {
       shareLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
     } else if (platform === 'x') {
       shareLink = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-    } else if (platform === 'instagram') {
-      // Instagram doesn't have a direct share URL, so we'll copy to clipboard
+    } else if (platform === 'instagram' || platform === 'tiktok') {
+      // Instagram and TikTok don't have direct share URLs, so we'll copy to clipboard
       navigator.clipboard.writeText(`${text} ${url}`);
-      alert('Story link copied to clipboard! You can now paste it in your Instagram post or story.');
+      const platformName = platform === 'instagram' ? 'Instagram' : 'TikTok';
+      alert(`Story link copied to clipboard! You can now paste it in your ${platformName} post or story.`);
       return;
     }
     
@@ -33,7 +34,7 @@ export function SocialShareSection({ story }: SocialShareSectionProps) {
   return (
     <div className="space-y-2">
       <Label>Share on Social Media</Label>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           onClick={() => handleSocialShare('facebook')}
           variant="outline"
@@ -54,6 +55,13 @@ export function SocialShareSection({ story }: SocialShareSectionProps) {
           className="text-xs"
         >
           Instagram
+        </Button>
+        <Button
+          onClick={() => handleSocialShare('tiktok')}
+          variant="outline"
+          className="text-xs"
+        >
+          TikTok
         </Button>
       </div>
     </div>

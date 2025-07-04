@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { EmailShareSection } from "./share-story/EmailShareSection";
 import { LinkShareSection } from "./share-story/LinkShareSection";
 import { SocialShareSection } from "./share-story/SocialShareSection";
 
@@ -23,15 +22,12 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
         <DialogHeader>
           <DialogTitle>Share Story</DialogTitle>
           <DialogDescription>
-            Share "{story?.title}" with family and friends
+            Share "{story?.title}" with family and friends by copying the link or sharing on social media
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* Email PDF Sharing Section - Primary */}
-          <EmailShareSection story={story} onClose={onClose} />
-
-          {/* Copy Link Section - Secondary */}
+          {/* Copy Link Section - Primary */}
           <LinkShareSection story={story} />
 
           {/* Social Media Sharing */}

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Link } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface LinkShareSectionProps {
@@ -35,9 +35,12 @@ export function LinkShareSection({ story }: LinkShareSectionProps) {
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="share-url">Or Share Link</Label>
-      <p className="text-sm text-gray-600 mb-2">
-        Note: Recipients will need access to view the story online.
+      <Label htmlFor="share-url" className="flex items-center gap-2">
+        <Link className="h-4 w-4 text-purple-600" />
+        Share Link
+      </Label>
+      <p className="text-sm text-gray-600 mb-3">
+        Copy this link and share it anywhere! Recipients can view the story online on any device.
       </p>
       <div className="flex space-x-2">
         <Input
@@ -58,6 +61,9 @@ export function LinkShareSection({ story }: LinkShareSectionProps) {
             <Copy className="h-4 w-4" />
           )}
         </Button>
+      </div>
+      <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+        🌐 Works on any device - perfect for sharing via email, messaging, or anywhere else!
       </div>
     </div>
   );
