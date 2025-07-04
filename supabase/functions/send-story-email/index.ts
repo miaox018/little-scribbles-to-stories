@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
+import { validateAuth } from './auth-validation.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,47 +40,17 @@ const handler = async (req: Request): Promise<Response> => {
 
     const resend = new Resend(resendApiKey);
 
-    // Get authorization header
+    // Validate authentication using the new auth validation module
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('❌ No authorization header provided');
-      return new Response(JSON.stringify({ error: 'Authorization required' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    console.log('✅ Authorization header found');
-
-    // Create Supabase client with service role key for database operations
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { user, error: authError } = await validateAuth(authHeader || '');
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('❌ Missing Supabase environment variables');
-      return new Response(JSON.stringify({ error: 'Database configuration error' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log('✅ Creating Supabase client...');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get user from the auth header using anon client
-    const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await anonClient.auth.getUser();
     if (authError || !user) {
-      console.error('❌ Authentication failed:', authError?.message);
-      return new Response(JSON.stringify({ error: 'Invalid authentication' }), {
+      console.error('❌ Authentication failed:', authError);
+      return new Response(JSON.stringify({ error: authError || 'Authentication failed' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    console.log('✅ User authenticated:', user.id);
 
     // Parse request body
     let requestBody;
@@ -120,7 +91,22 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log('🔍 Fetching story data...');
-    // Verify story ownership and fetch story data using service role client
+    
+    // Create Supabase client with service role key for database operations
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('❌ Missing Supabase environment variables');
+      return new Response(JSON.stringify({ error: 'Database configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify story ownership and fetch story data
     const { data: story, error: storyError } = await supabase
       .from('stories')
       .select(`
