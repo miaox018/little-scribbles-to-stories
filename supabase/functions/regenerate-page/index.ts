@@ -18,8 +18,8 @@ const artStylePrompts = {
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
-// Fixed authentication validation
-async function validateUserAuthentication(req: Request): Promise<{ userId: string; supabase: any }> {
+// Enhanced authentication validation
+async function validateUserAuthentication(req: Request): Promise<{ userId: string }> {
   const authHeader = req.headers.get('Authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -32,27 +32,13 @@ async function validateUserAuthentication(req: Request): Promise<{ userId: strin
     throw new Error('Invalid authentication token');
   }
 
-  // Create authenticated Supabase client
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    global: {
-      headers: {
-        Authorization: authHeader,
-      },
-    },
-  });
-
-  // Get the authenticated user
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    console.error('Authentication error:', error);
-    throw new Error('Invalid or expired authentication token');
+  // Extract user ID from the request context (Supabase handles JWT verification)
+  const userId = req.headers.get('x-user-id');
+  if (!userId) {
+    throw new Error('User ID not found in request context');
   }
 
-  console.log('Authenticated user:', user.id);
-  return { userId: user.id, supabase };
+  return { userId };
 }
 
 // Enhanced input validation
@@ -177,10 +163,10 @@ async function generateImageWithGPT(prompt: string, retryCount = 0): Promise<str
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
+        model: 'gpt-image-1',
         prompt: prompt,
-        size: '1024x1792',
-        quality: 'standard',
+        size: '1024x1536',
+        quality: 'medium',
         n: 1
       }),
     });
@@ -250,13 +236,19 @@ serve(async (req) => {
   }
 
   try {
-    // Validate authentication and get authenticated supabase client
-    const { userId, supabase } = await validateUserAuthentication(req);
+    // Validate authentication
+    const { userId } = await validateUserAuthentication(req);
+    console.log('Authenticated user:', userId);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
     const requestBody = await req.json();
     const { storyId, pageId, artStyle } = validateInput(requestBody);
 
-    console.log(`Regenerating page ${pageId} for story ${storyId} by user ${userId}`);
+    console.log(`Regenerating page ${pageId} for story ${storyId}`);
 
     // Get the page and story data with ownership validation
     const { data: page, error: pageError } = await supabase
@@ -266,7 +258,6 @@ serve(async (req) => {
       .single();
 
     if (pageError || !page) {
-      console.error('Page query error:', pageError);
       throw new Error('Page not found');
     }
 
@@ -324,13 +315,9 @@ serve(async (req) => {
     
     Maintain the essence and charm of the original drawing while making it publication-ready.`;
 
-    console.log('Analyzing image with GPT Vision...');
     const analysisText = await analyzeImageWithGPT(dataUrl, prompt);
-    
-    console.log('Generating new image...');
     const imageUrl = await generateImageWithGPT(analysisText);
     
-    console.log('Uploading generated image...');
     const generatedImageUrl = await uploadImageToSupabase(
       imageUrl, 
       storyId, 
@@ -339,7 +326,6 @@ serve(async (req) => {
       supabase
     );
 
-    console.log('Updating page record...');
     await supabase
       .from('story_pages')
       .update({
