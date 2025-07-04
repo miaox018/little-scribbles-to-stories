@@ -52,6 +52,12 @@ export default function SharedStory() {
               art_style,
               total_pages,
               created_at,
+              status,
+              user_id,
+              description,
+              cover_image_url,
+              cancelled_at,
+              updated_at,
               story_pages (
                 id,
                 page_number,
