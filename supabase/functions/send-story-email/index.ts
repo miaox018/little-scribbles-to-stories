@@ -2,7 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { Resend } from "npm:resend@2.0.0";
-import { generateStoryPDF } from "./pdf-generator.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -25,8 +24,11 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log('Starting send-story-email function...');
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(JSON.stringify({ error: 'Authorization required' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -36,21 +38,30 @@ const handler = async (req: Request): Promise<Response> => {
     // Create Supabase client to verify user
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    console.log('Creating Supabase client...');
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      console.error('Authentication failed:', authError);
       return new Response(JSON.stringify({ error: 'Invalid authentication' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const { recipientEmail, storyTitle, storyId, senderName }: SendStoryEmailRequest = await req.json();
+    console.log('User authenticated:', user.id);
+
+    const requestBody = await req.json();
+    const { recipientEmail, storyTitle, storyId, senderName }: SendStoryEmailRequest = requestBody;
+
+    console.log('Request data:', { recipientEmail, storyTitle, storyId, senderName });
 
     if (!recipientEmail || !storyTitle || !storyId) {
+      console.error('Missing required fields');
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -58,6 +69,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Verify story ownership and fetch story data
+    console.log('Fetching story data...');
     const { data: story, error: storyError } = await supabase
       .from('stories')
       .select(`
@@ -75,33 +87,23 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (storyError || !story) {
+      console.error('Story not found or access denied:', storyError);
       return new Response(JSON.stringify({ error: 'Story not found or access denied' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    console.log('Story found:', story.title, 'with', story.story_pages?.length || 0, 'pages');
+
     // Sort pages by page number
     const sortedPages = story.story_pages?.sort((a: any, b: any) => a.page_number - b.page_number) || [];
 
-    console.log('Generating PDF for story:', storyTitle);
-    
-    // Generate PDF
-    let pdfBuffer: Uint8Array;
-    try {
-      pdfBuffer = await generateStoryPDF(story, sortedPages);
-    } catch (pdfError) {
-      console.error('PDF generation failed:', pdfError);
-      return new Response(JSON.stringify({ error: 'Failed to generate PDF' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     const sender = senderName || user.email || 'Someone';
 
-    console.log('Sending email with PDF attachment...');
+    console.log('Sending email with story information...');
 
+    // For now, send a simple email with story information instead of PDF
     const emailResponse = await resend.emails.send({
       from: "StoryMagic <onboarding@resend.dev>",
       to: [recipientEmail],
@@ -119,16 +121,16 @@ const handler = async (req: Request): Promise<Response> => {
               ${sender} has shared the story <strong>"${storyTitle}"</strong> with you through StoryMagic.
             </p>
             <p style="color: #555; font-size: 16px; line-height: 1.6;">
-              📎 <strong>The complete story is attached as a PDF</strong> - perfect for reading, printing, or sharing with family and friends!
+              This story contains ${sortedPages.length} magical pages created from children's drawings.
             </p>
           </div>
           
           <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: #333; margin-top: 0;">📖 How to enjoy your story:</h3>
+            <h3 style="color: #333; margin-top: 0;">📖 About this story:</h3>
             <ul style="color: #666; line-height: 1.6;">
-              <li>Open the attached PDF to read the full story</li>
-              <li>Print it out to create a physical storybook</li>
-              <li>Share it with other family members</li>
+              <li><strong>Title:</strong> ${storyTitle}</li>
+              <li><strong>Pages:</strong> ${sortedPages.length}</li>
+              <li><strong>Shared by:</strong> ${sender}</li>
               <li>Visit StoryMagic to create your own magical stories!</li>
             </ul>
           </div>
@@ -140,19 +142,13 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
         </div>
       `,
-      attachments: [
-        {
-          filename: `${storyTitle.replace(/[^a-zA-Z0-9]/g, '_')}_StoryMagic.pdf`,
-          content: Array.from(pdfBuffer)
-        }
-      ]
     });
 
-    console.log("Story PDF email sent successfully:", emailResponse);
+    console.log("Story email sent successfully:", emailResponse);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Story PDF sent successfully to ${recipientEmail}` 
+      message: `Story information sent successfully to ${recipientEmail}` 
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

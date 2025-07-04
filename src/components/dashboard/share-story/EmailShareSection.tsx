@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { FileText, Mail } from "lucide-react";
+import { Mail, Send } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -39,6 +39,7 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
 
     setIsSending(true);
     try {
+      console.log('Invoking send-story-email function...');
       const { data, error } = await supabase.functions.invoke('send-story-email', {
         body: {
           recipientEmail: email,
@@ -48,12 +49,15 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
       });
 
       if (error) {
+        console.error('Function invocation error:', error);
         throw error;
       }
       
+      console.log('Function response:', data);
+      
       toast({
-        title: "Story PDF Sent! 📚",
-        description: `A PDF of "${story?.title}" has been sent to ${email}`,
+        title: "Story Shared! 📚",
+        description: `Story "${story?.title}" has been shared with ${email}`,
       });
       setEmail("");
       onClose();
@@ -61,7 +65,7 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
       console.error('Email sharing error:', error);
       toast({
         title: "Share Failed",
-        description: error.message || "Failed to send story PDF. Please try again.",
+        description: error.message || "Failed to share story. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -72,11 +76,11 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
   return (
     <div className="space-y-2">
       <Label htmlFor="email" className="flex items-center gap-2">
-        <FileText className="h-4 w-4 text-purple-600" />
-        Send Story as PDF
+        <Mail className="h-4 w-4 text-purple-600" />
+        Share Story via Email
       </Label>
       <p className="text-sm text-gray-600 mb-3">
-        Recipients will receive a beautiful PDF version of your story that they can read, print, or share.
+        Send information about your story to family and friends via email.
       </p>
       <div className="flex space-x-2">
         <Input
@@ -101,7 +105,7 @@ export function EmailShareSection({ story, onClose }: EmailShareSectionProps) {
           {isSending ? (
             <Mail className="h-4 w-4 animate-pulse" />
           ) : (
-            <FileText className="h-4 w-4" />
+            <Send className="h-4 w-4" />
           )}
         </Button>
       </div>
