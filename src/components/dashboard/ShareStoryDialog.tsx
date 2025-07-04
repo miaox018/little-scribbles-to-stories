@@ -99,7 +99,7 @@ export function ShareStoryDialog({ isOpen, onClose, story }: ShareStoryDialogPro
     }
   };
 
-  const handleSocialShare = (platform: 'facebook' | 'twitter') => {destroyed
+  const handleSocialShare = (platform: 'facebook' | 'twitter') => {
     const text = `Check out this amazing story: "${story?.title}"`;
     const url = shareUrl;
     
