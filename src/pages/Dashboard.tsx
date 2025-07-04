@@ -7,7 +7,7 @@ import { InProgressStories } from "@/components/dashboard/InProgressStories";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { AdminPanel } from "@/components/dashboard/AdminPanel";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { useState, useEffect, useRef } from "react";
@@ -71,18 +71,21 @@ const Dashboard = () => {
         <main className="flex-1 overflow-auto">
           <header className="bg-white shadow-sm border-b px-6 py-4">
             <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-gray-800">
-                {getTabTitle()}
-              </h1>
+              <div className="flex items-center gap-3">
+                <SidebarTrigger className="md:hidden" />
+                <h1 className="text-2xl font-bold text-gray-800">
+                  {getTabTitle()}
+                </h1>
+              </div>
               <div className="flex items-center space-x-4">
                 {(activeTab === "library" || activeTab === "in-progress") && <RecoveryButton />}
                 <div className="flex items-center space-x-2 text-gray-600">
                   <User className="h-4 w-4" />
-                  <span className="text-sm">{user?.email}</span>
+                  <span className="text-sm hidden sm:inline">{user?.email}</span>
                   {isAdmin && (
                     <div className="flex items-center space-x-1 bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
                       <Shield className="h-3 w-3" />
-                      <span>Admin</span>
+                      <span className="hidden sm:inline">Admin</span>
                     </div>
                   )}
                 </div>
@@ -90,9 +93,10 @@ const Dashboard = () => {
                   variant="outline"
                   onClick={handleSignOut}
                   className="flex items-center space-x-2"
+                  size="sm"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span>Sign Out</span>
+                  <span className="hidden sm:inline">Sign Out</span>
                 </Button>
               </div>
             </div>

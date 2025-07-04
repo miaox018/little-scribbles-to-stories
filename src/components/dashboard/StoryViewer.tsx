@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { StoryViewerDialog } from './story-viewer/StoryViewerDialog';
 import { StoryViewerHeader } from './story-viewer/StoryViewerHeader';
@@ -31,7 +32,7 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const [showOriginal, setShowOriginal] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [scale, setScale] = useState(0.5); // Default to 50% scale
+  const [scale, setScale] = useState(0.8); // Better default scale for shared stories
 
   const sortedPages = story.story_pages.sort((a, b) => a.page_number - b.page_number);
 
@@ -39,14 +40,12 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
     setCurrentPage((prev) => (prev + 1) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
-    // Don't reset scale - keep it persistent
   };
 
   const goToPrevPage = () => {
     setCurrentPage((prev) => (prev - 1 + sortedPages.length) % sortedPages.length);
     setImageError(null);
     setRetryCount(0);
-    // Don't reset scale - keep it persistent
   };
 
   const handleImageError = (error: any) => {
@@ -95,7 +94,7 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   };
 
   const handleResetZoom = () => {
-    setScale(0.5); // Reset to 50% instead of 100%
+    setScale(0.8); // Reset to optimal viewing scale
   };
 
   const currentPageData = sortedPages[currentPage];
@@ -103,7 +102,11 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
   const hasPages = sortedPages.length > 0 && !!currentPageData;
 
   return (
-    <StoryViewerDialog isOpen={isOpen} onClose={onClose} hasPages={hasPages}>
+    <StoryViewerDialog 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      hasPages={hasPages}
+    >
       {hasPages && (
         <>
           <StoryViewerHeader title={story.title} onClose={onClose} />
@@ -124,19 +127,21 @@ export function StoryViewer({ story, isOpen, onClose }: StoryViewerProps) {
               onResetZoom={handleResetZoom}
             />
 
-            <div className="flex-1 overflow-auto">
-              <StoryImageDisplay
-                currentPageData={currentPageData}
-                currentImageUrl={currentImageUrl}
-                imageError={imageError}
-                retryCount={retryCount}
-                showOriginal={showOriginal}
-                scale={scale}
-                onImageError={handleImageError}
-                onImageLoad={handleImageLoad}
-                onRetry={handleRetry}
-                onToggleView={handleToggleView}
-              />
+            <div className="flex-1 overflow-auto bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+              <div className="max-w-4xl mx-auto">
+                <StoryImageDisplay
+                  currentPageData={currentPageData}
+                  currentImageUrl={currentImageUrl}
+                  imageError={imageError}
+                  retryCount={retryCount}
+                  showOriginal={showOriginal}
+                  scale={scale}
+                  onImageError={handleImageError}
+                  onImageLoad={handleImageLoad}
+                  onRetry={handleRetry}
+                  onToggleView={handleToggleView}
+                />
+              </div>
             </div>
           </div>
         </>

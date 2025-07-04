@@ -26,7 +26,6 @@ export function InProgressStoryCarousel({
   const [currentPage, setCurrentPage] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(true);
   const { subscription } = useSubscription();
 
   // Ensure story_pages is always an array and sort by page_number
@@ -43,23 +42,9 @@ export function InProgressStoryCarousel({
 
   const handleClose = () => {
     console.log('🔴 InProgressStoryCarousel handleClose called');
-    console.log('🔴 onClose function exists:', !!onClose);
-    console.log('🔴 Setting isDialogOpen to false');
-    
-    setIsDialogOpen(false);
-    
     if (onClose) {
       console.log('🔴 Calling onClose callback');
       onClose();
-    } else {
-      console.log('🔴 No onClose callback provided');
-    }
-  };
-
-  const handleDialogOpenChange = (open: boolean) => {
-    console.log('🔴 Dialog onOpenChange called with:', open);
-    if (!open) {
-      handleClose();
     }
   };
 
@@ -98,6 +83,9 @@ export function InProgressStoryCarousel({
         description: `"${story.title}" has been saved to your library!`,
       });
 
+      // Close the carousel after saving
+      handleClose();
+
       // Call the onSave callback if provided
       if (onSave) {
         onSave();
@@ -121,16 +109,11 @@ export function InProgressStoryCarousel({
     }
   };
 
-  // Add debug logging for dialog state
-  console.log('🔴 InProgressStoryCarousel render - isDialogOpen:', isDialogOpen);
-  console.log('🔴 InProgressStoryCarousel render - story exists:', !!story);
-  console.log('🔴 InProgressStoryCarousel render - totalPages:', totalPages);
-
   if (!story || totalPages === 0) {
     return (
       <CarouselDialog
-        isOpen={isDialogOpen}
-        onOpenChange={handleDialogOpenChange}
+        isOpen={true}
+        onOpenChange={(open) => !open && handleClose()}
         title="In Progress Story - No Content"
       >
         <div className="flex items-center justify-center h-96">
@@ -145,8 +128,8 @@ export function InProgressStoryCarousel({
   return (
     <>
       <CarouselDialog
-        isOpen={isDialogOpen}
-        onOpenChange={handleDialogOpenChange}
+        isOpen={true}
+        onOpenChange={(open) => !open && handleClose()}
         title={story.title}
       >
         <CarouselHeader
