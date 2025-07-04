@@ -1,4 +1,3 @@
-
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,15 +17,25 @@ export default function SharedStory() {
 
       console.log('🔍 Fetching shared story via Edge Function:', storyId);
 
-      // Use the new Edge Function to bypass RLS issues
-      const { data, error } = await supabase.functions.invoke('get-shared-story', {
-        body: { storyId }
-      });
+      // Make a direct HTTP request to the edge function with the storyId as a URL parameter
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/get-shared-story?storyId=${encodeURIComponent(storyId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
 
-      if (error) {
-        console.error('❌ Error fetching story via Edge Function:', error);
-        throw new Error(error.message || 'Failed to fetch story');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch story' }));
+        console.error('❌ Error fetching story via Edge Function:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch story');
       }
+
+      const data = await response.json();
 
       if (!data) {
         throw new Error('Story not found');
