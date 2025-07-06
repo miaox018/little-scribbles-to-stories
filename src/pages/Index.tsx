@@ -1,31 +1,26 @@
-
 import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, BookOpen, Wand2, Heart, FileText } from "lucide-react";
-
 const Index = () => {
-  const { user, loading } = useAuth();
+  const {
+    user,
+    loading
+  } = useAuth();
   const navigate = useNavigate();
-
   useEffect(() => {
     if (!loading && user) {
       navigate('/dashboard');
     }
   }, [user, loading, navigate]);
-
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600"></div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-yellow-50">
+  return <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-yellow-50">
       {/* Header */}
       <header className="container mx-auto px-4 py-6 flex justify-between items-center">
         <div className="flex items-center">
@@ -62,9 +57,10 @@ const Index = () => {
             </span>
             into Magic
           </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-            Upload your child's hand-drawn story pages and watch as AI transforms them into beautifully illustrated, professional children's books with consistent characters and magical storytelling.
-          </p>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">Upload your child's hand-drawn story pages and watch as AI transforms them into beautifully illustrated, professional children's books   
+
+
+Story Magic is powered by My-Little-Illustrator</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth">
               <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-lg px-8 py-4">
@@ -161,8 +157,6 @@ const Index = () => {
       <footer className="container mx-auto px-4 py-8 text-center text-gray-600">
         <p>&copy; 2024 StoryMagic. Made with love for creative families.</p>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
