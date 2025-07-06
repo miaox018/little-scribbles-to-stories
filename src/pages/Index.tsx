@@ -57,10 +57,7 @@ const Index = () => {
             </span>
             into Magic
           </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">Upload your child's hand-drawn story pages and watch as AI transforms them into beautifully illustrated, professional children's books     
-
-
-Story Magic is powered by My-Little-Illustrator</p>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">Upload your child's hand-drawn story pages and watch as AI transforms them into beautifully illustrated, professional children's books                 Story Magic is powered by My-Little-Illustrator</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth">
               <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-lg px-8 py-4">
