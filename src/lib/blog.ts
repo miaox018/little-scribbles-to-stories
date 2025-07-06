@@ -1,8 +1,4 @@
 
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
-
 export interface BlogPost {
   slug: string;
   title: string;
@@ -24,72 +20,29 @@ export interface BlogPostMeta {
   image: string;
 }
 
-const blogDirectory = path.join(process.cwd(), 'src/content/blog');
+import { blogPosts } from '@/data/blogPosts';
 
 export function getAllBlogPosts(): BlogPostMeta[] {
-  if (!fs.existsSync(blogDirectory)) {
-    return [];
-  }
-
-  const fileNames = fs.readdirSync(blogDirectory);
-  const allPostsData = fileNames
-    .filter((fileName) => fileName.endsWith('.md'))
-    .map((fileName) => {
-      const slug = fileName.replace(/\.md$/, '');
-      const fullPath = path.join(blogDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, 'utf8');
-      const { data } = matter(fileContents);
-
-      return {
-        slug,
-        title: data.title,
-        description: data.description,
-        publishDate: data.publishDate,
-        author: data.author,
-        tags: data.tags || [],
-        image: data.image,
-      };
+  return blogPosts
+    .map(post => ({
+      slug: post.slug,
+      title: post.title,
+      description: post.description,
+      publishDate: post.publishDate,
+      author: post.author,
+      tags: post.tags,
+      image: post.image,
+    }))
+    .sort((a, b) => {
+      return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
     });
-
-  return allPostsData.sort((a, b) => {
-    return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
-  });
 }
 
 export function getBlogPostBySlug(slug: string): BlogPost | null {
-  try {
-    const fullPath = path.join(blogDirectory, `${slug}.md`);
-    
-    if (!fs.existsSync(fullPath)) {
-      return null;
-    }
-
-    const fileContents = fs.readFileSync(fullPath, 'utf8');
-    const { data, content } = matter(fileContents);
-
-    return {
-      slug,
-      title: data.title,
-      description: data.description,
-      publishDate: data.publishDate,
-      author: data.author,
-      tags: data.tags || [],
-      image: data.image,
-      content,
-    };
-  } catch (error) {
-    console.error(`Error reading blog post ${slug}:`, error);
-    return null;
-  }
+  const post = blogPosts.find(p => p.slug === slug);
+  return post || null;
 }
 
 export function getBlogPostSlugs(): string[] {
-  if (!fs.existsSync(blogDirectory)) {
-    return [];
-  }
-
-  const fileNames = fs.readdirSync(blogDirectory);
-  return fileNames
-    .filter((fileName) => fileName.endsWith('.md'))
-    .map((fileName) => fileName.replace(/\.md$/, ''));
+  return blogPosts.map(post => post.slug);
 }
