@@ -8,18 +8,18 @@ export function buildPrompt(
 ): string {
   let contextPrompt = "";
   
-  if (pageNumber === 1 && !metaContext) {
-    // First page without meta-context (initial generation)
-    contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
-  } else if (metaContext) {
-    // Use meta-context for enhanced consistency
-    contextPrompt = `This is PAGE ${pageNumber} of a children's story book. MAINTAIN PERFECT CONSISTENCY with the established story elements:
+  if (metaContext) {
+    // Use character-only meta-context for enhanced consistency
+    contextPrompt = `This is PAGE ${pageNumber} of a children's story book. MAINTAIN PERFECT CHARACTER CONSISTENCY:
 
 ${metaContext}
 
-Use the following art style: ${stylePrompt}
+CRITICAL: Follow the above character descriptions EXACTLY to ensure visual consistency across all pages.
 
-CRITICAL: The above meta-context contains detailed character and world descriptions that MUST be followed exactly to ensure consistency across all pages.`;
+Use the following art style: ${stylePrompt}`;
+  } else if (pageNumber === 1) {
+    // First page without meta-context (initial generation)
+    contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs and art style that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
   } else {
     // Fallback to original approach
     contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. MAINTAIN CONSISTENCY with the established:
@@ -35,13 +35,13 @@ Previous pages in this story have been generated with these visual elements. Ens
 
 Transform this child's hand-drawn story page into a professional children's book illustration.
 
-🎨 FORMAT & LAYOUT REQUIREMENTS - HIGHEST PRIORITY:
+🎨 CRITICAL LAYOUT REQUIREMENTS - HIGHEST PRIORITY:
 - Create a PORTRAIT orientation illustration with 2:3 aspect ratio (1024x1536 pixels)
-- Design for children's book page layout with proper margins
-- Keep ALL main illustration elements within a SAFE MARGIN area, leaving clear space near all edges
-- Reserve top and bottom margins for potential text placement
-- Ensure the composition works well in portrait format
-- Center the main action/characters in the middle area of the page
+- Keep ALL main illustration elements within the CENTER 70% of the image
+- Leave AT LEAST 15% margins on ALL SIDES (top, bottom, left, right)
+- Reserve adequate space near edges for potential text placement
+- Center the main action/characters in the middle safe zone
+- Ensure no important visual elements are cut off at the edges
 
 🔑 CRITICAL TEXT REQUIREMENTS - HIGHEST PRIORITY:
 - Any text in the image must be EXACTLY readable, letter-perfect, and crystal clear
@@ -69,13 +69,17 @@ STYLE REQUIREMENTS:
 - Maintain story elements and characters from the original drawing
 - Make it magical and enchanting while staying true to the child's vision
 - Professional children's book illustration quality
-- Optimize composition for portrait 2:3 aspect ratio
+- Optimize composition for portrait 2:3 aspect ratio with safe margins
 
 CONSISTENCY REQUIREMENTS:
-- If meta-context is provided above, follow ALL character and world details exactly
+- If character descriptions are provided above, follow ALL character details exactly
 - Keep the same color palette and artistic approach established in the story
 - Ensure characters look identical to previous appearances
 - Maintain established visual language and story world
 
-FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard. The illustration must work perfectly in portrait orientation with proper margins for a children's book layout.`;
+FINAL CHECK: 
+1. All important visual elements must be within the center 70% of the image
+2. 15% margins must be maintained on all sides
+3. Text must be as clear and readable as text in a printed children's book
+4. The illustration must work perfectly in portrait orientation with proper safe margins`;
 }

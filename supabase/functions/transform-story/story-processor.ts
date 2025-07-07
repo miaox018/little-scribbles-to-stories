@@ -2,7 +2,7 @@
 import { analyzeImageWithGPT, generateImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
 import { buildPrompt } from './prompt-builder.ts';
-import { getOrGenerateMetaContext } from './meta-context-generator.ts';
+import { analyzeCharactersInPages, generateCharacterMetaContext } from './character-analyzer.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
@@ -55,6 +55,138 @@ async function fetchImageAsDataUrl(imageUrl: string): Promise<string> {
   }
 }
 
+export async function processStoryWithCharacterAnalysis(
+  storyId: string,
+  imageUrls: Array<{ storageUrl: string; pageNumber: number }>,
+  artStyle: string,
+  userId: string,
+  supabase: any
+): Promise<{ success: boolean; message: string; completedPages: number }> {
+  
+  console.log(`Starting character-focused story processing for ${imageUrls.length} pages`);
+  
+  try {
+    // Phase 1: Character Analysis
+    console.log('Phase 1: Analyzing characters in all pages...');
+    const characterAnalyses = await analyzeCharactersInPages(imageUrls, supabase);
+    
+    // Phase 2: Generate Character Meta-Context
+    console.log('Phase 2: Generating character meta-context...');
+    const characterMetaContext = await generateCharacterMetaContext(characterAnalyses, artStyle, supabase);
+    
+    // Store character meta-context using UPSERT
+    if (characterMetaContext) {
+      await supabase
+        .from('stories')
+        .upsert({
+          id: storyId,
+          character_summary: characterMetaContext,
+          meta_context_version: 2,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
+      
+      console.log('Character meta-context stored successfully');
+    }
+    
+    // Phase 3: Generate Images with Character Consistency
+    console.log('Phase 3: Generating images with character consistency...');
+    let completedPages = 0;
+    
+    for (const imageData of imageUrls) {
+      try {
+        // Check if story was cancelled
+        const { data: story } = await supabase
+          .from('stories')
+          .select('status')
+          .eq('id', storyId)
+          .single();
+
+        if (story?.status === 'cancelled') {
+          throw new Error('Story transformation was cancelled');
+        }
+        
+        console.log(`Processing page ${imageData.pageNumber}...`);
+        
+        // Fetch the original image from storage URL and convert to data URL
+        const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
+        
+        // Upload original image to permanent storage
+        const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, imageData.pageNumber, userId, supabase);
+
+        // Build prompt with character meta-context and enhanced safety margins
+        const prompt = buildPrompt(imageData.pageNumber, `${artStyle} children's book illustration`, '', '', characterMetaContext);
+
+        // Analyze image with GPT-4o using the data URL
+        const analysisText = await analyzeImageWithGPT(originalImageDataUrl, prompt);
+        console.log(`Generated analysis for page ${imageData.pageNumber}:`, analysisText.substring(0, 200) + '...');
+
+        // Generate image with GPT-image-1 (with 2-second delay for rate limiting)
+        const imageUrl = await generateImageWithGPT(analysisText);
+
+        // Upload generated image to Supabase Storage
+        const generatedImageUrl = await uploadImageToSupabase(imageUrl, storyId, imageData.pageNumber, userId, supabase);
+
+        // Use UPSERT to prevent duplicate key errors
+        await supabase
+          .from('story_pages')
+          .upsert({
+            story_id: storyId,
+            page_number: imageData.pageNumber,
+            original_image_url: originalImageUrl,
+            generated_image_url: generatedImageUrl,
+            enhanced_prompt: analysisText,
+            transformation_status: 'completed'
+          }, {
+            onConflict: 'story_id,page_number'
+          });
+
+        completedPages++;
+        console.log(`Page ${imageData.pageNumber} completed successfully`);
+        
+        // Rate limiting: 2-second delay between image generation calls
+        if (imageData.pageNumber < imageUrls.length) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+      } catch (error) {
+        console.error(`Error processing page ${imageData.pageNumber}:`, error);
+        
+        // Use UPSERT to mark page as failed
+        await supabase
+          .from('story_pages')
+          .upsert({
+            story_id: storyId,
+            page_number: imageData.pageNumber,
+            original_image_url: imageData.storageUrl || null,
+            generated_image_url: null,
+            enhanced_prompt: null,
+            transformation_status: 'failed'
+          }, {
+            onConflict: 'story_id,page_number'
+          });
+      }
+    }
+    
+    console.log(`Story processing completed. ${completedPages}/${imageUrls.length} pages successful`);
+    
+    return {
+      success: completedPages > 0,
+      message: `Character-focused processing completed: ${completedPages}/${imageUrls.length} pages successful`,
+      completedPages
+    };
+    
+  } catch (error) {
+    console.error('Error in character-focused story processing:', error);
+    return {
+      success: false,
+      message: `Processing failed: ${error.message}`,
+      completedPages: 0
+    };
+  }
+}
+
 export async function processStoryPage({
   imageData, 
   pageNumber, 
@@ -65,10 +197,11 @@ export async function processStoryPage({
   artStyleGuidelines,
   supabase
 }: ProcessStoryPageParams) {
+  // This function is kept for compatibility with regeneration functionality
   // Check if story was cancelled
   const { data: story } = await supabase
     .from('stories')
-    .select('status')
+    .select('status, character_summary')
     .eq('id', storyId)
     .single();
 
@@ -83,48 +216,52 @@ export async function processStoryPage({
     // Upload original image to permanent storage (from the storage URL we already have)
     const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
-    // Get or generate meta-context for enhanced consistency
-    const metaContext = await getOrGenerateMetaContext(storyId, supabase);
+    // Use character meta-context if available
+    const metaContext = story?.character_summary || '';
 
-    // Build context prompt with meta-context
+    // Build context prompt with character meta-context and enhanced safety margins
     const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines, metaContext);
 
     // Analyze image with GPT-4o using the data URL
     const analysisText = await analyzeImageWithGPT(originalImageDataUrl, prompt);
     console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
 
-    // Generate image with DALL-E 3
+    // Generate image with GPT-image-1
     const imageUrl = await generateImageWithGPT(analysisText);
 
     // Upload generated image to Supabase Storage
     const generatedImageUrl = await uploadImageToSupabase(imageUrl, storyId, pageNumber, userId, supabase);
 
-    // Create story page record with Supabase URLs
+    // Use UPSERT to prevent duplicate key errors
     await supabase
       .from('story_pages')
-      .insert({
+      .upsert({
         story_id: storyId,
         page_number: pageNumber,
         original_image_url: originalImageUrl,
         generated_image_url: generatedImageUrl,
         enhanced_prompt: analysisText,
         transformation_status: 'completed'
+      }, {
+        onConflict: 'story_id,page_number'
       });
 
     return { analysisText, generatedImageUrl, originalImageUrl };
   } catch (error) {
     console.error(`Error processing page ${pageNumber}:`, error);
     
-    // Still create a page record but mark as failed
+    // Use UPSERT to mark page as failed
     await supabase
       .from('story_pages')
-      .insert({
+      .upsert({
         story_id: storyId,
         page_number: pageNumber,
         original_image_url: imageData.storageUrl || null,
         generated_image_url: null,
         enhanced_prompt: null,
         transformation_status: 'failed'
+      }, {
+        onConflict: 'story_id,page_number'
       });
 
     throw error;
