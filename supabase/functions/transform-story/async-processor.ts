@@ -1,6 +1,7 @@
 
 import { artStylePrompts } from './config.ts';
 import { processStoryPage } from './story-processor.ts';
+import { generateStoryMetaContext } from './post-processor.ts';
 
 // Enhanced background processing function with proper error handling and recovery
 export async function processStoryAsync(storyId: string, imageUrls: any[], artStyle: string, userId: string) {
@@ -74,7 +75,7 @@ export async function processStoryAsync(storyId: string, imageUrls: any[], artSt
 
         successfulPages++;
 
-        // Update context for next pages
+        // Update context for next pages (legacy approach, meta-context will override this)
         if (i === 0) {
           characterDescriptions = `- Character designs and appearances established in page 1
 - Clothing styles and color schemes from page 1`;
@@ -117,18 +118,29 @@ export async function processStoryAsync(storyId: string, imageUrls: any[], artSt
       }
     }
 
+    // Generate meta-context after all pages are processed
+    if (successfulPages > 0) {
+      console.log(`[ASYNC] Generating meta-context for story ${storyId} with ${successfulPages} successful pages`);
+      try {
+        await generateStoryMetaContext(storyId, artStyle, supabase);
+      } catch (error) {
+        console.error(`[ASYNC] Meta-context generation failed for story ${storyId}:`, error);
+        // Don't fail the whole story if meta-context generation fails
+      }
+    }
+
     // Determine final status based on results
     let finalStatus = 'completed';
     let finalDescription = '';
     
     if (failedPages > 0 && successfulPages > 0) {
       finalStatus = 'partial';
-      finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. You can regenerate the failed pages.`;
+      finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. Enhanced character consistency available for regeneration.`;
     } else if (successfulPages === 0) {
       finalStatus = 'failed';
       finalDescription = `Story processing failed: All ${failedPages} pages failed to process.`;
     } else {
-      finalDescription = `Story completed successfully with ${successfulPages} pages.`;
+      finalDescription = `Story completed successfully with ${successfulPages} pages and enhanced character consistency.`;
     }
 
     // Update final story status
@@ -209,12 +221,12 @@ export async function startAsyncProcessing(storyId: string, imageUrls: any[], ar
   // Return immediately with enhanced response
   return {
     success: true, 
-    message: `Enhanced background processing started for ${imageUrls.length} pages. Processing will continue even if you close this page.`,
+    message: `Enhanced background processing started for ${imageUrls.length} pages with improved character consistency. Processing will continue even if you close this page.`,
     pages_to_process: imageUrls.length,
     estimated_completion_time: `${Math.ceil(imageUrls.length * 15 / 60)} minutes`, // Reduced estimate
     status: 'processing',
     processing_mode: 'asynchronous',
-    instructions: 'Check your "Stories In Progress" section for real-time updates. The story will automatically complete in the background.',
+    instructions: 'Check your "Stories In Progress" section for real-time updates. The story will automatically complete in the background with enhanced character consistency.',
     recovery_info: 'If processing appears stuck, use the "Recover Stories" button to check for completed stories.'
   };
 }

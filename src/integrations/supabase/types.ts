@@ -158,10 +158,12 @@ export type Database = {
         Row: {
           art_style: string | null
           cancelled_at: string | null
+          character_summary: string | null
           cover_image_url: string | null
           created_at: string | null
           description: string | null
           id: string
+          meta_context_version: number | null
           status: string | null
           title: string
           total_pages: number | null
@@ -171,10 +173,12 @@ export type Database = {
         Insert: {
           art_style?: string | null
           cancelled_at?: string | null
+          character_summary?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          meta_context_version?: number | null
           status?: string | null
           title: string
           total_pages?: number | null
@@ -184,10 +188,12 @@ export type Database = {
         Update: {
           art_style?: string | null
           cancelled_at?: string | null
+          character_summary?: string | null
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
+          meta_context_version?: number | null
           status?: string | null
           title?: string
           total_pages?: number | null

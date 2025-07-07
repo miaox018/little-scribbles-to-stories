@@ -1,6 +1,7 @@
 
 import { artStylePrompts } from './config.ts';
 import { processStoryPage } from './story-processor.ts';
+import { generateStoryMetaContext } from './post-processor.ts';
 
 export async function processSynchronously(
   storyId: string, 
@@ -9,7 +10,7 @@ export async function processSynchronously(
   userId: string, 
   supabase: any
 ) {
-  console.log(`[SYNC] Processing ${imageUrls.length} images synchronously with enhanced error handling`);
+  console.log(`[SYNC] Processing ${imageUrls.length} images synchronously with enhanced character consistency`);
   
   // Update story status to processing
   await supabase
@@ -80,7 +81,7 @@ export async function processSynchronously(
 
       successfulPages++;
 
-      // Update context for next pages
+      // Update context for next pages (legacy approach, meta-context will override this)
       if (i === 0) {
         characterDescriptions = `- Character designs and appearances established in page 1
 - Clothing styles and color schemes from page 1`;
@@ -127,18 +128,29 @@ export async function processSynchronously(
     }
   }
 
+  // Generate meta-context after all pages are processed
+  if (successfulPages > 0) {
+    console.log(`[SYNC] Generating meta-context for story ${storyId} with ${successfulPages} successful pages`);
+    try {
+      await generateStoryMetaContext(storyId, artStyle, supabase);
+    } catch (error) {
+      console.error(`[SYNC] Meta-context generation failed for story ${storyId}:`, error);
+      // Don't fail the whole story if meta-context generation fails
+    }
+  }
+
   // Determine final status
   let finalStatus = 'completed';
   let finalDescription = '';
   
   if (failedPages > 0 && successfulPages > 0) {
     finalStatus = 'partial';
-    finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. You can regenerate the failed pages.`;
+    finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. Enhanced character consistency available for regeneration.`;
   } else if (successfulPages === 0) {
     finalStatus = 'failed';
     finalDescription = `Story processing failed: All ${failedPages} pages failed to process.`;
   } else {
-    finalDescription = `Story completed successfully with ${successfulPages} pages.`;
+    finalDescription = `Story completed successfully with ${successfulPages} pages and enhanced character consistency.`;
   }
 
   // Update story status

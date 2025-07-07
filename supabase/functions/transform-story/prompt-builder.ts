@@ -1,9 +1,27 @@
 
-export function buildPrompt(pageNumber: number, stylePrompt: string, characterDescriptions: string, artStyleGuidelines: string): string {
+export function buildPrompt(
+  pageNumber: number, 
+  stylePrompt: string, 
+  characterDescriptions: string, 
+  artStyleGuidelines: string,
+  metaContext?: string
+): string {
   let contextPrompt = "";
-  if (pageNumber === 1) {
+  
+  if (pageNumber === 1 && !metaContext) {
+    // First page without meta-context (initial generation)
     contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
+  } else if (metaContext) {
+    // Use meta-context for enhanced consistency
+    contextPrompt = `This is PAGE ${pageNumber} of a children's story book. MAINTAIN PERFECT CONSISTENCY with the established story elements:
+
+${metaContext}
+
+Use the following art style: ${stylePrompt}
+
+CRITICAL: The above meta-context contains detailed character and world descriptions that MUST be followed exactly to ensure consistency across all pages.`;
   } else {
+    // Fallback to original approach
     contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. MAINTAIN CONSISTENCY with the established:
 ${characterDescriptions}
 ${artStyleGuidelines}
@@ -53,10 +71,11 @@ STYLE REQUIREMENTS:
 - Professional children's book illustration quality
 - Optimize composition for portrait 2:3 aspect ratio
 
-CONSISTENCY REQUIREMENTS (for pages after page 1):
-- If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages
-- Keep the same color palette and artistic approach
-- Ensure characters look identical to how they appeared before
+CONSISTENCY REQUIREMENTS:
+- If meta-context is provided above, follow ALL character and world details exactly
+- Keep the same color palette and artistic approach established in the story
+- Ensure characters look identical to previous appearances
+- Maintain established visual language and story world
 
 FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard. The illustration must work perfectly in portrait orientation with proper margins for a children's book layout.`;
 }

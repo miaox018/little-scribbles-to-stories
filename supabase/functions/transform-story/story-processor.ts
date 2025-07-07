@@ -2,6 +2,7 @@
 import { analyzeImageWithGPT, generateImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
 import { buildPrompt } from './prompt-builder.ts';
+import { getOrGenerateMetaContext } from './meta-context-generator.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
@@ -82,8 +83,11 @@ export async function processStoryPage({
     // Upload original image to permanent storage (from the storage URL we already have)
     const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
-    // Build context prompt
-    const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    // Get or generate meta-context for enhanced consistency
+    const metaContext = await getOrGenerateMetaContext(storyId, supabase);
+
+    // Build context prompt with meta-context
+    const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines, metaContext);
 
     // Analyze image with GPT-4o using the data URL
     const analysisText = await analyzeImageWithGPT(originalImageDataUrl, prompt);
