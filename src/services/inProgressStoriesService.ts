@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface InProgressStory {
@@ -61,11 +62,18 @@ export const inProgressStoriesService = {
   },
 
   async regeneratePage(pageId: string, storyId: string, artStyle: string): Promise<any> {
+    console.log('🔄 Calling regenerate-page function with:', { pageId, storyId, artStyle });
+    
     const { data, error } = await supabase.functions.invoke('regenerate-page', {
       body: { pageId, storyId, artStyle }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Regeneration service error:', error);
+      throw error;
+    }
+    
+    console.log('✅ Regeneration service response:', data);
     return data;
   },
 
@@ -88,5 +96,31 @@ export const inProgressStoriesService = {
       .eq('id', storyId);
 
     if (error) throw error;
+  },
+
+  // New method to fetch a single story with updated data
+  async fetchStoryById(storyId: string): Promise<InProgressStory | null> {
+    console.log('Fetching single story:', storyId);
+    const { data, error } = await supabase
+      .from('stories')
+      .select(`
+        *,
+        story_pages (
+          id,
+          page_number,
+          original_image_url,
+          generated_image_url,
+          transformation_status
+        )
+      `)
+      .eq('id', storyId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching story:', error);
+      throw error;
+    }
+    
+    return data;
   }
 };

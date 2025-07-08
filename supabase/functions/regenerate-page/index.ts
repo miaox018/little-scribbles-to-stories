@@ -295,7 +295,7 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { storyId, pageId, artStyle } = validateInput(requestBody);
 
-    console.log(`Regenerating page ${pageId} for story ${storyId} with smart character analysis`);
+    console.log(`🔄 Starting regeneration for page ${pageId} in story ${storyId}`);
 
     // Validate user ownership
     await validateUserOwnership(supabase, userId, storyId);
@@ -308,13 +308,27 @@ serve(async (req) => {
       .single();
 
     if (pageError || !page) {
+      console.error('Page not found:', pageError);
       throw new Error('Page not found');
     }
 
-    // Check if story is still in progress (not saved to library)
-    if (page.stories.status === 'saved' || page.stories.status === 'completed') {
+    console.log(`📖 Story status: ${page.stories.status}`);
+
+    // Allow regeneration for processing, completed, and partial stories (block only saved stories)
+    if (page.stories.status === 'saved') {
+      console.log('❌ Cannot regenerate pages for saved stories');
       throw new Error('Cannot regenerate pages for stories that have been saved to library');
     }
+
+    // Set page status to processing to indicate regeneration in progress
+    console.log('🔄 Setting page status to processing');
+    await supabase
+      .from('story_pages')
+      .update({
+        transformation_status: 'processing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', pageId);
 
     // Extract the file path from the original_image_url
     let filePath;
@@ -333,7 +347,7 @@ serve(async (req) => {
       throw new Error('Could not determine file path for original image');
     }
 
-    console.log(`Downloading file from path: ${filePath}`);
+    console.log(`📁 Downloading file from path: ${filePath}`);
 
     const { data: imageData, error: imageError } = await supabase.storage
       .from('story-images')
@@ -357,13 +371,16 @@ serve(async (req) => {
     
     // Use meta-context if available for character consistency
     const metaContext = page.stories.character_summary;
-    console.log(`Using meta-context for regeneration: ${metaContext ? 'Yes' : 'No'}`);
+    console.log(`🎭 Using character meta-context: ${metaContext ? 'Yes' : 'No'}`);
     
     const prompt = buildRegenerationPrompt(page.page_number, stylePrompt, metaContext);
 
-    console.log(`Starting regeneration with smart character analysis for page ${page.page_number}`);
+    console.log(`🎨 Starting regeneration with character consistency for page ${page.page_number}`);
     const analysisText = await analyzeImageWithGPT(dataUrl, prompt);
+    console.log(`✅ Image analysis completed`);
+    
     const imageUrl = await generateImageWithGPT(analysisText);
+    console.log(`✅ Image generation completed`);
     
     const generatedImageUrl = await uploadImageToSupabase(
       imageUrl, 
@@ -372,8 +389,10 @@ serve(async (req) => {
       page.stories.user_id, 
       supabase
     );
+    console.log(`✅ Image uploaded to storage: ${generatedImageUrl}`);
 
-    await supabase
+    // Update the page with the new generated image
+    const { error: updateError } = await supabase
       .from('story_pages')
       .update({
         generated_image_url: generatedImageUrl,
@@ -383,19 +402,25 @@ serve(async (req) => {
       })
       .eq('id', pageId);
 
-    console.log(`Successfully regenerated page ${pageId} with character consistency`);
+    if (updateError) {
+      console.error('Failed to update page:', updateError);
+      throw new Error(`Failed to update page: ${updateError.message}`);
+    }
+
+    console.log(`🎉 Successfully regenerated page ${pageId} with character consistency`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Page regenerated successfully with character consistency',
-        generated_image_url: generatedImageUrl
+        generated_image_url: generatedImageUrl,
+        page_id: pageId
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in regenerate-page function:', error);
+    console.error('❌ Error in regenerate-page function:', error);
     
     let errorMessage = error.message;
     let statusCode = 500;

@@ -27,31 +27,15 @@ export function InProgressStoryCarousel({
   const [isSaving, setIsSaving] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
+  const [storyState, setStoryState] = useState(story);
   const { subscription } = useSubscription();
 
   // Ensure story_pages is always an array and sort by page_number
-  const pages = (story?.story_pages || []).sort((a: any, b: any) => a.page_number - b.page_number);
+  const pages = (storyState?.story_pages || []).sort((a: any, b: any) => a.page_number - b.page_number);
   const totalPages = pages.length;
 
-  // Check if regeneration is allowed (only for in-progress stories)
-  const allowRegeneration = story?.status === 'processing' || story?.status === 'completed' || story?.status === 'partial';
-
-  // 🐛 DEBUG: Add debug logging for pages data
-  console.log('🐛 DEBUG - InProgressStoryCarousel - story prop:', story);
-  console.log('🐛 DEBUG - InProgressStoryCarousel - story.story_pages:', story?.story_pages);
-  console.log('🐛 DEBUG - InProgressStoryCarousel - pages array:', pages);
-  console.log('🐛 DEBUG - InProgressStoryCarousel - totalPages:', totalPages);
-  console.log('🐛 DEBUG - InProgressStoryCarousel - allowRegeneration:', allowRegeneration);
-  
-  if (story?.story_pages) {
-    console.log('🐛 DEBUG - story_pages details:', story.story_pages.map((page: any) => ({
-      id: page.id,
-      page_number: page.page_number,
-      has_generated_image: !!page.generated_image_url,
-      has_original_image: !!page.original_image_url,
-      transformation_status: page.transformation_status
-    })));
-  }
+  // Check if regeneration is allowed (only for in-progress stories, not saved)
+  const allowRegeneration = storyState?.status !== 'saved';
 
   const nextPage = () => {
     setCurrentPage((prev) => (prev + 1) % totalPages);
@@ -72,7 +56,7 @@ export function InProgressStoryCarousel({
   const handleSaveToLibrary = async () => {
     console.log('💾 Save to library clicked');
     
-    if (!story?.id) return;
+    if (!storyState?.id) return;
     
     // Check if user has paid subscription
     if (subscription.subscription_tier === 'free') {
@@ -82,7 +66,7 @@ export function InProgressStoryCarousel({
     
     setIsSaving(true);
     try {
-      console.log('Saving story to library:', story.id);
+      console.log('Saving story to library:', storyState.id);
       
       // Update story status to 'saved' and mark as saved in description
       const { error } = await supabase
@@ -92,7 +76,7 @@ export function InProgressStoryCarousel({
           description: 'saved_to_library',
           updated_at: new Date().toISOString()
         })
-        .eq('id', story.id);
+        .eq('id', storyState.id);
 
       if (error) {
         console.error('Error saving story:', error);
@@ -101,7 +85,7 @@ export function InProgressStoryCarousel({
 
       toast({
         title: "Story Saved! 📚",
-        description: `"${story.title}" has been saved to your library!`,
+        description: `"${storyState.title}" has been saved to your library!`,
       });
 
       // Close the carousel after saving
@@ -126,7 +110,7 @@ export function InProgressStoryCarousel({
   const handleRegeneratePage = async (pageId: string) => {
     console.log('🔄 Regenerate page clicked for:', pageId);
     
-    // Immediate feedback
+    // Show immediate feedback
     toast({
       title: "Request Received 🎨",
       description: "Your page regeneration request has been received. Please be patient while we generate your new page with improved character consistency.",
@@ -135,13 +119,36 @@ export function InProgressStoryCarousel({
     setRegeneratingPageId(pageId);
     
     try {
+      // Call the regeneration service
+      const { data, error } = await supabase.functions.invoke('regenerate-page', {
+        body: { pageId, storyId: storyState.id, artStyle: storyState.art_style || 'classic_watercolor' }
+      });
+
+      if (error) throw error;
+
+      console.log('🎉 Regeneration completed:', data);
+
+      // Update the story state with the new image URL
+      if (data.generated_image_url) {
+        setStoryState((prevStory: any) => ({
+          ...prevStory,
+          story_pages: prevStory.story_pages.map((page: any) => 
+            page.id === pageId 
+              ? { ...page, generated_image_url: data.generated_image_url, transformation_status: 'completed' }
+              : page
+          )
+        }));
+      }
+
+      // Call the onRegenerate callback if provided
       if (onRegenerate) {
         await onRegenerate(pageId);
-        toast({
-          title: "Page Regenerated! ✨",
-          description: "Your page has been successfully regenerated with improved character consistency.",
-        });
       }
+
+      toast({
+        title: "Page Regenerated! ✨",
+        description: "Your page has been successfully regenerated with improved character consistency.",
+      });
     } catch (error: any) {
       console.error('Regeneration failed:', error);
       toast({
@@ -154,11 +161,11 @@ export function InProgressStoryCarousel({
     }
   };
 
-  if (!story || totalPages === 0) {
+  if (!storyState || totalPages === 0) {
     console.log('🐛 DEBUG - Showing "No pages to display" because:');
-    console.log('- story exists:', !!story);
+    console.log('- story exists:', !!storyState);
     console.log('- totalPages:', totalPages);
-    console.log('- story.story_pages:', story?.story_pages);
+    console.log('- story.story_pages:', storyState?.story_pages);
     
     return (
       <CarouselDialog
@@ -181,15 +188,15 @@ export function InProgressStoryCarousel({
       <CarouselDialog
         isOpen={true}
         onOpenChange={(open) => !open && handleClose()}
-        title={story.title}
+        title={storyState.title}
       >
         <CarouselHeader
-          title={story.title}
+          title={storyState.title}
           showSaveButton={true}
           isSaving={isSaving}
           onSave={handleSaveToLibrary}
           onClose={handleClose}
-          statusBadge={<StoryStatusBadge status={story.status} />}
+          statusBadge={<StoryStatusBadge status={storyState.status} />}
         />
 
         <CarouselImageDisplay
@@ -215,7 +222,7 @@ export function InProgressStoryCarousel({
       <PaywallModal
         isOpen={showPaywall}
         onClose={() => setShowPaywall(false)}
-        storyTitle={story.title}
+        storyTitle={storyState.title}
       />
     </>
   );

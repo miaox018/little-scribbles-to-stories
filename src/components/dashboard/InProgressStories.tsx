@@ -94,15 +94,19 @@ export function InProgressStories({ onProcessingCountChange }: InProgressStories
     setRegeneratingPages(prev => new Set(prev).add(pageId));
     
     try {
-      await regeneratePage(pageId, currentStory.id, currentStory.art_style || 'watercolor');
+      console.log('🔄 Starting page regeneration for:', pageId);
+      const result = await regeneratePage(pageId, currentStory.id, currentStory.art_style || 'watercolor');
+      console.log('✅ Page regeneration completed:', result);
+      
+      // Refresh the story data to get the updated image
+      await refetch();
+      
+      // Don't show success toast here - it's shown in the carousel component
+    } catch (error: any) {
+      console.error('❌ Page regeneration failed:', error);
       toast({
-        title: "Success",
-        description: "Page regenerated successfully!"
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to regenerate page. Please try again.",
+        title: "Regeneration Failed",
+        description: error.message || "Failed to regenerate page. Please try again.",
         variant: "destructive"
       });
     } finally {
