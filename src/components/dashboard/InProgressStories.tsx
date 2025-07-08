@@ -35,6 +35,15 @@ export function InProgressStories() {
   const currentStory = inProgressStories[0] || null;
   const processingStories = inProgressStories.filter(story => story.status === 'processing');
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 InProgressStories Debug:');
+    console.log('- Total stories:', inProgressStories.length);
+    console.log('- Processing stories:', processingStories.length);
+    console.log('- Current story:', currentStory?.title || 'none');
+    console.log('- Stories list:', inProgressStories.map(s => ({ id: s.id, title: s.title, status: s.status, created_at: s.created_at })));
+  }, [inProgressStories, currentStory, processingStories]);
+
   // Auto-show carousel when story is available (only if user hasn't closed it)
   useEffect(() => {
     console.log('🔴 InProgressStories - currentStory changed:', !!currentStory);
@@ -49,20 +58,7 @@ export function InProgressStories() {
     if (currentStory) {
       setUserClosedCarousel(false);
     }
-  }, [currentStory]); // Removed showCarousel from dependencies to prevent loop
-
-  // Auto-refresh for processing stories
-  useEffect(() => {
-    const hasProcessingStories = inProgressStories.some(story => story.status === 'processing');
-    
-    if (hasProcessingStories) {
-      const interval = setInterval(() => {
-        refetch();
-      }, 30000); // Refresh every 30 seconds
-      
-      return () => clearInterval(interval);
-    }
-  }, [inProgressStories, refetch]);
+  }, [currentStory]);
 
   const handleCloseCarousel = () => {
     console.log('🔴 InProgressStories handleCloseCarousel called');
@@ -222,7 +218,12 @@ export function InProgressStories() {
           {!showCarousel && (
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">{currentStory.title}</h3>
+                <div>
+                  <h3 className="text-lg font-semibold">{currentStory.title}</h3>
+                  <p className="text-sm text-gray-500">
+                    Created: {new Date(currentStory.created_at).toLocaleString()}
+                  </p>
+                </div>
                 <Button
                   onClick={() => {
                     setShowCarousel(true);

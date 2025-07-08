@@ -12,6 +12,7 @@ export const useInProgressStories = () => {
     if (!user) return;
 
     try {
+      console.log('Fetching in-progress stories...');
       const { data, error } = await supabase
         .from('stories')
         .select(`
@@ -30,6 +31,8 @@ export const useInProgressStories = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log('Fetched in-progress stories:', data?.length || 0);
       setInProgressStories(data || []);
     } catch (error) {
       console.error('Error fetching in-progress stories:', error);
@@ -127,9 +130,71 @@ export const useInProgressStories = () => {
     }
   };
 
+  // Set up real-time subscription for story updates
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time subscription for stories...');
+    
+    // Subscribe to story changes
+    const storyChannel = supabase
+      .channel('story-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stories',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Story update received:', payload);
+          // Refetch stories when any story changes
+          fetchInProgressStories();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to story page changes
+    const pageChannel = supabase
+      .channel('story-page-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'story_pages'
+        },
+        (payload) => {
+          console.log('Story page update received:', payload);
+          // Refetch stories when pages change
+          fetchInProgressStories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up real-time subscriptions...');
+      supabase.removeChannel(storyChannel);
+      supabase.removeChannel(pageChannel);
+    };
+  }, [user]);
+
+  // Initial fetch and periodic refresh
   useEffect(() => {
     fetchInProgressStories();
-  }, [user]);
+    
+    // Set up periodic refresh for processing stories
+    const interval = setInterval(() => {
+      const hasProcessingStories = inProgressStories.some(story => story.status === 'processing');
+      if (hasProcessingStories) {
+        console.log('Refreshing in-progress stories (periodic)...');
+        fetchInProgressStories();
+      }
+    }, 15000); // Check every 15 seconds instead of 30
+    
+    return () => clearInterval(interval);
+  }, [user, inProgressStories]);
 
   return {
     inProgressStories,
