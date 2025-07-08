@@ -1,60 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { inProgressStoriesService, type InProgressStory } from '@/services/inProgressStoriesService';
+import { useInProgressStoriesRealtime } from './useInProgressStoriesRealtime';
+import { usePeriodicRefresh } from './usePeriodicRefresh';
 
 export const useInProgressStories = () => {
-  const [inProgressStories, setInProgressStories] = useState<any[]>([]);
+  const [inProgressStories, setInProgressStories] = useState<InProgressStory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
-  const fetchInProgressStories = async () => {
+  const fetchInProgressStories = useCallback(async () => {
     if (!user) return;
 
     try {
-      console.log('Fetching in-progress stories...');
-      const { data, error } = await supabase
-        .from('stories')
-        .select(`
-          *,
-          story_pages (
-            id,
-            page_number,
-            original_image_url,
-            generated_image_url,
-            transformation_status
-          )
-        `)
-        .eq('user_id', user.id)
-        .in('status', ['processing', 'completed', 'failed']) // Include completed stories until saved
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      console.log('Fetched in-progress stories:', data?.length || 0);
-      setInProgressStories(data || []);
+      const stories = await inProgressStoriesService.fetchInProgressStories(user.id);
+      setInProgressStories(stories);
     } catch (error) {
       console.error('Error fetching in-progress stories:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
   const cancelStory = async (storyId: string) => {
     try {
-      const { error } = await supabase
-        .from('stories')
-        .update({ 
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString(),
-          description: 'Story processing was cancelled by user'
-        })
-        .eq('id', storyId);
-
-      if (error) throw error;
-
+      await inProgressStoriesService.cancelStory(storyId);
       // Remove from in-progress list immediately
       setInProgressStories(prev => prev.filter(story => story.id !== storyId));
-      
       return true;
     } catch (error) {
       console.error('Error cancelling story:', error);
@@ -65,18 +37,10 @@ export const useInProgressStories = () => {
   const cancelAllProcessingStories = async () => {
     try {
       const processingStories = inProgressStories.filter(story => story.status === 'processing');
+      await inProgressStoriesService.cancelAllProcessingStories(
+        processingStories.map(story => story.id)
+      );
       
-      const { error } = await supabase
-        .from('stories')
-        .update({ 
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString(),
-          description: 'Story processing was cancelled by user (bulk cancel)'
-        })
-        .in('id', processingStories.map(story => story.id));
-
-      if (error) throw error;
-
       // Remove all processing stories from the list
       setInProgressStories(prev => prev.filter(story => story.status !== 'processing'));
       
@@ -89,15 +53,9 @@ export const useInProgressStories = () => {
 
   const regeneratePage = async (pageId: string, storyId: string, artStyle: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('regenerate-page', {
-        body: { pageId, storyId, artStyle }
-      });
-
-      if (error) throw error;
-
+      const data = await inProgressStoriesService.regeneratePage(pageId, storyId, artStyle);
       // Refresh the stories list
       await fetchInProgressStories();
-      
       return data;
     } catch (error) {
       console.error('Error regenerating page:', error);
@@ -107,19 +65,9 @@ export const useInProgressStories = () => {
 
   const saveStoryToLibrary = async (storyId: string) => {
     try {
-      const { error } = await supabase
-        .from('stories')
-        .update({ 
-          status: 'saved', // Use proper status instead of description-based filtering
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', storyId);
-
-      if (error) throw error;
-
+      await inProgressStoriesService.saveStoryToLibrary(storyId);
       // Remove from in-progress list
       setInProgressStories(prev => prev.filter(story => story.id !== storyId));
-      
       return true;
     } catch (error) {
       console.error('Error saving story to library:', error);
@@ -127,71 +75,22 @@ export const useInProgressStories = () => {
     }
   };
 
-  // Set up real-time subscription for story updates
-  useEffect(() => {
-    if (!user) return;
+  // Set up real-time subscriptions
+  useInProgressStoriesRealtime({
+    userId: user?.id || null,
+    onStoryChange: fetchInProgressStories
+  });
 
-    console.log('Setting up real-time subscription for stories...');
-    
-    // Subscribe to story changes
-    const storyChannel = supabase
-      .channel('story-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'stories',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload) => {
-          console.log('Story update received:', payload);
-          // Refetch stories when any story changes
-          fetchInProgressStories();
-        }
-      )
-      .subscribe();
+  // Set up periodic refresh
+  usePeriodicRefresh({
+    stories: inProgressStories,
+    onRefresh: fetchInProgressStories
+  });
 
-    // Subscribe to story page changes
-    const pageChannel = supabase
-      .channel('story-page-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'story_pages'
-        },
-        (payload) => {
-          console.log('Story page update received:', payload);
-          // Refetch stories when pages change
-          fetchInProgressStories();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('Cleaning up real-time subscriptions...');
-      supabase.removeChannel(storyChannel);
-      supabase.removeChannel(pageChannel);
-    };
-  }, [user]);
-
-  // Initial fetch and periodic refresh
+  // Initial fetch
   useEffect(() => {
     fetchInProgressStories();
-    
-    // Set up periodic refresh for processing stories
-    const interval = setInterval(() => {
-      const hasProcessingStories = inProgressStories.some(story => story.status === 'processing');
-      if (hasProcessingStories) {
-        console.log('Refreshing in-progress stories (periodic)...');
-        fetchInProgressStories();
-      }
-    }, 15000); // Check every 15 seconds instead of 30
-    
-    return () => clearInterval(interval);
-  }, [user, inProgressStories]);
+  }, [fetchInProgressStories]);
 
   return {
     inProgressStories,
