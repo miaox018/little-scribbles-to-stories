@@ -26,17 +26,22 @@ export function InProgressStoryCarousel({
   const [currentPage, setCurrentPage] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [regeneratingPageId, setRegeneratingPageId] = useState<string | null>(null);
   const { subscription } = useSubscription();
 
   // Ensure story_pages is always an array and sort by page_number
   const pages = (story?.story_pages || []).sort((a: any, b: any) => a.page_number - b.page_number);
   const totalPages = pages.length;
 
+  // Check if regeneration is allowed (only for in-progress stories)
+  const allowRegeneration = story?.status === 'processing' || story?.status === 'completed' || story?.status === 'partial';
+
   // 🐛 DEBUG: Add debug logging for pages data
   console.log('🐛 DEBUG - InProgressStoryCarousel - story prop:', story);
   console.log('🐛 DEBUG - InProgressStoryCarousel - story.story_pages:', story?.story_pages);
   console.log('🐛 DEBUG - InProgressStoryCarousel - pages array:', pages);
   console.log('🐛 DEBUG - InProgressStoryCarousel - totalPages:', totalPages);
+  console.log('🐛 DEBUG - InProgressStoryCarousel - allowRegeneration:', allowRegeneration);
   
   if (story?.story_pages) {
     console.log('🐛 DEBUG - story_pages details:', story.story_pages.map((page: any) => ({
@@ -120,8 +125,32 @@ export function InProgressStoryCarousel({
 
   const handleRegeneratePage = async (pageId: string) => {
     console.log('🔄 Regenerate page clicked for:', pageId);
-    if (onRegenerate) {
-      onRegenerate(pageId);
+    
+    // Immediate feedback
+    toast({
+      title: "Request Received 🎨",
+      description: "Your page regeneration request has been received. Please be patient while we generate your new page with improved character consistency.",
+    });
+    
+    setRegeneratingPageId(pageId);
+    
+    try {
+      if (onRegenerate) {
+        await onRegenerate(pageId);
+        toast({
+          title: "Page Regenerated! ✨",
+          description: "Your page has been successfully regenerated with improved character consistency.",
+        });
+      }
+    } catch (error: any) {
+      console.error('Regeneration failed:', error);
+      toast({
+        title: "Regeneration Failed",
+        description: error.message || "Failed to regenerate page. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setRegeneratingPageId(null);
     }
   };
 
@@ -145,6 +174,7 @@ export function InProgressStoryCarousel({
   }
 
   const currentStoryPage = pages[currentPage];
+  const isCurrentPageRegenerating = regeneratingPageId === currentStoryPage?.id;
 
   return (
     <>
@@ -169,6 +199,8 @@ export function InProgressStoryCarousel({
           onPrevPage={prevPage}
           onNextPage={nextPage}
           onRegeneratePage={handleRegeneratePage}
+          allowRegeneration={allowRegeneration}
+          isRegenerating={isCurrentPageRegenerating}
         />
 
         <CarouselFooter

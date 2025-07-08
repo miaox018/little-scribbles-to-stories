@@ -122,7 +122,9 @@ export function StoryCarousel({
         totalPages={totalPages}
         onPrevPage={prevPage}
         onNextPage={nextPage}
-        onRegeneratePage={() => {}} // Empty function for this carousel type
+        onRegeneratePage={() => {}} // Empty function - no regeneration for saved stories
+        allowRegeneration={false} // Disable regeneration for saved stories
+        isRegenerating={false}
       />
 
       <CarouselFooter

@@ -64,6 +64,81 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+// Build consistent prompt using meta-context
+function buildRegenerationPrompt(
+  pageNumber: number, 
+  stylePrompt: string, 
+  metaContext?: string
+): string {
+  let contextPrompt = "";
+  
+  if (metaContext) {
+    // Use optimized character meta-context for enhanced consistency
+    contextPrompt = `This is PAGE ${pageNumber} of a children's story book. MAINTAIN PERFECT CHARACTER CONSISTENCY:
+
+${metaContext}
+
+CRITICAL: Follow the above character guide EXACTLY to ensure visual consistency across all pages.
+
+Use the following art style: ${stylePrompt}`;
+  } else {
+    // Fallback approach
+    contextPrompt = `This is PAGE ${pageNumber} of a children's story book. Use the following art style: ${stylePrompt}`;
+  }
+
+  return `${contextPrompt}
+
+Transform this child's hand-drawn story page into a professional children's book illustration.
+
+🎨 CRITICAL LAYOUT REQUIREMENTS - HIGHEST PRIORITY:
+- Create a PORTRAIT orientation illustration with 2:3 aspect ratio (1024x1536 pixels)
+- Keep ALL main illustration elements within the CENTER 70% of the image
+- Leave AT LEAST 15% margins on ALL SIDES (top, bottom, left, right)
+- Reserve adequate space near edges for potential text placement
+- Center the main action/characters in the middle safe zone
+- Ensure no important visual elements are cut off at the edges
+
+🔑 CRITICAL TEXT REQUIREMENTS - HIGHEST PRIORITY:
+- Any text in the image must be EXACTLY readable, letter-perfect, and crystal clear
+- Use clean, professional typography: Arial, Helvetica, or Times New Roman fonts ONLY
+- Text must be large enough for children to read easily (minimum 16pt equivalent)
+- Text should be CENTERED and well-positioned with high contrast against background
+- Background behind text must be plain or very simple to ensure readability
+- NO decorative fonts, NO handwriting styles, NO text effects or shadows
+- NO misspellings - spell every word perfectly in English
+- If there is dialogue or narration, display it in clean text boxes or speech bubbles with white/light backgrounds
+- Text must be perfectly legible - this is NON-NEGOTIABLE
+
+VISUAL REFERENCE ANALYSIS:
+Carefully analyze the provided child's drawing to understand:
+- Character appearances, clothing, and expressions
+- Setting and background elements  
+- Any text, dialogue, or narration present
+- Story events happening on this page
+- Emotional tone and mood
+
+STYLE REQUIREMENTS:
+- ${stylePrompt}
+- Child-appropriate and friendly tone
+- High detail but not scary or overwhelming
+- Maintain story elements and characters from the original drawing
+- Make it magical and enchanting while staying true to the child's vision
+- Professional children's book illustration quality
+- Optimize composition for portrait 2:3 aspect ratio with safe margins
+
+CONSISTENCY REQUIREMENTS:
+- If character descriptions are provided above, follow ALL character details exactly
+- Keep the same color palette and artistic approach established in the story
+- Ensure characters look identical to previous appearances
+- Maintain established visual language and story world
+
+FINAL CHECK: 
+1. All important visual elements must be within the center 70% of the image
+2. 15% margins must be maintained on all sides
+3. Text must be as clear and readable as text in a printed children's book
+4. The illustration must work perfectly in portrait orientation with proper safe margins`;
+}
+
 async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCount = 0): Promise<string> {
   const maxRetries = 3;
   const baseDelay = 2000; // 2 seconds
@@ -220,20 +295,25 @@ serve(async (req) => {
     const requestBody = await req.json();
     const { storyId, pageId, artStyle } = validateInput(requestBody);
 
-    console.log(`Regenerating page ${pageId} for story ${storyId}`);
+    console.log(`Regenerating page ${pageId} for story ${storyId} with smart character analysis`);
 
     // Validate user ownership
     await validateUserOwnership(supabase, userId, storyId);
 
-    // Get the page and story data
+    // Get the page and story data with character summary
     const { data: page, error: pageError } = await supabase
       .from('story_pages')
-      .select('*, stories(user_id, title, art_style)')
+      .select('*, stories(user_id, title, art_style, character_summary, status)')
       .eq('id', pageId)
       .single();
 
     if (pageError || !page) {
       throw new Error('Page not found');
+    }
+
+    // Check if story is still in progress (not saved to library)
+    if (page.stories.status === 'saved' || page.stories.status === 'completed') {
+      throw new Error('Cannot regenerate pages for stories that have been saved to library');
     }
 
     // Extract the file path from the original_image_url
@@ -274,17 +354,14 @@ serve(async (req) => {
     const dataUrl = `data:image/png;base64,${base64}`;
 
     const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
-    const prompt = `Transform this child's hand-drawn story page into a professional ${stylePrompt} illustration. 
     
-    Keep the original story, characters, and composition but enhance it with:
-    - Professional art quality while maintaining the child's creative vision
-    - ${stylePrompt}
-    - Clear, readable text if present
-    - Portrait orientation (3:4 aspect ratio)
-    - Appropriate for children's book illustration
+    // Use meta-context if available for character consistency
+    const metaContext = page.stories.character_summary;
+    console.log(`Using meta-context for regeneration: ${metaContext ? 'Yes' : 'No'}`);
     
-    Maintain the essence and charm of the original drawing while making it publication-ready.`;
+    const prompt = buildRegenerationPrompt(page.page_number, stylePrompt, metaContext);
 
+    console.log(`Starting regeneration with smart character analysis for page ${page.page_number}`);
     const analysisText = await analyzeImageWithGPT(dataUrl, prompt);
     const imageUrl = await generateImageWithGPT(analysisText);
     
@@ -306,12 +383,12 @@ serve(async (req) => {
       })
       .eq('id', pageId);
 
-    console.log(`Successfully regenerated page ${pageId}`);
+    console.log(`Successfully regenerated page ${pageId} with character consistency`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Page regenerated successfully',
+        message: 'Page regenerated successfully with character consistency',
         generated_image_url: generatedImageUrl
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -332,7 +409,8 @@ serve(async (req) => {
     } catch {
       // Not a JSON error, use original message
       statusCode = error.message.includes('Unauthorized') ? 403 :
-                   error.message.includes('Invalid') ? 400 : 500;
+                   error.message.includes('Invalid') ? 400 :
+                   error.message.includes('Cannot regenerate') ? 403 : 500;
     }
     
     return new Response(

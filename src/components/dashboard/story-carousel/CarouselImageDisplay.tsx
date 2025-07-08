@@ -9,6 +9,8 @@ interface CarouselImageDisplayProps {
   onPrevPage: () => void;
   onNextPage: () => void;
   onRegeneratePage: (pageId: string) => void;
+  allowRegeneration?: boolean; // New prop to control regeneration availability
+  isRegenerating?: boolean; // New prop to show loading state
 }
 
 export function CarouselImageDisplay({
@@ -17,21 +19,24 @@ export function CarouselImageDisplay({
   totalPages,
   onPrevPage,
   onNextPage,
-  onRegeneratePage
+  onRegeneratePage,
+  allowRegeneration = false,
+  isRegenerating = false
 }: CarouselImageDisplayProps) {
   return (
     <>
-      {/* Regenerate Button for Current Page */}
-      {currentStoryPage && (
+      {/* Regenerate Button for Current Page - Only show if allowed */}
+      {currentStoryPage && allowRegeneration && (
         <div className="absolute top-20 left-4 z-10">
           <Button
             onClick={() => onRegeneratePage(currentStoryPage.id)}
             size="sm"
             variant="secondary"
             className="bg-white/90 hover:bg-white shadow-md"
+            disabled={isRegenerating}
           >
-            <RotateCcw className="mr-1 h-3 w-3" />
-            Regenerate Page
+            <RotateCcw className={`mr-1 h-3 w-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+            {isRegenerating ? 'Regenerating...' : 'Regenerate Page'}
           </Button>
         </div>
       )}
