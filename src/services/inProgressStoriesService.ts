@@ -69,6 +69,15 @@ export const inProgressStoriesService = {
     return data;
   },
 
+  async deleteStory(storyId: string): Promise<void> {
+    const { error } = await supabase
+      .from('stories')
+      .delete()
+      .eq('id', storyId);
+
+    if (error) throw error;
+  },
+
   async saveStoryToLibrary(storyId: string): Promise<void> {
     const { error } = await supabase
       .from('stories')

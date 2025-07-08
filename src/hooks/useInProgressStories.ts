@@ -63,6 +63,18 @@ export const useInProgressStories = () => {
     }
   };
 
+  const deleteStory = async (storyId: string) => {
+    try {
+      await inProgressStoriesService.deleteStory(storyId);
+      // Remove from in-progress list immediately
+      setInProgressStories(prev => prev.filter(story => story.id !== storyId));
+      return true;
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      throw error;
+    }
+  };
+
   const saveStoryToLibrary = async (storyId: string) => {
     try {
       await inProgressStoriesService.saveStoryToLibrary(storyId);
@@ -97,6 +109,7 @@ export const useInProgressStories = () => {
     isLoading,
     cancelStory,
     cancelAllProcessingStories,
+    deleteStory,
     regeneratePage,
     saveStoryToLibrary,
     refetch: fetchInProgressStories

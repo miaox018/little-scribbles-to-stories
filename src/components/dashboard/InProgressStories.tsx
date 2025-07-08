@@ -13,7 +13,7 @@ import { EmptyState } from "./in-progress-stories/EmptyState";
 import { InProgressStoryCarousel } from "./in-progress-stories/InProgressStoryCarousel";
 
 export function InProgressStories() {
-  const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, cancelStory, cancelAllProcessingStories, refetch } = useInProgressStories();
+  const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, cancelStory, deleteStory, cancelAllProcessingStories, refetch } = useInProgressStories();
   const { subscription } = useSubscription();
   const { trackPageRegeneration } = useUsageTracking();
   const [selectedStory, setSelectedStory] = useState<any>(null);
@@ -21,6 +21,7 @@ export function InProgressStories() {
   const [userClosedCarousel, setUserClosedCarousel] = useState(false);
   const [regeneratingPages, setRegeneratingPages] = useState<Set<string>>(new Set());
   const [savingStory, setSavingStory] = useState(false);
+  const [deletingStories, setDeletingStories] = useState<Set<string>>(new Set());
   const [cancellingStories, setCancellingStories] = useState<Set<string>>(new Set());
   const [paywallStory, setPaywallStory] = useState<any>(null);
   const [cancelDialog, setCancelDialog] = useState<{
@@ -134,6 +135,30 @@ export function InProgressStories() {
     }
   };
 
+  const handleDeleteStory = async (storyId: string) => {
+    setDeletingStories(prev => new Set(prev).add(storyId));
+    
+    try {
+      await deleteStory(storyId);
+      toast({
+        title: "Story Deleted",
+        description: "Story has been permanently deleted"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete story. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingStories(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(storyId);
+        return newSet;
+      });
+    }
+  };
+
   const handleCancelStory = (storyId: string, storyTitle: string) => {
     setCancelDialog({
       isOpen: true,
@@ -233,15 +258,33 @@ export function InProgressStories() {
                     Created: {new Date(currentStory.created_at).toLocaleString()}
                   </p>
                 </div>
-                <Button
-                  onClick={() => {
-                    setShowCarousel(true);
-                    setUserClosedCarousel(false); // Reset when user manually opens
-                  }}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  View Story
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      setShowCarousel(true);
+                      setUserClosedCarousel(false); // Reset when user manually opens
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    View Story
+                  </Button>
+                  {(currentStory.status === 'failed' || currentStory.status === 'cancelled') && (
+                    <Button
+                      onClick={() => handleDeleteStory(currentStory.id)}
+                      variant="destructive"
+                      disabled={deletingStories.has(currentStory.id)}
+                    >
+                      {deletingStories.has(currentStory.id) ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
+                          Deleting...
+                        </>
+                      ) : (
+                        'Delete'
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
               <p className="text-gray-600 text-sm">
                 Status: <span className="capitalize">{currentStory.status}</span>
