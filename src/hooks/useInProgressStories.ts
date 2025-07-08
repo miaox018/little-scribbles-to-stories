@@ -25,8 +25,7 @@ export const useInProgressStories = () => {
           )
         `)
         .eq('user_id', user.id)
-        .in('status', ['processing', 'completed', 'failed']) // Removed 'partial' to match DB constraint
-        .neq('status', 'saved') // Use status-based filtering instead of description
+        .in('status', ['processing', 'completed', 'failed']) // Include completed stories until saved
         .order('created_at', { ascending: false });
 
       if (error) throw error;
