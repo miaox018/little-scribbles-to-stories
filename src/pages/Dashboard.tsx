@@ -9,19 +9,15 @@ import { RecoveryButton } from "@/components/dashboard/RecoveryButton";
 import { AdminPanel } from "@/components/dashboard/AdminPanel";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserRoles } from "@/hooks/useUserRoles";
-import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Shield } from "lucide-react";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<"create" | "library" | "in-progress">("create");
+  const [processingCount, setProcessingCount] = useState(0);
   const { user, signOut } = useAuth();
   const { isAdmin, assignAdminByEmail } = useUserRoles();
-  const { inProgressStories } = useInProgressStories();
   const hasAttemptedAssignment = useRef(false);
-
-  // Count processing stories for badge
-  const processingCount = inProgressStories.filter(story => story.status === 'processing').length;
 
   // Auto-assign admin role to the specified email on first load only
   useEffect(() => {
@@ -110,7 +106,9 @@ const Dashboard = () => {
             )}
             {activeTab === "create" && <CreateStory onNavigateToInProgress={handleNavigateToInProgress} />}
             {activeTab === "library" && <Library onNavigateToCreate={handleNavigateToCreate} />}
-            {activeTab === "in-progress" && <InProgressStories />}
+            {activeTab === "in-progress" && (
+              <InProgressStories onProcessingCountChange={setProcessingCount} />
+            )}
           </div>
         </main>
       </div>

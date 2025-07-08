@@ -1,13 +1,15 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import { inProgressStoriesService, type InProgressStory } from '@/services/inProgressStoriesService';
-import { useInProgressStoriesRealtime } from './useInProgressStoriesRealtime';
 import { usePeriodicRefresh } from './usePeriodicRefresh';
 
 export const useInProgressStories = () => {
   const [inProgressStories, setInProgressStories] = useState<InProgressStory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const { subscribeToStoryChanges } = useRealtime();
 
   const fetchInProgressStories = useCallback(async () => {
     if (!user) return;
@@ -87,11 +89,11 @@ export const useInProgressStories = () => {
     }
   };
 
-  // Set up real-time subscriptions
-  useInProgressStoriesRealtime({
-    userId: user?.id || null,
-    onStoryChange: fetchInProgressStories
-  });
+  // Subscribe to real-time updates via global context
+  useEffect(() => {
+    const unsubscribe = subscribeToStoryChanges(fetchInProgressStories);
+    return unsubscribe;
+  }, [subscribeToStoryChanges, fetchInProgressStories]);
 
   // Set up periodic refresh
   usePeriodicRefresh({

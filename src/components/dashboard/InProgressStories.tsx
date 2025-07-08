@@ -12,7 +12,11 @@ import { InProgressStoriesHeader } from "./in-progress-stories/InProgressStories
 import { EmptyState } from "./in-progress-stories/EmptyState";
 import { InProgressStoryCarousel } from "./in-progress-stories/InProgressStoryCarousel";
 
-export function InProgressStories() {
+interface InProgressStoriesProps {
+  onProcessingCountChange?: (count: number) => void;
+}
+
+export function InProgressStories({ onProcessingCountChange }: InProgressStoriesProps) {
   const { inProgressStories, isLoading, regeneratePage, saveStoryToLibrary, cancelStory, deleteStory, cancelAllProcessingStories, refetch } = useInProgressStories();
   const { subscription } = useSubscription();
   const { trackPageRegeneration } = useUsageTracking();
@@ -36,6 +40,13 @@ export function InProgressStories() {
   const currentStory = inProgressStories[0] || null;
   const processingStories = inProgressStories.filter(story => story.status === 'processing');
 
+  // Update processing count in parent component
+  useEffect(() => {
+    if (onProcessingCountChange) {
+      onProcessingCountChange(processingStories.length);
+    }
+  }, [processingStories.length, onProcessingCountChange]);
+
   // Debug logging
   useEffect(() => {
     console.log('🔍 InProgressStories Debug:');
@@ -43,9 +54,6 @@ export function InProgressStories() {
     console.log('- Processing stories:', processingStories.length);
     console.log('- Current story:', currentStory?.title || 'none');
     console.log('- Stories list:', inProgressStories.map(s => ({ id: s.id, title: s.title, status: s.status, created_at: s.created_at })));
-    
-    // 🐛 DEBUG: Add requested debug logs
-    console.log('All inProgressStories:', inProgressStories);
     
     if (currentStory) {
       console.log('🐛 DEBUG - currentStory.story_pages:', currentStory.story_pages);
