@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { useInProgressStories } from "@/hooks/useInProgressStories";
 import { StoryViewer } from "./StoryViewer";
 import { PaywallModal } from "@/components/paywall/PaywallModal";
 import { CancelStoryDialog } from "./CancelStoryDialog";
+import { DeleteStoryDialog } from "./DeleteStoryDialog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
 import { toast } from "@/hooks/use-toast";
@@ -34,6 +36,11 @@ export function InProgressStories({ onProcessingCountChange }: InProgressStories
     storyTitle?: string;
     isBulk?: boolean;
     bulkCount?: number;
+  }>({ isOpen: false });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    storyId?: string;
+    storyTitle?: string;
   }>({ isOpen: false });
 
   // Get the first (and should be only) in-progress story
@@ -152,6 +159,10 @@ export function InProgressStories({ onProcessingCountChange }: InProgressStories
         title: "Story Deleted",
         description: "Story has been permanently deleted"
       });
+      // Close carousel if the deleted story was being viewed
+      if (currentStory?.id === storyId) {
+        setShowCarousel(false);
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -220,8 +231,28 @@ export function InProgressStories({ onProcessingCountChange }: InProgressStories
     }
   };
 
+  const confirmDelete = async () => {
+    const { storyId } = deleteDialog;
+    if (storyId) {
+      await handleDeleteStory(storyId);
+    }
+    setDeleteDialog({ isOpen: false });
+  };
+
   const handlePaywallClose = () => {
     setPaywallStory(null);
+  };
+
+  const handleViewStory = () => {
+    setSelectedStory(currentStory);
+  };
+
+  const handleDeleteClick = (storyId: string, storyTitle: string) => {
+    setDeleteDialog({
+      isOpen: true,
+      storyId,
+      storyTitle
+    });
   };
 
   console.log('🔴 InProgressStories render - showCarousel:', showCarousel);
@@ -276,22 +307,26 @@ export function InProgressStories({ onProcessingCountChange }: InProgressStories
                   >
                     View Story
                   </Button>
-                  {(currentStory.status === 'failed' || currentStory.status === 'cancelled') && (
-                    <Button
-                      onClick={() => handleDeleteStory(currentStory.id)}
-                      variant="destructive"
-                      disabled={deletingStories.has(currentStory.id)}
-                    >
-                      {deletingStories.has(currentStory.id) ? (
-                        <>
-                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-                          Deleting...
-                        </>
-                      ) : (
-                        'Delete'
-                      )}
-                    </Button>
-                  )}
+                  <Button
+                    onClick={() => handleViewStory()}
+                    variant="outline"
+                  >
+                    Preview
+                  </Button>
+                  <Button
+                    onClick={() => handleDeleteClick(currentStory.id, currentStory.title)}
+                    variant="destructive"
+                    disabled={deletingStories.has(currentStory.id)}
+                  >
+                    {deletingStories.has(currentStory.id) ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
+                  </Button>
                 </div>
               </div>
               <p className="text-gray-600 text-sm">
@@ -328,6 +363,14 @@ export function InProgressStories({ onProcessingCountChange }: InProgressStories
         storyTitle={cancelDialog.storyTitle}
         isBulk={cancelDialog.isBulk}
         bulkCount={cancelDialog.bulkCount}
+      />
+
+      <DeleteStoryDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false })}
+        onConfirm={confirmDelete}
+        storyTitle={deleteDialog.storyTitle || ''}
+        isDeleting={deleteDialog.storyId ? deletingStories.has(deleteDialog.storyId) : false}
       />
     </div>
   );
