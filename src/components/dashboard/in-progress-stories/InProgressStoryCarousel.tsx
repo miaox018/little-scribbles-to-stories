@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -9,6 +8,7 @@ import { CarouselDialog } from "../story-carousel/CarouselDialog";
 import { CarouselHeader } from "../story-carousel/CarouselHeader";
 import { CarouselImageDisplay } from "../story-carousel/CarouselImageDisplay";
 import { CarouselFooter } from "../story-carousel/CarouselFooter";
+import { inProgressStoriesService } from "@/services/inProgressStoriesService";
 
 interface InProgressStoryCarouselProps {
   story: any;
@@ -68,6 +68,15 @@ export function InProgressStoryCarousel({
     try {
       console.log('Saving story to library:', storyState.id);
       
+      // First, fetch the latest story data to ensure we have the most current version
+      console.log('🔄 Fetching latest story data before saving...');
+      const latestStory = await inProgressStoriesService.fetchStoryById(storyState.id);
+      
+      if (latestStory) {
+        console.log('📊 Latest story data fetched, updating local state');
+        setStoryState(latestStory);
+      }
+      
       // Update story status to 'saved' and mark as saved in description
       const { error } = await supabase
         .from('stories')
@@ -85,7 +94,7 @@ export function InProgressStoryCarousel({
 
       toast({
         title: "Story Saved! 📚",
-        description: `"${storyState.title}" has been saved to your library!`,
+        description: `"${storyState.title}" has been saved to your library with all regenerated pages!`,
       });
 
       // Close the carousel after saving
@@ -110,45 +119,40 @@ export function InProgressStoryCarousel({
   const handleRegeneratePage = async (pageId: string) => {
     console.log('🔄 Regenerate page clicked for:', pageId);
     
-    // Show immediate feedback
+    // Show immediate feedback with improved message
     toast({
-      title: "Request Received 🎨",
-      description: "Your page regeneration request has been received. Please be patient while we generate your new page with improved character consistency.",
+      title: "Regenerating Page... 🎨",
+      description: "Your page is being regenerated. This may take a moment - please wait for completion.",
     });
     
     setRegeneratingPageId(pageId);
     
     try {
       // Call the regeneration service
-      const { data, error } = await supabase.functions.invoke('regenerate-page', {
-        body: { pageId, storyId: storyState.id, artStyle: storyState.art_style || 'classic_watercolor' }
-      });
+      const result = await inProgressStoriesService.regeneratePage(pageId, storyState.id, storyState.art_style || 'classic_watercolor');
 
-      if (error) throw error;
+      console.log('🎉 Regeneration service response:', result);
 
-      console.log('🎉 Regeneration completed:', data);
+      // Fetch the updated story data to get the new image URL
+      console.log('🔄 Fetching updated story data after regeneration...');
+      const updatedStory = await inProgressStoriesService.fetchStoryById(storyState.id);
+      
+      if (updatedStory) {
+        console.log('📊 Updated story data received, updating UI');
+        setStoryState(updatedStory);
+        
+        // Call the onRegenerate callback if provided
+        if (onRegenerate) {
+          await onRegenerate(pageId);
+        }
 
-      // Update the story state with the new image URL
-      if (data.generated_image_url) {
-        setStoryState((prevStory: any) => ({
-          ...prevStory,
-          story_pages: prevStory.story_pages.map((page: any) => 
-            page.id === pageId 
-              ? { ...page, generated_image_url: data.generated_image_url, transformation_status: 'completed' }
-              : page
-          )
-        }));
+        toast({
+          title: "Page Regenerated! ✨",
+          description: "Your page has been successfully regenerated with improved character consistency.",
+        });
+      } else {
+        throw new Error('Failed to fetch updated story data');
       }
-
-      // Call the onRegenerate callback if provided
-      if (onRegenerate) {
-        await onRegenerate(pageId);
-      }
-
-      toast({
-        title: "Page Regenerated! ✨",
-        description: "Your page has been successfully regenerated with improved character consistency.",
-      });
     } catch (error: any) {
       console.error('Regeneration failed:', error);
       toast({
