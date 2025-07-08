@@ -42,6 +42,15 @@ export function InProgressStories() {
     console.log('- Processing stories:', processingStories.length);
     console.log('- Current story:', currentStory?.title || 'none');
     console.log('- Stories list:', inProgressStories.map(s => ({ id: s.id, title: s.title, status: s.status, created_at: s.created_at })));
+    
+    // 🐛 DEBUG: Add requested debug logs
+    console.log('All inProgressStories:', inProgressStories);
+    
+    if (currentStory) {
+      console.log('🐛 DEBUG - currentStory.story_pages:', currentStory.story_pages);
+      console.log('🐛 DEBUG - currentStory.story_pages length:', currentStory.story_pages?.length || 'undefined');
+      console.log('🐛 DEBUG - Full currentStory structure:', currentStory);
+    }
   }, [inProgressStories, currentStory, processingStories]);
 
   // Auto-show carousel when story is available (only if user hasn't closed it)

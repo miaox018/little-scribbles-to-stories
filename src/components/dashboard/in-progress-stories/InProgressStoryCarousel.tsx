@@ -32,6 +32,22 @@ export function InProgressStoryCarousel({
   const pages = (story?.story_pages || []).sort((a: any, b: any) => a.page_number - b.page_number);
   const totalPages = pages.length;
 
+  // 🐛 DEBUG: Add debug logging for pages data
+  console.log('🐛 DEBUG - InProgressStoryCarousel - story prop:', story);
+  console.log('🐛 DEBUG - InProgressStoryCarousel - story.story_pages:', story?.story_pages);
+  console.log('🐛 DEBUG - InProgressStoryCarousel - pages array:', pages);
+  console.log('🐛 DEBUG - InProgressStoryCarousel - totalPages:', totalPages);
+  
+  if (story?.story_pages) {
+    console.log('🐛 DEBUG - story_pages details:', story.story_pages.map((page: any) => ({
+      id: page.id,
+      page_number: page.page_number,
+      has_generated_image: !!page.generated_image_url,
+      has_original_image: !!page.original_image_url,
+      transformation_status: page.transformation_status
+    })));
+  }
+
   const nextPage = () => {
     setCurrentPage((prev) => (prev + 1) % totalPages);
   };
@@ -110,6 +126,11 @@ export function InProgressStoryCarousel({
   };
 
   if (!story || totalPages === 0) {
+    console.log('🐛 DEBUG - Showing "No pages to display" because:');
+    console.log('- story exists:', !!story);
+    console.log('- totalPages:', totalPages);
+    console.log('- story.story_pages:', story?.story_pages);
+    
     return (
       <CarouselDialog
         isOpen={true}
