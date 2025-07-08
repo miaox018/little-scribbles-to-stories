@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,8 +25,8 @@ export const useInProgressStories = () => {
           )
         `)
         .eq('user_id', user.id)
-        .in('status', ['processing', 'completed', 'partial', 'failed'])
-        .neq('description', 'saved_to_library') // Exclude stories already saved to library
+        .in('status', ['processing', 'completed', 'failed']) // Removed 'partial' to match DB constraint
+        .neq('status', 'saved') // Use status-based filtering instead of description
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -112,8 +111,7 @@ export const useInProgressStories = () => {
       const { error } = await supabase
         .from('stories')
         .update({ 
-          status: 'saved',
-          description: 'saved_to_library',
+          status: 'saved', // Use proper status instead of description-based filtering
           updated_at: new Date().toISOString()
         })
         .eq('id', storyId);
