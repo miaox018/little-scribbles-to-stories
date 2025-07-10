@@ -1,6 +1,6 @@
 
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Scale } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Scale, Camera, Sparkles } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -39,20 +39,44 @@ export function StoryViewerControls({
   onZoomOut,
   onResetZoom
 }: StoryViewerControlsProps) {
+  const hasOriginal = currentPageData.original_image_url;
+  const hasGenerated = currentPageData.generated_image_url;
+  const canToggle = hasOriginal && hasGenerated;
+
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 border-b bg-gray-50 flex-shrink-0">
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onToggleView}
-          disabled={!currentPageData.original_image_url || !currentPageData.generated_image_url}
-        >
-          {showOriginal ? 'Show Enhanced' : 'Show Original'}
-        </Button>
+        {canToggle && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleView}
+            className="flex items-center gap-2"
+          >
+            {showOriginal ? (
+              <>
+                <Sparkles className="h-4 w-4" />
+                Show Enhanced
+              </>
+            ) : (
+              <>
+                <Camera className="h-4 w-4" />
+                Show Original
+              </>
+            )}
+          </Button>
+        )}
+        
         <span className="text-sm text-gray-600">
           Page {currentPage + 1} of {totalPages}
         </span>
+        
+        {!canToggle && hasOriginal && !hasGenerated && (
+          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+            Original photo only
+          </span>
+        )}
+        
         {currentImageUrl?.includes('oaidalleapiprodscus.blob.core.windows.net') && (
           <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
             ⚠️ Temporary URL - may expire

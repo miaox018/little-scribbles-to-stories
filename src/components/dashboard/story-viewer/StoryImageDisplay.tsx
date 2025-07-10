@@ -1,7 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Camera } from 'lucide-react';
 
 interface StoryPage {
   id: string;
@@ -58,6 +58,7 @@ export function StoryImageDisplay({
                 size="sm"
                 onClick={onToggleView}
               >
+                <Camera className="h-4 w-4 mr-1" />
                 Try {showOriginal ? 'Enhanced' : 'Original'}
               </Button>
             )}
@@ -72,7 +73,18 @@ export function StoryImageDisplay({
       <div className="h-full flex items-center justify-center p-4">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No image available for this page.</p>
+          <p className="text-gray-600 mb-2">No image available for this page.</p>
+          {currentPageData.original_image_url && !showOriginal && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={onToggleView}
+              className="mt-2"
+            >
+              <Camera className="h-4 w-4 mr-1" />
+              View Original Photo
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -81,17 +93,25 @@ export function StoryImageDisplay({
   return (
     <ScrollArea className="h-full">
       <div className="p-4 min-h-full flex justify-center">
-        <img
-          src={currentImageUrl}
-          alt={`Page ${currentPageData.page_number}`}
-          className="story-page-image rounded-lg shadow-sm transition-transform duration-200 ease-in-out"
-          style={{ 
-            transform: `scale(${scale})`,
-            transformOrigin: 'center top'
-          }}
-          onError={onImageError}
-          onLoad={onImageLoad}
-        />
+        <div className="relative">
+          <img
+            src={currentImageUrl}
+            alt={`Page ${currentPageData.page_number}`}
+            className="story-page-image rounded-lg shadow-sm transition-transform duration-200 ease-in-out"
+            style={{ 
+              transform: `scale(${scale})`,
+              transformOrigin: 'center top'
+            }}
+            onError={onImageError}
+            onLoad={onImageLoad}
+          />
+          
+          {/* Image type indicator */}
+          <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+            <Camera className="h-3 w-3" />
+            {showOriginal ? 'Original Photo' : 'Enhanced Image'}
+          </div>
+        </div>
       </div>
     </ScrollArea>
   );
