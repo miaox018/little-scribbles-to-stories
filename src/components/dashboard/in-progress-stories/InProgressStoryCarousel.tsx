@@ -165,6 +165,13 @@ export function InProgressStoryCarousel({
     }
   };
 
+  // Create a wrapper function for the current page regeneration
+  const handleCurrentPageRegenerate = () => {
+    if (currentStoryPage?.id) {
+      handleRegeneratePage(currentStoryPage.id);
+    }
+  };
+
   if (!storyState || totalPages === 0) {
     console.log('🐛 DEBUG - Showing "No pages to display" because:');
     console.log('- story exists:', !!storyState);
@@ -209,7 +216,7 @@ export function InProgressStoryCarousel({
           totalPages={totalPages}
           onPrevPage={prevPage}
           onNextPage={nextPage}
-          onRegeneratePage={handleRegeneratePage}
+          onRegeneratePage={handleCurrentPageRegenerate}
           allowRegeneration={allowRegeneration}
           isRegenerating={isCurrentPageRegenerating}
         />
