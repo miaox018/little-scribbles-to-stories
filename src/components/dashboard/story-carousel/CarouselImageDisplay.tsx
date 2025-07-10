@@ -1,16 +1,26 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { CarouselImageControls } from "./CarouselImageControls";
+
+interface StoryPage {
+  id: string;
+  page_number: number;
+  original_image_url: string | null;
+  generated_image_url: string | null;
+  transformation_status: string | null;
+}
 
 interface CarouselImageDisplayProps {
-  currentStoryPage: any;
+  currentStoryPage: StoryPage;
   currentPage: number;
   totalPages: number;
   onPrevPage: () => void;
   onNextPage: () => void;
-  onRegeneratePage: (pageId: string) => void;
-  allowRegeneration?: boolean; // New prop to control regeneration availability
-  isRegenerating?: boolean; // New prop to show loading state
+  onRegeneratePage: () => void;
+  allowRegeneration: boolean;
+  isRegenerating: boolean;
 }
 
 export function CarouselImageDisplay({
@@ -20,73 +30,96 @@ export function CarouselImageDisplay({
   onPrevPage,
   onNextPage,
   onRegeneratePage,
-  allowRegeneration = false,
-  isRegenerating = false
+  allowRegeneration,
+  isRegenerating
 }: CarouselImageDisplayProps) {
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  const handleToggleView = () => {
+    setShowOriginal(!showOriginal);
+  };
+
+  // Determine which image to show
+  const imageUrl = showOriginal ? currentStoryPage?.original_image_url : currentStoryPage?.generated_image_url;
+
   return (
-    <>
-      {/* Regenerate Button for Current Page - Only show if allowed */}
-      {currentStoryPage && allowRegeneration && (
-        <div className="absolute top-20 left-4 z-10">
+    <div className="flex-1 relative bg-gradient-to-br from-purple-50 to-pink-50">
+      {/* Image display area */}
+      <div className="h-full flex items-center justify-center p-8">
+        <div className="relative max-w-2xl max-h-full">
+          {imageUrl ? (
+            <>
+              <img
+                src={imageUrl}
+                alt={`Page ${currentStoryPage?.page_number || currentPage + 1}`}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+              />
+              
+              {/* Image type indicator */}
+              <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                {showOriginal ? 'Original Photo' : 'Enhanced Image'}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-96 w-96 bg-gray-100 rounded-lg">
+              <p className="text-gray-500">No image available</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Toggle controls */}
+      <CarouselImageControls
+        currentStoryPage={currentStoryPage}
+        showOriginal={showOriginal}
+        onToggleView={handleToggleView}
+      />
+
+      {/* Navigation arrows */}
+      {totalPages > 1 && (
+        <>
           <Button
-            onClick={() => onRegeneratePage(currentStoryPage.id)}
-            size="sm"
             variant="secondary"
-            className="bg-white/90 hover:bg-white shadow-md"
-            disabled={isRegenerating}
+            size="icon"
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white shadow-lg hover:bg-gray-50"
+            onClick={onPrevPage}
           >
-            <RotateCcw className={`mr-1 h-3 w-3 ${isRegenerating ? 'animate-spin' : ''}`} />
-            {isRegenerating ? 'Regenerating...' : 'Regenerate Page'}
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white shadow-lg hover:bg-gray-50"
+            onClick={onNextPage}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </>
+      )}
+
+      {/* Regenerate button (only for stories in progress) */}
+      {allowRegeneration && (
+        <div className="absolute bottom-4 right-4">
+          <Button
+            onClick={onRegeneratePage}
+            disabled={isRegenerating}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          >
+            {isRegenerating ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Regenerate Page
+              </>
+            )}
           </Button>
         </div>
       )}
-
-      {/* Image Display */}
-      <div className="relative h-[calc(95vh-200px)] bg-gray-100 flex items-center justify-center overflow-hidden">
-        {currentStoryPage?.generated_image_url ? (
-          <img
-            src={currentStoryPage.generated_image_url}
-            alt={`Page ${currentPage + 1}`}
-            className="w-full h-full object-contain"
-            onError={(e) => {
-              console.log('Generated image failed to load, trying original:', currentStoryPage.original_image_url);
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        ) : currentStoryPage?.original_image_url ? (
-          <img
-            src={currentStoryPage.original_image_url}
-            alt={`Page ${currentPage + 1} (Original)`}
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <div className="text-gray-400 text-center">
-            <p>No image available</p>
-          </div>
-        )}
-
-        {/* Navigation Arrows */}
-        {totalPages > 1 && (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onPrevPage}
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white shadow-md h-10 w-10 p-0"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onNextPage}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white shadow-md h-10 w-10 p-0"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </>
-        )}
-      </div>
-    </>
+    </div>
   );
 }
