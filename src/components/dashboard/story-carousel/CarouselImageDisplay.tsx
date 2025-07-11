@@ -43,16 +43,17 @@ export function CarouselImageDisplay({
   const imageUrl = showOriginal ? currentStoryPage?.original_image_url : currentStoryPage?.generated_image_url;
 
   return (
-    <div className="flex-1 relative bg-gradient-to-br from-purple-50 to-pink-50">
+    <div className="flex-1 relative bg-gradient-to-br from-purple-50 to-pink-50 overflow-hidden">
       {/* Image display area */}
-      <div className="h-full flex items-center justify-center p-8">
-        <div className="relative max-w-2xl max-h-full">
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="relative w-full h-full flex items-center justify-center">
           {imageUrl ? (
             <>
               <img
                 src={imageUrl}
                 alt={`Page ${currentStoryPage?.page_number || currentPage + 1}`}
                 className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                style={{ maxHeight: 'calc(100vh - 200px)' }}
               />
               
               {/* Image type indicator */}
@@ -81,7 +82,7 @@ export function CarouselImageDisplay({
           <Button
             variant="secondary"
             size="icon"
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white shadow-lg hover:bg-gray-50"
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white shadow-lg hover:bg-gray-50 z-10"
             onClick={onPrevPage}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -90,7 +91,7 @@ export function CarouselImageDisplay({
           <Button
             variant="secondary"
             size="icon"
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white shadow-lg hover:bg-gray-50"
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white shadow-lg hover:bg-gray-50 z-10"
             onClick={onNextPage}
           >
             <ChevronRight className="h-4 w-4" />
@@ -100,7 +101,7 @@ export function CarouselImageDisplay({
 
       {/* Regenerate button (only for stories in progress) */}
       {allowRegeneration && (
-        <div className="absolute bottom-4 right-4">
+        <div className="absolute bottom-4 right-4 z-10">
           <Button
             onClick={onRegeneratePage}
             disabled={isRegenerating}
