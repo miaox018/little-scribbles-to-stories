@@ -1,3 +1,4 @@
+
 export interface BlogPost {
   slug: string;
   title: string;
@@ -20,98 +21,6 @@ export interface BlogPostMeta {
 }
 
 export const blogPosts: BlogPost[] = [
-  {
-    slug: "why-i-created-storymagic",
-    title: "Why I Created StoryMagic: Introducing AI to My 8-Year-Old Daughter",
-    description: "The personal story behind StoryMagic - how I built a tool to help my daughter experience the wonder of AI as a creative partner, not a replacement.",
-    publishDate: "2024-12-15",
-    author: "StoryMagic Founder",
-    tags: ["AI for kids", "parenting", "creativity", "technology", "children's art"],
-    image: "/blog/founder-story.jpg",
-    content: `# Why I Created StoryMagic: Introducing AI to My 8-Year-Old Daughter
-
-Last weekend, I released a side project called Story Magic — a tool that turns kids' drawings into illustrated storybooks.
-
-I didn't build this to start a company. I built it because I was looking for a way to introduce the concept of AI to my 8-year-old daughter.
-
-## The Challenge of Explaining AI Magic
-
-At work and in life, AI has become an incredible extension of my own ability. It makes me faster, more creative, more empowered. But even among adults, it's hard to describe that feeling without sounding like an AI maniac. I kept wondering—how could I help her experience that same sense of wonder?
-
-She's too young to learn programming, nor does she show any sign of interest when she sees me coding.
-
-But she loves to draw. Loves to staple scribble books together and tell stories.
-
-## The Moment Everything Clicked
-
-One day, I uploaded a photo of one of her books to GPT and gave it a simple prompt. It generated a vivid, adorable illustrated page in return.
-
-When she saw it, her eyes lit up. And in that moment, I knew we had found it— the spark where an idea becomes something real. She experienced how AI could make that leap faster, and even more magical.
-
-## A Child's Wisdom About AI
-
-But like any introduction to new technology, it came with some unease. A few days later, during our bedtime chat, I asked her:
-
-*"You're taking drawing classes, right? And now you've seen how fast and good AI can draw. Does that make you feel bad or upset?"*
-
-*"Nah."* She didn't even pause. *"I'm gonna keep on writing. And it can help me draw. We can partner on this."*
-
-Just like that.
-
-## Partnership, Not Replacement
-
-In the swirl of debates we're having around AI—its impact on jobs, creativity, self-worth, and humanity—my daughter gave me the most unburdened, hopeful perspective I've heard yet.
-
-She didn't see AI as a threat to her creativity. She saw it as a partner. A collaborator. A tool that could help her bring her stories to life in ways she couldn't achieve alone.
-
-This perspective completely shifted how I think about introducing technology to children. Instead of focusing on what AI might replace, we can focus on what it enables. Instead of competition, we can emphasize collaboration.
-
-## Building Something Magical
-
-So I built this tiny tool: Story Magic — for all the parents out there who want to introduce AI in a way that feels a little less scary, and a little more magical.
-
-The goal isn't to replace children's creativity or make them dependent on technology. It's to show them that AI can be a creative partner that amplifies their imagination and helps bring their ideas to life.
-
-## What Children Teach Us About AI
-
-Working on this project with my daughter taught me several important lessons:
-
-### **Children Approach AI Without Baggage**
-Adults worry about job displacement, authenticity, and competition. Children see possibilities and partnerships.
-
-### **Creativity is About Ideas, Not Just Execution**
-My daughter's stories, characters, and imagination remain entirely her own. AI simply helps her express those ideas in new ways.
-
-### **The Best Technology Feels Like Magic**
-When technology works seamlessly and enables rather than complicates, it creates that sense of wonder that makes learning and creating joyful.
-
-### **Collaboration is Natural**
-Children are used to getting help from adults, tools, and friends. Adding AI to that mix feels natural rather than threatening.
-
-## The Future of AI and Children
-
-As AI becomes more prevalent in our world, children will grow up with it as a natural part of their creative toolkit. How we introduce these concepts matters enormously.
-
-By framing AI as a creative partner rather than a replacement, we can help children:
-- Develop healthy relationships with technology
-- Understand both the capabilities and limitations of AI
-- Maintain confidence in their own creative abilities
-- Learn to use AI as a tool for amplifying their ideas
-
-## For Parents Wondering About AI
-
-If you're a parent wondering how to introduce AI concepts to your children, consider starting with their existing interests and passions. Whether it's drawing, writing, music, or problem-solving, there are ways to show children how AI can enhance rather than replace their natural creativity.
-
-The key is maintaining the child's ownership over their ideas while showing them how technology can help bring those ideas to life in new and exciting ways.
-
-## The Magic Continues
-
-Every time my daughter uses StoryMagic to transform her drawings into illustrated stories, I'm reminded of why I built it. It's not about the technology itself—it's about that moment when her eyes light up and she sees her imagination brought to life in ways she hadn't imagined possible.
-
-That's the real magic. Not the AI, but the spark of creativity and wonder that happens when imagination meets possibility.
-
-*Ready to introduce your child to the magic of AI-powered storytelling? StoryMagic helps children see AI as a creative partner, turning their drawings into professional storybooks while keeping their creativity and ownership at the center of the experience.*`
-  },
   {
     slug: "encourage-storytelling-young-kids",
     title: "5 Ways to Encourage Storytelling in Young Kids (Without Screens)",
