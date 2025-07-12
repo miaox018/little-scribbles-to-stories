@@ -106,6 +106,7 @@ export default function Auth() {
                 <CardDescription>Sign in to your StoryMagic account</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Temporarily hidden Google auth button
                 <Button
                   onClick={handleGoogleSignIn}
                   disabled={isGoogleLoading}
@@ -135,6 +136,7 @@ export default function Auth() {
                     <span className="bg-white px-2 text-muted-foreground">Or continue with email</span>
                   </div>
                 </div>
+                */}
 
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
@@ -178,6 +180,7 @@ export default function Auth() {
                 <CardDescription>Start creating magical storybooks today</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Temporarily hidden Google auth button
                 <Button
                   onClick={handleGoogleSignIn}
                   disabled={isGoogleLoading}
@@ -207,6 +210,7 @@ export default function Auth() {
                     <span className="bg-white px-2 text-muted-foreground">Or continue with email</span>
                   </div>
                 </div>
+                */}
 
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
