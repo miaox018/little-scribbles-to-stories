@@ -19,16 +19,6 @@ export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, 
       await delay(delayMs);
     }
 
-    // Determine max_tokens based on prompt type
-    let maxTokens = 1500; // Default
-    if (prompt.includes('CLASSIFICATION TASK')) {
-      maxTokens = 100; // Short classification response
-    } else if (prompt.includes('RESPOND with concise') || prompt.includes('under 100 tokens')) {
-      maxTokens = 150; // Focused visual analysis
-    } else if (prompt.includes('TEXT:') && prompt.includes('CHARACTERS:')) {
-      maxTokens = 400; // Text extraction with character analysis
-    }
-
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -46,7 +36,7 @@ export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, 
             ]
           }
         ],
-        max_tokens: maxTokens // Dynamic token limit based on analysis type
+        max_tokens: 1500
       }),
     });
 
@@ -71,7 +61,7 @@ export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, 
 
     const data = await response.json();
     const result = data.choices[0].message.content;
-    console.log(`[OpenAI Vision] Analysis completed. Response length: ${result.length} characters (max: ${maxTokens})`);
+    console.log(`[OpenAI Vision] Analysis completed. Response length: ${result.length} characters`);
     return result;
   } catch (error) {
     console.error(`[OpenAI Vision] Error: ${error.message}`);

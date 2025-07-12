@@ -8,12 +8,12 @@ export async function startAsyncProcessing(
   userId: string,
   supabase: any
 ) {
-  console.log(`[ASYNC] Starting smart background processing for ${imageUrls.length} pages with intelligent character analysis`);
+  console.log(`[ASYNC] Starting background processing for ${imageUrls.length} pages with character-focused workflow`);
   
   // Start the background processing
   const backgroundTask = async () => {
     try {
-      console.log(`[ASYNC] Smart background task started for story ${storyId}`);
+      console.log(`[ASYNC] Background task started for story ${storyId}`);
       
       // Update story status to processing
       await supabase
@@ -24,7 +24,7 @@ export async function startAsyncProcessing(
         })
         .eq('id', storyId);
 
-      // Process with smart character analysis workflow
+      // Process with character analysis workflow
       const result = await processStoryWithCharacterAnalysis(storyId, imageUrls, artStyle, userId, supabase);
       
       // Determine final status
@@ -44,10 +44,10 @@ export async function startAsyncProcessing(
         })
         .eq('id', storyId);
 
-      console.log(`[ASYNC] Smart background processing completed with status: ${finalStatus}, ${result.completedPages}/${imageUrls.length} pages successful`);
+      console.log(`[ASYNC] Background processing completed with status: ${finalStatus}, ${result.completedPages}/${imageUrls.length} pages successful`);
       
     } catch (error) {
-      console.error(`[ASYNC] Smart background processing failed for story ${storyId}:`, error);
+      console.error(`[ASYNC] Background processing failed for story ${storyId}:`, error);
       
       // Update story status to failed
       await supabase
@@ -63,13 +63,13 @@ export async function startAsyncProcessing(
   // Start background task using EdgeRuntime.waitUntil
   EdgeRuntime.waitUntil(backgroundTask());
   
-  console.log(`[ASYNC] Smart background task initiated for story ${storyId}`);
+  console.log(`[ASYNC] Background task initiated for story ${storyId}`);
   
   return {
     success: true,
-    message: `Smart background processing started for ${imageUrls.length} pages with intelligent content analysis and optimized token usage`,
+    message: `Enhanced background processing started for ${imageUrls.length} pages with character consistency`,
     status: 'processing',
     processingMode: 'async',
-    estimatedMinutes: Math.ceil(imageUrls.length * 1.5) // Reduced estimate due to optimized processing
+    estimatedMinutes: Math.ceil(imageUrls.length * 2) // Updated estimate with character analysis
   };
 }

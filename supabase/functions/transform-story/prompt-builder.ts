@@ -9,12 +9,12 @@ export function buildPrompt(
   let contextPrompt = "";
   
   if (metaContext) {
-    // Use optimized character meta-context for enhanced consistency
+    // Use character-only meta-context for enhanced consistency
     contextPrompt = `This is PAGE ${pageNumber} of a children's story book. MAINTAIN PERFECT CHARACTER CONSISTENCY:
 
 ${metaContext}
 
-CRITICAL: Follow the above character guide EXACTLY to ensure visual consistency across all pages.
+CRITICAL: Follow the above character descriptions EXACTLY to ensure visual consistency across all pages.
 
 Use the following art style: ${stylePrompt}`;
   } else if (pageNumber === 1) {
