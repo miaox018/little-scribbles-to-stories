@@ -1,62 +1,75 @@
 
-export function buildPrompt(pageNumber: number, stylePrompt: string, characterDescriptions: string, artStyleGuidelines: string): string {
-  let contextPrompt = "";
-  if (pageNumber === 1) {
-    contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
-  } else {
-    contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. MAINTAIN CONSISTENCY with the established:
+export function buildPrompt(
+  pageNumber: number, 
+  stylePrompt: string, 
+  characterDescriptions?: string, 
+  artStyleGuidelines?: string
+): string {
+  
+  const characterConsistencySection = pageNumber > 1 && characterDescriptions ? `
+ESTABLISHED CHARACTER DESIGNS (MUST MAINTAIN):
 ${characterDescriptions}
-${artStyleGuidelines}
 
-Use the following art style: ${stylePrompt}
+CONSISTENCY REQUIREMENT: All characters must appear EXACTLY as described above. Use the same hair, clothing, colors, and features.
+` : '';
 
-Previous pages in this story have been generated with these visual elements. Ensure the same characters, art style, and story world continue seamlessly.`;
-  }
+  const characterEstablishmentSection = pageNumber === 1 ? `
+CHARACTER ESTABLISHMENT (First Page):
+When analyzing characters, provide detailed descriptions including:
+- Character names (if written or implied)
+- Physical appearance: hair color/style, facial features, approximate age
+- Clothing: specific colors, patterns, and styles
+- Personality traits visible through posture/expression
+- Distinct color palette for each character
+These descriptions will ensure consistency across all story pages.
+` : '';
 
-  return `${contextPrompt}
+  return `You are a professional children's book development specialist. Analyze this child's story page input and create a detailed image generation prompt for GPT-Image-1.
 
-Transform this child's hand-drawn story page into a professional children's book illustration.
+${characterEstablishmentSection}${characterConsistencySection}
 
-🎨 FORMAT & LAYOUT REQUIREMENTS - HIGHEST PRIORITY:
-- Create a PORTRAIT orientation illustration with 2:3 aspect ratio (1024x1536 pixels)
-- Design for children's book page layout with proper margins
-- Keep ALL main illustration elements within a SAFE MARGIN area, leaving clear space near all edges
-- Reserve top and bottom margins for potential text placement
-- Ensure the composition works well in portrait format
-- Center the main action/characters in the middle area of the page
+ANALYSIS METHODOLOGY:
 
-🔑 CRITICAL TEXT REQUIREMENTS - HIGHEST PRIORITY:
-- Any text in the image must be EXACTLY readable, letter-perfect, and crystal clear
-- Use clean, professional typography: Arial, Helvetica, or Times New Roman fonts ONLY
-- Text must be large enough for children to read easily (minimum 16pt equivalent)
-- Text should be CENTERED and well-positioned with high contrast against background
-- Background behind text must be plain or very simple to ensure readability
-- NO decorative fonts, NO handwriting styles, NO text effects or shadows
-- NO misspellings - spell every word perfectly in English
-- If there is dialogue or narration, display it in clean text boxes or speech bubbles with white/light backgrounds
-- Text must be perfectly legible - this is NON-NEGOTIABLE
+🎨 VISUAL ELEMENT EXTRACTION:
+- Identify all drawn characters: names, appearances, clothing, expressions, poses
+- Describe the setting: indoor/outdoor, time of day, background elements
+- Note the action: what is happening in the scene, character interactions
+- Observe artistic style: colors used, drawing techniques, overall mood
+- Document spatial relationships: character positions, scene composition
 
-VISUAL REFERENCE ANALYSIS:
-Carefully analyze the provided child's drawing to understand:
-- Character appearances, clothing, and expressions
-- Setting and background elements  
-- Any text, dialogue, or narration present
-- Story events happening on this page
-- Emotional tone and mood
+📝 TEXT ELEMENT EXTRACTION:
+- Read all written words: dialogue, narration, character names, story text
+- Identify spoken dialogue vs narrative text vs labels/names
+- Extract plot information: events, conflicts, emotions, story progression
+- Note character information revealed through text
+- Understand temporal context: "then," "next," "suddenly," etc.
 
-STYLE REQUIREMENTS:
-- ${stylePrompt}
-- Child-appropriate and friendly tone
-- High detail but not scary or overwhelming
-- Maintain story elements and characters from the original drawing
-- Make it magical and enchanting while staying true to the child's vision
-- Professional children's book illustration quality
-- Optimize composition for portrait 2:3 aspect ratio
+🔄 INTEGRATION AND ENHANCEMENT:
+- Combine visual character designs with textual character information
+- Use text to clarify unclear drawing elements
+- Use drawings to visualize abstract text descriptions
+- Resolve any conflicts between text and visual elements
+- Fill gaps with appropriate story-consistent details
 
-CONSISTENCY REQUIREMENTS (for pages after page 1):
-- If this is not the first page, maintain the same character designs, art style, and visual language established in previous pages
-- Keep the same color palette and artistic approach
-- Ensure characters look identical to how they appeared before
+OUTPUT REQUIREMENT:
+Generate a detailed, professional image generation prompt for GPT-Image-1 that includes:
 
-FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard. The illustration must work perfectly in portrait orientation with proper margins for a children's book layout.`;
+1. SCENE DESCRIPTION: Clear description of the setting and environment
+2. CHARACTER DETAILS: Specific appearance for each character (use established designs if available)
+3. ACTION/POSE: What each character is doing, their expressions and body language
+4. DIALOGUE/TEXT: Any text that should appear in the image (speech bubbles, signs, etc.)
+5. ARTISTIC STYLE: ${stylePrompt || 'Professional watercolor children\'s book illustration'}
+6. TECHNICAL SPECS: Portrait orientation (1024x1536), children's book layout with margins
+
+PROMPT FORMAT EXAMPLE:
+"Professional watercolor children's book illustration. [Detailed scene with specific character descriptions, actions, and setting]. Include readable text: '[any dialogue or text]'. Portrait orientation, soft pastel colors, warm and engaging atmosphere suitable for children aged 3-8."
+
+CRITICAL REQUIREMENTS:
+- Extract and preserve ALL elements from the child's input (both visual and textual)
+- Maintain story continuity and character consistency
+- Create child-appropriate, engaging content
+- Ensure any text in the final image will be clearly readable
+- Balance the child's creative vision with professional illustration standards
+
+Begin your analysis now, extracting all visual and textual elements, then provide the GPT-Image-1 generation prompt.`;
 }
