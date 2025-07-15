@@ -1,5 +1,5 @@
 
-import { analyzeImageWithGPT, generateImageWithGPT } from './openai-api.ts';
+import { generateImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
 import { buildPrompt } from './prompt-builder.ts';
 import type { ProcessStoryPageParams } from './types.ts';
@@ -49,8 +49,8 @@ async function fetchImageAsDataUrl(imageUrl: string): Promise<string> {
     
     return dataUrl;
   } catch (error) {
-    console.error('Error fetching image as data URL:', error);
-    throw error;
+    console.error(`Error fetching image from URL: ${imageUrl}`, error);
+    throw new Error(`Failed to fetch image: ${error.message}`);
   }
 }
 
@@ -76,40 +76,46 @@ export async function processStoryPage({
   }
 
   try {
+    console.log(`[GPT-Image-1 Only] Processing page ${pageNumber} with direct transformation`);
+    
     // Fetch the original image from storage URL and convert to data URL for processing
     const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
     
-    // Upload original image to permanent storage (from the storage URL we already have)
+    // Upload original image to permanent storage
     const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
-    // Build context prompt
-    const prompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    // Build GPT-Image-1 transformation prompt (no GPT-4o analysis needed)
+    const transformationPrompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    console.log(`[GPT-Image-1 Only] Built transformation prompt for page ${pageNumber}`);
 
-    // Analyze image with GPT-4o using the data URL
-    const analysisText = await analyzeImageWithGPT(originalImageDataUrl, prompt);
-    console.log(`Generated analysis for page ${pageNumber}:`, analysisText);
-
-    // Generate image with DALL-E 3
-    const imageUrl = await generateImageWithGPT(analysisText);
+    // Generate image directly with GPT-Image-1 (skip GPT-4o analysis completely)
+    const generatedImageUrl = await generateImageWithGPT(transformationPrompt);
+    console.log(`[GPT-Image-1 Only] Generated image for page ${pageNumber}`);
 
     // Upload generated image to Supabase Storage
-    const generatedImageUrl = await uploadImageToSupabase(imageUrl, storyId, pageNumber, userId, supabase);
+    const finalImageUrl = await uploadImageToSupabase(generatedImageUrl, storyId, pageNumber, userId, supabase);
 
-    // Create story page record with Supabase URLs
+    // Create story page record with transformation prompt as enhanced_prompt
     await supabase
       .from('story_pages')
       .insert({
         story_id: storyId,
         page_number: pageNumber,
         original_image_url: originalImageUrl,
-        generated_image_url: generatedImageUrl,
-        enhanced_prompt: analysisText,
+        generated_image_url: finalImageUrl,
+        enhanced_prompt: transformationPrompt, // Store the transformation prompt directly
         transformation_status: 'completed'
       });
 
-    return { analysisText, generatedImageUrl, originalImageUrl };
+    console.log(`[GPT-Image-1 Only] Successfully completed page ${pageNumber}`);
+    
+    return { 
+      analysisText: transformationPrompt, // Return transformation prompt as analysis text
+      generatedImageUrl: finalImageUrl, 
+      originalImageUrl 
+    };
   } catch (error) {
-    console.error(`Error processing page ${pageNumber}:`, error);
+    console.error(`[GPT-Image-1 Only] Error processing page ${pageNumber}:`, error);
     
     // Still create a page record but mark as failed
     await supabase

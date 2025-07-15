@@ -4,82 +4,13 @@ async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCount = 0): Promise<string> {
-  const maxRetries = 3;
-  const baseDelay = 2000; // 2 seconds
-  
-  try {
-    console.log(`[OpenAI Vision] Starting image analysis (attempt ${retryCount + 1}/${maxRetries + 1})`);
-    console.log(`[OpenAI Vision] Prompt length: ${prompt.length} characters`);
-    
-    // Add delay between requests to avoid rate limiting
-    if (retryCount > 0) {
-      const delayMs = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
-      console.log(`Retrying after ${delayMs}ms delay (attempt ${retryCount + 1}/${maxRetries + 1})`);
-      await delay(delayMs);
-    }
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: imageDataUrl } }
-            ]
-          }
-        ],
-        max_tokens: 1500
-      }),
-    });
-
-    console.log(`[OpenAI Vision] Response status: ${response.status}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[OpenAI Vision] API Error: ${response.status} - ${errorText}`);
-      
-      // Check if it's a rate limit error
-      if (response.status === 429 || errorText.includes('rate limit') || errorText.includes('Error 1015')) {
-        if (retryCount < maxRetries) {
-          console.log(`Rate limited, retrying... (attempt ${retryCount + 1}/${maxRetries + 1})`);
-          return await analyzeImageWithGPT(imageDataUrl, prompt, retryCount + 1);
-        } else {
-          throw new Error(`Rate limit exceeded after ${maxRetries + 1} attempts`);
-        }
-      }
-      
-      throw new Error(`Vision API failed: ${errorText}`);
-    }
-
-    const data = await response.json();
-    const result = data.choices[0].message.content;
-    console.log(`[OpenAI Vision] Analysis completed. Response length: ${result.length} characters`);
-    return result;
-  } catch (error) {
-    console.error(`[OpenAI Vision] Error: ${error.message}`);
-    if (retryCount < maxRetries && (error.message.includes('rate limit') || error.message.includes('Error 1015'))) {
-      console.log(`Error caught, retrying... (attempt ${retryCount + 1}/${maxRetries + 1}): ${error.message}`);
-      return await analyzeImageWithGPT(imageDataUrl, prompt, retryCount + 1);
-    }
-    throw error;
-  }
-}
-
 export async function generateImageWithGPT(prompt: string, retryCount = 0): Promise<string> {
   const maxRetries = 3;
   const baseDelay = 3000; // 3 seconds for image generation
   
   try {
-    console.log(`[OpenAI Image] Starting image generation with GPT-image-1 (attempt ${retryCount + 1}/${maxRetries + 1})`);
-    console.log(`[OpenAI Image] Prompt: ${prompt.substring(0, 100)}...`);
+    console.log(`[GPT-Image-1] Starting image generation (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    console.log(`[GPT-Image-1] Prompt: ${prompt.substring(0, 100)}...`);
     
     // Add delay between requests to avoid rate limiting
     if (retryCount > 0) {
@@ -89,14 +20,14 @@ export async function generateImageWithGPT(prompt: string, retryCount = 0): Prom
     }
 
     const requestBody = {
-      model: 'gpt-image-1',  // Updated to use GPT-image-1 for consistency
+      model: 'gpt-image-1',  // GPT-Image-1 Only
       prompt: prompt,
-      size: '1024x1536',     // Unified: Portrait format for children's books
-      quality: 'medium',     // Unified: Medium quality for optimal cost/quality balance
+      size: '1024x1536',     // Portrait format for children's books
+      quality: 'medium',     // Medium quality for cost/quality balance
       n: 1
     };
     
-    console.log(`[OpenAI Image] Request config: ${JSON.stringify(requestBody, null, 2)}`);
+    console.log(`[GPT-Image-1] Request config: ${JSON.stringify(requestBody, null, 2)}`);
 
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -107,37 +38,37 @@ export async function generateImageWithGPT(prompt: string, retryCount = 0): Prom
       body: JSON.stringify(requestBody),
     });
 
-    console.log(`[OpenAI Image] Response status: ${response.status}`);
+    console.log(`[GPT-Image-1] Response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[OpenAI Image] API Error: ${response.status} - ${errorText}`);
+      console.error(`[GPT-Image-1] API Error: ${response.status} - ${errorText}`);
       
       // Check if it's a rate limit error
       if (response.status === 429 || errorText.includes('rate limit') || errorText.includes('Error 1015')) {
         if (retryCount < maxRetries) {
-          console.log(`Image generation rate limited, retrying... (attempt ${retryCount + 1}/${maxRetries + 1})`);
+          console.log(`GPT-Image-1 rate limited, retrying... (attempt ${retryCount + 1}/${maxRetries + 1})`);
           return await generateImageWithGPT(prompt, retryCount + 1);
         } else {
-          throw new Error(`Image generation rate limit exceeded after ${maxRetries + 1} attempts`);
+          throw new Error(`GPT-Image-1 rate limit exceeded after ${maxRetries + 1} attempts`);
         }
       }
       
-      throw new Error(`Image generation failed: ${errorText}`);
+      throw new Error(`GPT-Image-1 generation failed: ${errorText}`);
     }
 
     const data = await response.json();
-    console.log(`[OpenAI Image] Response data keys: ${Object.keys(data)}`);
-    console.log(`[OpenAI Image] Data.data length: ${data.data?.length}`);
+    console.log(`[GPT-Image-1] Response data keys: ${Object.keys(data)}`);
+    console.log(`[GPT-Image-1] Data.data length: ${data.data?.length}`);
     
-    // GPT-image-1 returns base64 data directly for some configurations
+    // GPT-Image-1 returns base64 or URL
     const result = data.data[0].b64_json ? `data:image/png;base64,${data.data[0].b64_json}` : data.data[0].url;
-    console.log(`[OpenAI Image] Image generation completed. Format: ${data.data[0].b64_json ? 'base64' : 'URL'}`);
+    console.log(`[GPT-Image-1] Image generation completed. Format: ${data.data[0].b64_json ? 'base64' : 'URL'}`);
     return result;
   } catch (error) {
-    console.error(`[OpenAI Image] Error: ${error.message}`);
+    console.error(`[GPT-Image-1] Error: ${error.message}`);
     if (retryCount < maxRetries && (error.message.includes('rate limit') || error.message.includes('Error 1015'))) {
-      console.log(`Image generation error caught, retrying... (attempt ${retryCount + 1}/${maxRetries + 1}): ${error.message}`);
+      console.log(`GPT-Image-1 error caught, retrying... (attempt ${retryCount + 1}/${maxRetries + 1}): ${error.message}`);
       return await generateImageWithGPT(prompt, retryCount + 1);
     }
     throw error;
