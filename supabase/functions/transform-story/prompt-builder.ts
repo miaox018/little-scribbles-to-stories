@@ -1,5 +1,4 @@
-
-export function buildPrompt(
+export function buildTransformationPrompt(
   pageNumber: number, 
   stylePrompt: string, 
   characterDescriptions?: string, 
@@ -32,47 +31,55 @@ As this is the first page, establish clear, consistent character designs:
 - Ensure each character has distinctive features for future consistency
 ` : '';
 
-  return `Transform this child's hand-drawn story page into a professional children's book illustration while preserving their creative vision and storytelling.
+  return `Transform this child's hand-drawn story page into a professional children's book illustration while preserving their exact creative vision.
 
-PRESERVATION PRIORITIES:
-✨ HONOR THE CHILD'S VISION:
-- Keep all characters exactly as the child conceived them
-- Preserve the story elements, actions, and emotions from their drawing
-- Maintain any text, dialogue, or written elements they included
-- Respect the scene composition and character relationships
-- Honor the mood and atmosphere they were trying to create
+TRANSFORMATION INSTRUCTIONS:
+✨ PRESERVE THE ORIGINAL COMPOSITION:
+- Keep all characters in their exact positions and poses
+- Maintain the same scene layout and spatial relationships
+- Preserve any text, dialogue, or written elements exactly as drawn
+- Honor the child's intended story elements and emotions
+- Keep the same perspective and viewpoint
 
 🎨 PROFESSIONAL ENHANCEMENT:
 - Upgrade to ${stylePrompt || 'professional watercolor children\'s book illustration style'}
-- Improve line quality, proportions, and artistic techniques
-- Add rich background details and appropriate textures
-- Enhance colors while maintaining the child's intended palette
+- Improve line quality, proportions, and artistic techniques while keeping the same poses
+- Add rich background details that complement the existing scene
+- Enhance colors while maintaining the child's intended color choices
 - Polish the overall composition for professional book layout
 
-📝 TEXT AND DIALOGUE:
-- Preserve any text the child wrote (dialogue, narration, labels)
+📝 TEXT PRESERVATION:
+- Keep any text the child wrote exactly as they intended
 - Make all text perfectly readable with child-friendly typography
-- Use clean fonts (Arial, Helvetica, or Times New Roman)
-- Ensure high contrast between text and background
-- Format dialogue in clear speech bubbles if appropriate
+- Use clean fonts and ensure high contrast with background
+- Format dialogue in clear speech bubbles if present in original
 
 ${characterEstablishmentSection}${characterConsistencySection}
 
 🔧 TECHNICAL SPECIFICATIONS:
-- Portrait orientation (1024x1536 pixels) suitable for children's book
-- Professional illustration quality with proper margins for book layout
+- Maintain portrait orientation suitable for children's book pages
+- Professional illustration quality with proper margins
 - Child-appropriate content (ages 3-8)
 - Warm, engaging atmosphere that invites reading
-- Safe composition with important elements centered
-- Leave adequate space for potential text overlay
+- Preserve important elements in their original positions
 
-🎯 FINAL RESULT:
-Create a beautiful, professional children's book illustration that:
-- Makes the child's story come alive with enhanced visual appeal
-- Maintains the authentic spirit and creativity of their original drawing
-- Provides consistent character designs for story continuity
+🎯 TRANSFORMATION GOAL:
+Edit this drawing to become a beautiful, professional children's book illustration that:
+- Keeps the exact same story content and character positions
+- Enhances the artistic quality without changing the child's vision
+- Maintains character consistency for story continuity
 - Meets professional children's book publishing standards
-- Captures the magic and wonder that children see in their own stories
+- Preserves the authentic spirit of the child's creativity
 
-Transform this child's creative vision into a stunning storybook page that they and their family will treasure forever.`;
+Transform the child's drawing into a polished storybook page while keeping their original ideas completely intact.`;
+}
+
+// Keep the original buildPrompt function for backward compatibility
+export function buildPrompt(
+  pageNumber: number, 
+  stylePrompt: string, 
+  characterDescriptions?: string, 
+  artStyleGuidelines?: string
+): string {
+  return buildTransformationPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
 }

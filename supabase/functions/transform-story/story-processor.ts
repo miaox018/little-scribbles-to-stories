@@ -1,7 +1,7 @@
 
-import { generateImageWithGPT } from './openai-api.ts';
+import { editImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
-import { buildPrompt } from './prompt-builder.ts';
+import { buildTransformationPrompt } from './prompt-builder.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
@@ -76,7 +76,7 @@ export async function processStoryPage({
   }
 
   try {
-    console.log(`[GPT-Image-1 Only] Processing page ${pageNumber} with direct transformation`);
+    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with image-to-image transformation`);
     
     // Fetch the original image from storage URL and convert to data URL for processing
     const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
@@ -84,16 +84,16 @@ export async function processStoryPage({
     // Upload original image to permanent storage
     const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
-    // Build GPT-Image-1 transformation prompt (no GPT-4o analysis needed)
-    const transformationPrompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
-    console.log(`[GPT-Image-1 Only] Built transformation prompt for page ${pageNumber}`);
+    // Build transformation prompt for image editing
+    const transformationPrompt = buildTransformationPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    console.log(`[GPT-Image-1 Edit] Built transformation prompt for page ${pageNumber}`);
 
-    // Generate image directly with GPT-Image-1 (skip GPT-4o analysis completely)
-    const generatedImageUrl = await generateImageWithGPT(transformationPrompt);
-    console.log(`[GPT-Image-1 Only] Generated image for page ${pageNumber}`);
+    // Edit the image directly with GPT-Image-1 using the original drawing as input
+    const editedImageUrl = await editImageWithGPT(originalImageDataUrl, transformationPrompt);
+    console.log(`[GPT-Image-1 Edit] Edited image for page ${pageNumber}`);
 
-    // Upload generated image to Supabase Storage
-    const finalImageUrl = await uploadImageToSupabase(generatedImageUrl, storyId, pageNumber, userId, supabase);
+    // Upload edited image to Supabase Storage
+    const finalImageUrl = await uploadImageToSupabase(editedImageUrl, storyId, pageNumber, userId, supabase);
 
     // Create story page record with transformation prompt as enhanced_prompt
     await supabase
@@ -103,11 +103,11 @@ export async function processStoryPage({
         page_number: pageNumber,
         original_image_url: originalImageUrl,
         generated_image_url: finalImageUrl,
-        enhanced_prompt: transformationPrompt, // Store the transformation prompt directly
+        enhanced_prompt: transformationPrompt, // Store the transformation prompt
         transformation_status: 'completed'
       });
 
-    console.log(`[GPT-Image-1 Only] Successfully completed page ${pageNumber}`);
+    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber}`);
     
     return { 
       analysisText: transformationPrompt, // Return transformation prompt as analysis text
@@ -115,7 +115,7 @@ export async function processStoryPage({
       originalImageUrl 
     };
   } catch (error) {
-    console.error(`[GPT-Image-1 Only] Error processing page ${pageNumber}:`, error);
+    console.error(`[GPT-Image-1 Edit] Error processing page ${pageNumber}:`, error);
     
     // Still create a page record but mark as failed
     await supabase
