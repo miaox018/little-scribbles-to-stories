@@ -7,13 +7,13 @@ async function delay(ms: number) {
 
 export async function editImageWithGPT(imageDataUrl: string, prompt: string, retryCount = 0): Promise<string> {
   const maxRetries = 3;
-  const baseDelay = 3000; // 3 seconds for image editing
+  const baseDelay = 1000; // Phase 1 optimization: Reduced from 3s to 1s for retry delays
   
   try {
     console.log(`[GPT-Image-1 Edit] Starting image editing (attempt ${retryCount + 1}/${maxRetries + 1})`);
     console.log(`[GPT-Image-1 Edit] Prompt: ${prompt.substring(0, 100)}...`);
     
-    // Add delay between requests to avoid rate limiting
+    // Phase 1 optimization: Faster retry delays
     if (retryCount > 0) {
       const delayMs = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
       console.log(`Retrying image editing after ${delayMs}ms delay (attempt ${retryCount + 1}/${maxRetries + 1})`);
@@ -38,7 +38,9 @@ export async function editImageWithGPT(imageDataUrl: string, prompt: string, ret
     formData.append('image', imageBlob, 'image.png');
     formData.append('model', 'gpt-image-1');
     formData.append('prompt', prompt);
-    formData.append('size', '1024x1536'); // Portrait format for children's books
+    formData.append('size', '1024x1536'); // Phase 1 optimization: Fixed size for faster processing
+    formData.append('quality', 'medium'); // Phase 1 optimization: Medium quality for faster generation
+    formData.append('output_format', 'png'); // Phase 1 optimization: PNG format for compatibility
     formData.append('n', '1');
     
     console.log(`[GPT-Image-1 Edit] Sending image edit request`);

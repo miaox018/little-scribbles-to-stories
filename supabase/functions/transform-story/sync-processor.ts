@@ -119,9 +119,9 @@ export async function processSynchronously(
         });
     }
 
-    // Reduced delay between pages for faster processing
+    // Phase 1 optimization: Reduced delay between pages for faster processing
     if (i < imageUrls.length - 1) {
-      const delayMs = 5000; // Reduced from 8000ms to 5000ms
+      const delayMs = 1000; // Phase 1 optimization: Reduced from 5000ms to 1000ms
       console.log(`[SYNC] Waiting ${delayMs}ms before processing next page...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }

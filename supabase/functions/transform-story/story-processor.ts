@@ -3,6 +3,8 @@
 import { editImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
 import { buildPrompt } from './prompt-builder.ts';
+import { optimizeImageForGPT } from './image-optimizer.ts';
+import { PerformanceTracker } from './performance-tracker.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
@@ -77,24 +79,35 @@ export async function processStoryPage({
   }
 
   try {
-    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with optimized image-to-image transformation`);
+    // Phase 1 optimization: Track processing performance
+    const perf = new PerformanceTracker();
+    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with Phase 1 optimizations`);
     
     // Fetch the original image from storage URL and convert to data URL for processing
     const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
+    perf.checkpoint('image_fetch');
+    
+    // Phase 1 optimization: Optimize image for faster GPT processing
+    const optimizedImageDataUrl = await optimizeImageForGPT(originalImageDataUrl);
+    perf.checkpoint('image_optimization');
     
     // Upload original image to permanent storage
     const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
+    perf.checkpoint('original_upload');
 
     // Build optimized transformation prompt for image editing
     const transformationPrompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
     console.log(`[GPT-Image-1 Edit] Built optimized transformation prompt for page ${pageNumber}`);
+    perf.checkpoint('prompt_build');
 
-    // Edit the image directly with GPT-Image-1 using the original drawing as input
-    const editedImageUrl = await editImageWithGPT(originalImageDataUrl, transformationPrompt);
+    // Edit the image directly with GPT-Image-1 using the optimized image as input
+    const editedImageUrl = await editImageWithGPT(optimizedImageDataUrl, transformationPrompt);
     console.log(`[GPT-Image-1 Edit] Edited image for page ${pageNumber}`);
+    perf.checkpoint('gpt_edit');
 
     // Upload edited image to Supabase Storage
     const finalImageUrl = await uploadImageToSupabase(editedImageUrl, storyId, pageNumber, userId, supabase);
+    perf.checkpoint('final_upload');
 
     // Create story page record with transformation prompt as enhanced_prompt
     await supabase
@@ -108,7 +121,9 @@ export async function processStoryPage({
         transformation_status: 'completed'
       });
 
-    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber} with optimized approach`);
+    perf.checkpoint('db_insert');
+    perf.logSummary();
+    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber} with Phase 1 optimizations`);
     
     return { 
       analysisText: transformationPrompt, // Return transformation prompt as analysis text

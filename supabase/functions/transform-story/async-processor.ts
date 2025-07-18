@@ -109,9 +109,9 @@ export async function processStoryAsync(storyId: string, imageUrls: any[], artSt
           });
       }
 
-      // Reduced delay between pages for faster processing
+      // Phase 1 optimization: Reduced delay between pages for faster processing
       if (i < imageUrls.length - 1) {
-        const delayMs = 5000; // Reduced from 8000ms to 5000ms
+        const delayMs = 1000; // Phase 1 optimization: Reduced from 5000ms to 1000ms
         console.log(`[ASYNC] Waiting ${delayMs}ms before processing next page...`);
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
@@ -166,7 +166,8 @@ async function processStoryPageWithRetry(params: any, maxRetries = 2) {
     try {
       if (attempt > 0) {
         console.log(`[RETRY] Attempting page ${params.pageNumber} - retry ${attempt}/${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Exponential backoff
+        // Phase 1 optimization: Faster exponential backoff (1s base instead of 2s)
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
       
       return await processStoryPage(params);
@@ -211,7 +212,7 @@ export async function startAsyncProcessing(storyId: string, imageUrls: any[], ar
     success: true, 
     message: `Enhanced background processing started for ${imageUrls.length} pages. Processing will continue even if you close this page.`,
     pages_to_process: imageUrls.length,
-    estimated_completion_time: `${Math.ceil(imageUrls.length * 15 / 60)} minutes`, // Reduced estimate
+    estimated_completion_time: `${Math.ceil(imageUrls.length * 8 / 60)} minutes`, // Phase 1 optimization: Reduced estimate from 15 to 8 min/page
     status: 'processing',
     processing_mode: 'asynchronous',
     instructions: 'Check your "Stories In Progress" section for real-time updates. The story will automatically complete in the background.',
