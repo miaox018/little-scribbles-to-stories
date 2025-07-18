@@ -36,7 +36,7 @@ export async function optimizeImageForGPT(imageDataUrl: string): Promise<string>
       
       // Optimize base64 conversion with better chunking
       const optimizedBase64 = optimizeBase64Conversion(base64Data);
-      const optimizedDataUrl = `data:image/png;base64,${btoa(String.fromCharCode(...optimizedBase64))}`;
+      const optimizedDataUrl = `data:${mimeType};base64,${uint8ArrayToBase64(optimizedBase64)}`;
       
       console.log(`[IMAGE-OPT] Base64 optimization completed`);
       return optimizedDataUrl;
@@ -70,4 +70,17 @@ export function optimizeBase64Conversion(base64Data: string): Uint8Array {
     // Fallback: return empty array
     return new Uint8Array(0);
   }
+}
+
+export function uint8ArrayToBase64(bytes: Uint8Array): string {
+  // Convert Uint8Array to base64 using chunked processing to avoid call stack overflow
+  const chunkSize = 8192; // Process in 8KB chunks
+  let result = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    result += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(result);
 }
