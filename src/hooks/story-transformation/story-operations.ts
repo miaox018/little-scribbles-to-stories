@@ -60,7 +60,6 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
   
   try {
     console.log('Calling supabase.functions.invoke...');
-    console.log('Using project URL:', supabase.supabaseUrl);
     
     const startTime = Date.now();
     const { data, error } = await supabase.functions.invoke('transform-story', {
@@ -101,7 +100,6 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
     
     // Log additional debugging info
     console.error('Supabase client info:', {
-      url: supabase.supabaseUrl,
       hasAuth: !!supabase.auth,
       authUser: await supabase.auth.getUser()
     });
