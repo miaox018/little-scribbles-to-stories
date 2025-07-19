@@ -1,11 +1,10 @@
-
-
 import { editImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
 import { buildPrompt } from './prompt-builder.ts';
 import { optimizeImageForGPT } from './image-optimizer.ts';
 import { PerformanceTracker } from './performance-tracker.ts';
 import type { ProcessStoryPageParams } from './types.ts';
+import { ErrorHandler, StoryProcessingError, ErrorContext } from './error-handler.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -78,38 +77,59 @@ export async function processStoryPage({
     throw new Error('Story transformation was cancelled');
   }
 
+  const context: ErrorContext = {
+    storyId,
+    pageNumber,
+    userId,
+    operation: 'process_story_page',
+    attempt: 1,
+    timestamp: new Date().toISOString()
+  };
+
   try {
-    // Phase 1 optimization: Track processing performance
+    // Phase 2: Enhanced processing with comprehensive error handling
     const perf = new PerformanceTracker();
-    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with Phase 1 optimizations`);
+    console.log(`[GPT-Image-1 Edit] Phase 2: Processing page ${pageNumber} with enhanced error handling`);
     
-    // Fetch the original image from storage URL and convert to data URL for processing
-    const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
+    // Phase 2: Wrap critical operations in error handling
+    const originalImageDataUrl = await ErrorHandler.handleWithRetry(
+      () => fetchImageAsDataUrl(imageData.storageUrl),
+      { ...context, operation: 'fetch_image' }
+    );
     perf.checkpoint('image_fetch');
     
-    // Phase 1 optimization: Optimize image for faster GPT processing
-    const optimizedImageDataUrl = await optimizeImageForGPT(originalImageDataUrl);
+    const optimizedImageDataUrl = await ErrorHandler.handleWithRetry(
+      () => optimizeImageForGPT(originalImageDataUrl),
+      { ...context, operation: 'optimize_image' }
+    );
     perf.checkpoint('image_optimization');
     
-    // Upload original image to permanent storage
-    const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
+    const originalImageUrl = await ErrorHandler.handleWithRetry(
+      () => uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase),
+      { ...context, operation: 'upload_original' }
+    );
     perf.checkpoint('original_upload');
 
-    // Build optimized transformation prompt for image editing
     const transformationPrompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
-    console.log(`[GPT-Image-1 Edit] Built optimized transformation prompt for page ${pageNumber}`);
+    console.log(`[GPT-Image-1 Edit] Phase 2: Built enhanced transformation prompt for page ${pageNumber}`);
     perf.checkpoint('prompt_build');
 
-    // Edit the image directly with GPT-Image-1 using the optimized image as input
-    const editedImageUrl = await editImageWithGPT(optimizedImageDataUrl, transformationPrompt);
-    console.log(`[GPT-Image-1 Edit] Edited image for page ${pageNumber}`);
+    // Phase 2: Critical GPT operation with enhanced error handling
+    const editedImageUrl = await ErrorHandler.handleWithRetry(
+      () => editImageWithGPT(optimizedImageDataUrl, transformationPrompt),
+      { ...context, operation: 'gpt_image_edit' },
+      3 // Max 3 retries for GPT operations
+    );
+    console.log(`[GPT-Image-1 Edit] Phase 2: Successfully edited image for page ${pageNumber}`);
     perf.checkpoint('gpt_edit');
 
-    // Upload edited image to Supabase Storage
-    const finalImageUrl = await uploadImageToSupabase(editedImageUrl, storyId, pageNumber, userId, supabase);
+    const finalImageUrl = await ErrorHandler.handleWithRetry(
+      () => uploadImageToSupabase(editedImageUrl, storyId, pageNumber, userId, supabase),
+      { ...context, operation: 'upload_final' }
+    );
     perf.checkpoint('final_upload');
 
-    // Create story page record with transformation prompt as enhanced_prompt
+    // Create story page record
     await supabase
       .from('story_pages')
       .insert({
@@ -117,21 +137,26 @@ export async function processStoryPage({
         page_number: pageNumber,
         original_image_url: originalImageUrl,
         generated_image_url: finalImageUrl,
-        enhanced_prompt: transformationPrompt, // Store the transformation prompt
+        enhanced_prompt: transformationPrompt,
         transformation_status: 'completed'
       });
 
     perf.checkpoint('db_insert');
     perf.logSummary();
-    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber} with Phase 1 optimizations`);
+    console.log(`[GPT-Image-1 Edit] Phase 2: Successfully completed page ${pageNumber} with enhanced error handling`);
     
     return { 
-      analysisText: transformationPrompt, // Return transformation prompt as analysis text
+      analysisText: transformationPrompt,
       generatedImageUrl: finalImageUrl, 
       originalImageUrl 
     };
   } catch (error) {
-    console.error(`[GPT-Image-1 Edit] Error processing page ${pageNumber}:`, error);
+    console.error(`[GPT-Image-1 Edit] Phase 2: Enhanced error handling for page ${pageNumber}:`, error);
+    
+    // Phase 2: Enhanced error logging and recovery
+    if (error instanceof StoryProcessingError) {
+      await ErrorHandler.logError(error, supabase);
+    }
     
     // Still create a page record but mark as failed
     await supabase
@@ -148,4 +173,3 @@ export async function processStoryPage({
     throw error;
   }
 }
-
