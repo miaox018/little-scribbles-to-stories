@@ -1,4 +1,5 @@
-import { Configuration, OpenAI } from "https://esm.sh/openai@4.11.1";
+
+import { OpenAI } from "https://esm.sh/openai@4.11.1";
 import { artStylePrompts } from './config.ts';
 import { ErrorHandler, StoryProcessingError, ErrorContext } from './error-handler.ts';
 import { openaiCircuitBreaker } from './circuit-breaker.ts';
@@ -10,11 +11,9 @@ if (!openaiApiKey) {
   Deno.exit(1);
 }
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: openaiApiKey,
 });
-
-const openai = new OpenAI(configuration);
 
 export async function editImageWithGPT(imageDataUrl: string, prompt: string): Promise<string> {
   console.log('[GPT-Image-1 Edit] Phase 2: Starting enhanced image editing with comprehensive error handling');
@@ -42,9 +41,9 @@ export async function editImageWithGPT(imageDataUrl: string, prompt: string): Pr
         image: imageDataUrl,
         prompt: prompt,
         n: 1,
-        quality: 'high', // Phase 2: Use high quality for better results
+        quality: 'high',
         output_format: 'png',
-        background: 'opaque' // Phase 2: Explicit background setting
+        background: 'opaque'
       }),
     });
 
@@ -67,20 +66,17 @@ export async function editImageWithGPT(imageDataUrl: string, prompt: string): Pr
       throw new Error('Invalid response format from OpenAI API');
     }
 
-    // Phase 2: Return the base64 data directly (GPT-Image-1 always returns base64)
     const base64Image = data.data[0].b64_json;
     return `data:image/png;base64,${base64Image}`;
   };
   
   try {
-    // Phase 2: Use circuit breaker and enhanced error handling
     return await openaiCircuitBreaker.execute(async () => {
       return await ErrorHandler.handleWithRetry(operation, context, 3);
     });
   } catch (error) {
     console.error('[GPT-Image-1 Edit] Phase 2: Enhanced error handling caught error:', error);
     
-    // Phase 2: Comprehensive error logging
     if (error instanceof StoryProcessingError) {
       console.error('[GPT-Image-1 Edit] StoryProcessingError details:', {
         code: error.code,
@@ -91,4 +87,12 @@ export async function editImageWithGPT(imageDataUrl: string, prompt: string): Pr
     
     throw error;
   }
+}
+
+// Health check endpoint to verify function can boot
+export async function healthCheck(): Promise<{ status: string; timestamp: string }> {
+  return {
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  };
 }

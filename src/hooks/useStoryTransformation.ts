@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStoryCleanup } from './useStoryCleanup';
 import type { TransformationState } from './story-transformation/types';
 import { validateStoryCreation, validatePageUpload, validateUserAuthentication } from './story-transformation/validation';
 import { createStoryRecord, uploadImagesAndGetUrls, callTransformStoryFunction, pollForStoryCompletion } from './story-transformation/story-operations';
@@ -16,6 +17,7 @@ export const useStoryTransformation = () => {
   });
   
   const { user } = useAuth();
+  const { cleanupStuckStories } = useStoryCleanup();
 
   const updateProgress = useCallback((progress: number) => {
     setState(prev => ({ ...prev, progress }));
@@ -37,6 +39,9 @@ export const useStoryTransformation = () => {
     setState(prev => ({ ...prev, isTransforming: true, error: null, progress: 0 }));
 
     try {
+      // Clean up any stuck stories first
+      await cleanupStuckStories();
+
       console.log('Validating story creation permissions...');
       await validateStoryCreation(user!.id);
       
@@ -50,7 +55,6 @@ export const useStoryTransformation = () => {
       console.log('Validating page upload permissions...');
       await validatePageUpload(user!.id, story.id, images.length);
 
-      // Upload images to storage and get URLs instead of converting to base64
       console.log('Uploading images to storage...');
       const imageUrls = await uploadImagesAndGetUrls(images, story.id, user!.id);
       console.log('Images uploaded successfully:', imageUrls.length);
@@ -100,9 +104,6 @@ export const useStoryTransformation = () => {
     } catch (error: any) {
       console.error('=== STORY TRANSFORMATION ERROR ===');
       console.error('Error details:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error.constructor?.name);
-      console.error('Error stack:', error.stack);
       
       setState(prev => ({ 
         ...prev, 
@@ -114,14 +115,18 @@ export const useStoryTransformation = () => {
       // Provide more specific error messages
       let errorMessage = "Something went wrong. Please try again.";
       
-      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+      if (error.message?.includes('not available') || error.message?.includes('temporarily unavailable')) {
+        errorMessage = "Transform service is temporarily unavailable. Please try again in a few minutes.";
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
         errorMessage = "Network error. Please check your connection and try again.";
-      } else if (error.message?.includes('timeout')) {
+      } else if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
         errorMessage = "Request timed out. Please try again.";
       } else if (error.message?.includes('permission') || error.message?.includes('unauthorized')) {
         errorMessage = "Permission denied. Please sign in and try again.";
       } else if (error.message?.includes('limit')) {
         errorMessage = "You've reached your story limit. Please upgrade your plan.";
+      } else if (error.message?.includes('stuck')) {
+        errorMessage = "Story processing got stuck. Please try again.";
       }
       
       toast({
@@ -132,7 +137,7 @@ export const useStoryTransformation = () => {
       
       throw error;
     }
-  }, [user, updateProgress]);
+  }, [user, updateProgress, cleanupStuckStories]);
 
   const resetTransformation = useCallback(() => {
     setState({

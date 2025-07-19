@@ -7,6 +7,7 @@ import { processSynchronously } from './sync-processor.ts';
 import { startAsyncProcessing } from './async-processor.ts';
 import { validateUserAuthentication, validateUserOwnership } from './auth-validation.ts';
 import { validateStoryId, validateImageUrls, validateArtStyle, validateRequestSize } from './input-validation.ts';
+import { healthCheck } from './openai-api.ts';
 
 // Add shutdown handling
 addEventListener('beforeunload', (ev) => {
@@ -17,11 +18,12 @@ addEventListener('beforeunload', (ev) => {
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
+  const url = new URL(req.url);
+  
   console.log(`=== ENHANCED EDGE FUNCTION START [${requestId}] ===`);
   console.log('Request URL:', req.url);
   console.log('Request method:', req.method);
   console.log('Timestamp:', new Date().toISOString());
-  console.log('Request headers:', Object.fromEntries(req.headers.entries()));
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,42 +31,50 @@ serve(async (req) => {
     return handleCorsRequest();
   }
 
+  // Health check endpoint
+  if (url.pathname === '/health' && req.method === 'GET') {
+    console.log(`[${requestId}] Health check requested`);
+    try {
+      const health = await healthCheck();
+      return new Response(JSON.stringify(health), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error(`[${requestId}] Health check failed:`, error);
+      return new Response(JSON.stringify({ 
+        status: 'unhealthy', 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
   try {
     console.log(`[${requestId}] Starting authentication validation...`);
-    // Validate authentication and get authenticated Supabase client
     const { userId, supabase } = await validateUserAuthentication(req);
     console.log(`[${requestId}] Authenticated user:`, userId);
     
     console.log(`[${requestId}] Reading request body...`);
-    // Validate and parse request with enhanced security
     const { requestBody, bodyText } = await validateRequest(req);
     console.log(`[${requestId}] Request body parsed successfully, size:`, bodyText.length);
-    console.log(`[${requestId}] Request structure:`, {
-      hasStoryId: !!requestBody.storyId,
-      hasImageUrls: !!requestBody.imageUrls,
-      imageCount: requestBody.imageUrls?.length || 0,
-      hasArtStyle: !!requestBody.artStyle
-    });
     
-    // Validate request size
     validateRequestSize(bodyText);
     console.log(`[${requestId}] Request size validation passed`);
     
-    // Enhanced input validation
     const storyId = validateStoryId(requestBody.storyId);
     const artStyle = validateArtStyle(requestBody.artStyle);
     validateImageUrls(requestBody.imageUrls);
     console.log(`[${requestId}] Input validation completed - storyId: ${storyId}, artStyle: ${artStyle}, images: ${requestBody.imageUrls.length}`);
     
-    // Validate user ownership of the story
     await validateUserOwnership(supabase, userId, storyId);
     console.log(`[${requestId}] User ownership validated`);
     
-    // Validate story exists and get user info
     const { userId: storyUserId, cancelled } = await validateStoryExists(supabase, storyId);
     console.log(`[${requestId}] Story validation completed - owner: ${storyUserId}, cancelled: ${cancelled}`);
     
-    // Double-check user ownership
     if (storyUserId !== userId) {
       throw new Error(JSON.stringify({ 
         error: 'User does not own this story',
@@ -86,7 +96,6 @@ serve(async (req) => {
       );
     }
 
-    // ENHANCED HYBRID PROCESSING LOGIC
     const SYNC_THRESHOLD = 3;
     console.log(`[${requestId}] Determining processing mode for ${requestBody.imageUrls.length} pages (threshold: ${SYNC_THRESHOLD})`);
     
@@ -129,7 +138,6 @@ serve(async (req) => {
     console.error('Error message:', error.message);
     console.error('Timestamp:', new Date().toISOString());
     
-    // Try to parse error message if it's JSON
     let errorResponse;
     try {
       errorResponse = JSON.parse(error.message);
@@ -142,7 +150,6 @@ serve(async (req) => {
       };
     }
     
-    // Don't expose sensitive error details in production
     const statusCode = errorResponse.code === 'UNAUTHORIZED' || errorResponse.code === 'INVALID_TOKEN' ? 401 :
                       errorResponse.code === 'OWNERSHIP_VIOLATION' || errorResponse.code === 'STORY_ACCESS_DENIED' ? 403 :
                       errorResponse.error?.includes('Empty request body') || errorResponse.error?.includes('Invalid JSON') ? 400 : 500;
