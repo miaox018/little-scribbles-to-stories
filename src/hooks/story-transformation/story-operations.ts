@@ -32,12 +32,13 @@ export const uploadImagesAndGetUrls = async (images: File[], storyId: string, us
   return imageUrls;
 };
 
-// Enhanced edge function health check
+// Enhanced edge function health check with proper GET request
 export const checkEdgeFunctionHealth = async (): Promise<boolean> => {
   try {
     console.log('Checking edge function health...');
+    
+    // Use GET request without body for health check
     const { data, error } = await supabase.functions.invoke('transform-story', {
-      body: {},
       method: 'GET'
     });
     
@@ -60,20 +61,11 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
   console.log('Images count:', imageUrls.length);
   console.log('Art style:', artStyle);
   
-  // First check if edge function is healthy
+  // Enhanced health check with fallback
   const isHealthy = await checkEdgeFunctionHealth();
   if (!isHealthy) {
-    console.error('Edge function is not healthy, marking story as failed');
-    await supabase
-      .from('stories')
-      .update({ 
-        status: 'failed',
-        description: 'Edge function is not available. Please try again later.',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', storyId);
-    
-    throw new Error('Transform service is temporarily unavailable. Please try again later.');
+    console.warn('Health check failed, but attempting transformation anyway...');
+    // Don't immediately fail - the function might still work
   }
   
   const payload = {
@@ -107,17 +99,28 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
         context: error.context
       });
       
-      // Mark story as failed if edge function fails
+      // Enhanced error handling with specific messages
+      let errorMessage = 'Processing failed. Please try again.';
+      
+      if (error.message?.includes('Request with GET/HEAD method cannot have body')) {
+        errorMessage = 'Service configuration error. Please contact support.';
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. The service may be overloaded.';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
+      // Mark story as failed with specific error
       await supabase
         .from('stories')
         .update({ 
           status: 'failed',
-          description: `Edge function error: ${error.message}`,
+          description: errorMessage,
           updated_at: new Date().toISOString()
         })
         .eq('id', storyId);
       
-      throw error;
+      throw new Error(errorMessage);
     }
     
     console.log('Transform result:', data);
@@ -125,24 +128,35 @@ export const callTransformStoryFunction = async (storyId: string, imageUrls: any
   } catch (edgeFunctionError) {
     console.error('Edge function call failed with full error:', edgeFunctionError);
     
-    // Mark story as failed on critical error
+    // Enhanced error categorization
+    let userFriendlyMessage = 'Transformation failed. Please try again.';
+    
+    if (edgeFunctionError.message?.includes('GET/HEAD method cannot have body')) {
+      userFriendlyMessage = 'Service configuration issue. Please try again in a few minutes.';
+    } else if (edgeFunctionError.message?.includes('FunctionsHttpError')) {
+      userFriendlyMessage = 'Transform service is temporarily unavailable. Please try again later.';
+    } else if (edgeFunctionError.message?.includes('timeout')) {
+      userFriendlyMessage = 'Processing is taking longer than expected. Please try again.';
+    }
+    
+    // Mark story as failed with user-friendly error
     await supabase
       .from('stories')
       .update({ 
         status: 'failed',
-        description: `Processing failed: ${edgeFunctionError.message}`,
+        description: userFriendlyMessage,
         updated_at: new Date().toISOString()
       })
       .eq('id', storyId);
     
-    throw edgeFunctionError;
+    throw new Error(userFriendlyMessage);
   }
 };
 
 export const pollForStoryCompletion = async (storyId: string, userId: string, updateProgress: (progress: number) => void) => {
-  console.log('Starting polling for story completion...');
+  console.log('Starting enhanced polling for story completion...');
   let attempts = 0;
-  const maxAttempts = 60; // Reduced from 180 to 60 (5 minutes with 5-second intervals)
+  const maxAttempts = 60; // 5 minutes with 5-second intervals
   const startTime = Date.now();
   let lastStatus = 'unknown';
   let stuckCount = 0;
@@ -170,25 +184,25 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
       console.log(`Polling attempt ${attempts + 1}/${maxAttempts} (${elapsedMinutes.toFixed(1)}min elapsed)`);
       console.log('Current story status:', updatedStory.status);
       
-      // Detect if story is stuck
+      // Enhanced stuck detection
       if (updatedStory.status === lastStatus) {
         stuckCount++;
-        if (stuckCount >= 10) { // If stuck for 10 attempts (50 seconds)
+        if (stuckCount >= 12) { // If stuck for 12 attempts (60 seconds)
           console.warn('Story appears to be stuck, checking for progress...');
           
-          // If no pages have been created after being stuck, mark as failed
+          // If no pages have been created and it's been stuck, mark as failed
           if (!updatedStory.story_pages || updatedStory.story_pages.length === 0) {
             console.error('Story is stuck with no pages created, marking as failed');
             await supabase
               .from('stories')
               .update({ 
                 status: 'failed',
-                description: 'Story processing got stuck. Please try again.',
+                description: 'Processing got stuck. Please try again with different images.',
                 updated_at: new Date().toISOString()
               })
               .eq('id', storyId);
             
-            throw new Error('Story processing got stuck. Please try again.');
+            throw new Error('Processing got stuck. Please try again with different images.');
           }
         }
       } else {
@@ -197,15 +211,20 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
       
       lastStatus = updatedStory.status;
       
+      // Enhanced progress reporting
       if (updatedStory.story_pages?.length > 0) {
         const completedPages = updatedStory.story_pages.filter(p => p.transformation_status === 'completed').length;
         const failedPages = updatedStory.story_pages.filter(p => p.transformation_status === 'failed').length;
         const totalPages = updatedStory.total_pages || 0;
         
         console.log(`Pages status: ${completedPages}/${totalPages} completed, ${failedPages} failed`);
+        
+        // Better progress calculation based on actual page completion
+        const progressFromPages = totalPages > 0 ? (completedPages / totalPages) * 45 : 0;
+        updateProgress(50 + progressFromPages + (attempts / maxAttempts) * 5);
+      } else {
+        updateProgress(50 + (attempts / maxAttempts) * 45);
       }
-
-      updateProgress(50 + (attempts / maxAttempts) * 45);
 
       if (['completed', 'failed', 'partial'].includes(updatedStory.status)) {
         console.log('Story processing completed via polling');
@@ -219,13 +238,17 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
     } catch (pollError) {
       console.error('Polling error:', pollError);
       
-      // If we get a critical error, mark story as failed
+      // Enhanced polling error handling
       if (attempts > 5) { // Give it a few attempts before marking as failed
+        const errorMessage = pollError.message?.includes('stuck') 
+          ? 'Processing got stuck. Please try again.'
+          : `Polling failed: ${pollError.message}`;
+          
         await supabase
           .from('stories')
           .update({ 
             status: 'failed',
-            description: `Polling failed: ${pollError.message}`,
+            description: errorMessage,
             updated_at: new Date().toISOString()
           })
           .eq('id', storyId);
@@ -240,16 +263,16 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
   
   console.error('Story processing timeout after', maxAttempts, 'attempts');
   
-  // Mark story as failed due to timeout
+  // Mark story as failed due to timeout with better message
   await supabase
     .from('stories')
     .update({ 
       status: 'failed',
-      description: 'Story processing timed out. Please try again.',
+      description: 'Processing timed out after 5 minutes. This may be due to high server load. Please try again.',
       updated_at: new Date().toISOString()
     })
     .eq('id', storyId);
   
   await cleanupTempImages(storyId, userId);
-  throw new Error('Story processing timed out after 5 minutes. Please try again.');
+  throw new Error('Processing timed out after 5 minutes. Please try again.');
 };

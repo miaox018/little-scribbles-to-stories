@@ -31,9 +31,9 @@ serve(async (req) => {
     return handleCorsRequest();
   }
 
-  // Health check endpoint
-  if (url.pathname === '/health' && req.method === 'GET') {
-    console.log(`[${requestId}] Health check requested`);
+  // Enhanced health check endpoint - handle GET request properly
+  if (req.method === 'GET') {
+    console.log(`[${requestId}] Health check requested via GET`);
     try {
       const health = await healthCheck();
       return new Response(JSON.stringify(health), {

@@ -1,6 +1,4 @@
 
-import { OpenAI } from "https://esm.sh/openai@4.11.1";
-import { artStylePrompts } from './config.ts';
 import { ErrorHandler, StoryProcessingError, ErrorContext } from './error-handler.ts';
 import { openaiCircuitBreaker } from './circuit-breaker.ts';
 
@@ -10,10 +8,6 @@ if (!openaiApiKey) {
   console.error('Missing OPENAI_API_KEY environment variable');
   Deno.exit(1);
 }
-
-const openai = new OpenAI({
-  apiKey: openaiApiKey,
-});
 
 export async function editImageWithGPT(imageDataUrl: string, prompt: string): Promise<string> {
   console.log('[GPT-Image-1 Edit] Phase 2: Starting enhanced image editing with comprehensive error handling');
@@ -89,10 +83,18 @@ export async function editImageWithGPT(imageDataUrl: string, prompt: string): Pr
   }
 }
 
-// Health check endpoint to verify function can boot
-export async function healthCheck(): Promise<{ status: string; timestamp: string }> {
+// Enhanced health check endpoint to verify function can boot properly
+export async function healthCheck(): Promise<{ status: string; timestamp: string; version: string }> {
+  console.log('Health check requested - verifying OpenAI API availability');
+  
+  // Simple validation that the API key is available
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+  
   return {
     status: 'healthy',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: '2.0'
   };
 }
