@@ -1,10 +1,8 @@
+
 import { editImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
-import { buildPrompt } from './prompt-builder.ts';
-import { optimizeImageForGPT } from './image-optimizer.ts';
-import { PerformanceTracker } from './performance-tracker.ts';
+import { buildTransformationPrompt } from './prompt-builder.ts';
 import type { ProcessStoryPageParams } from './types.ts';
-import { ErrorHandler, StoryProcessingError, ErrorContext } from './error-handler.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -77,59 +75,27 @@ export async function processStoryPage({
     throw new Error('Story transformation was cancelled');
   }
 
-  const context: ErrorContext = {
-    storyId,
-    pageNumber,
-    userId,
-    operation: 'process_story_page',
-    attempt: 1,
-    timestamp: new Date().toISOString()
-  };
-
   try {
-    // Phase 2: Enhanced processing with comprehensive error handling
-    const perf = new PerformanceTracker();
-    console.log(`[GPT-Image-1 Edit] Phase 2: Processing page ${pageNumber} with enhanced error handling`);
+    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with image-to-image transformation`);
     
-    // Phase 2: Wrap critical operations in error handling
-    const originalImageDataUrl = await ErrorHandler.handleWithRetry(
-      () => fetchImageAsDataUrl(imageData.storageUrl),
-      { ...context, operation: 'fetch_image' }
-    );
-    perf.checkpoint('image_fetch');
+    // Fetch the original image from storage URL and convert to data URL for processing
+    const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
     
-    const optimizedImageDataUrl = await ErrorHandler.handleWithRetry(
-      () => optimizeImageForGPT(originalImageDataUrl),
-      { ...context, operation: 'optimize_image' }
-    );
-    perf.checkpoint('image_optimization');
-    
-    const originalImageUrl = await ErrorHandler.handleWithRetry(
-      () => uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase),
-      { ...context, operation: 'upload_original' }
-    );
-    perf.checkpoint('original_upload');
+    // Upload original image to permanent storage
+    const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
-    const transformationPrompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
-    console.log(`[GPT-Image-1 Edit] Phase 2: Built enhanced transformation prompt for page ${pageNumber}`);
-    perf.checkpoint('prompt_build');
+    // Build transformation prompt for image editing
+    const transformationPrompt = buildTransformationPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    console.log(`[GPT-Image-1 Edit] Built transformation prompt for page ${pageNumber}`);
 
-    // Phase 2: Critical GPT operation with enhanced error handling
-    const editedImageUrl = await ErrorHandler.handleWithRetry(
-      () => editImageWithGPT(optimizedImageDataUrl, transformationPrompt),
-      { ...context, operation: 'gpt_image_edit' },
-      3 // Max 3 retries for GPT operations
-    );
-    console.log(`[GPT-Image-1 Edit] Phase 2: Successfully edited image for page ${pageNumber}`);
-    perf.checkpoint('gpt_edit');
+    // Edit the image directly with GPT-Image-1 using the original drawing as input
+    const editedImageUrl = await editImageWithGPT(originalImageDataUrl, transformationPrompt);
+    console.log(`[GPT-Image-1 Edit] Edited image for page ${pageNumber}`);
 
-    const finalImageUrl = await ErrorHandler.handleWithRetry(
-      () => uploadImageToSupabase(editedImageUrl, storyId, pageNumber, userId, supabase),
-      { ...context, operation: 'upload_final' }
-    );
-    perf.checkpoint('final_upload');
+    // Upload edited image to Supabase Storage
+    const finalImageUrl = await uploadImageToSupabase(editedImageUrl, storyId, pageNumber, userId, supabase);
 
-    // Create story page record
+    // Create story page record with transformation prompt as enhanced_prompt
     await supabase
       .from('story_pages')
       .insert({
@@ -137,26 +103,19 @@ export async function processStoryPage({
         page_number: pageNumber,
         original_image_url: originalImageUrl,
         generated_image_url: finalImageUrl,
-        enhanced_prompt: transformationPrompt,
+        enhanced_prompt: transformationPrompt, // Store the transformation prompt
         transformation_status: 'completed'
       });
 
-    perf.checkpoint('db_insert');
-    perf.logSummary();
-    console.log(`[GPT-Image-1 Edit] Phase 2: Successfully completed page ${pageNumber} with enhanced error handling`);
+    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber}`);
     
     return { 
-      analysisText: transformationPrompt,
+      analysisText: transformationPrompt, // Return transformation prompt as analysis text
       generatedImageUrl: finalImageUrl, 
       originalImageUrl 
     };
   } catch (error) {
-    console.error(`[GPT-Image-1 Edit] Phase 2: Enhanced error handling for page ${pageNumber}:`, error);
-    
-    // Phase 2: Enhanced error logging and recovery
-    if (error instanceof StoryProcessingError) {
-      await ErrorHandler.logError(error, supabase);
-    }
+    console.error(`[GPT-Image-1 Edit] Error processing page ${pageNumber}:`, error);
     
     // Still create a page record but mark as failed
     await supabase

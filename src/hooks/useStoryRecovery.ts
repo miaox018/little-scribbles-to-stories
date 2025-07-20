@@ -16,8 +16,6 @@ export const useStoryRecovery = () => {
     let stuckCount = 0;
     
     try {
-      console.log('Starting story recovery process...');
-      
       // Find stories that might be stuck in processing
       const { data: processingStories, error } = await supabase
         .from('stories')
@@ -27,7 +25,6 @@ export const useStoryRecovery = () => {
           status,
           total_pages,
           updated_at,
-          created_at,
           story_pages (id, transformation_status)
         `)
         .eq('user_id', user.id)
@@ -41,18 +38,13 @@ export const useStoryRecovery = () => {
         const failedPages = story.story_pages?.filter(page => page.transformation_status === 'failed').length || 0;
         const totalPages = story.total_pages || story.story_pages?.length || 0;
         const lastUpdated = new Date(story.updated_at);
-        const createdAt = new Date(story.created_at);
         const now = new Date();
         const minutesSinceUpdate = (now.getTime() - lastUpdated.getTime()) / (1000 * 60);
-        const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
 
-        console.log(`Story "${story.title}": ${completedPages}/${totalPages} pages completed, ${failedPages} failed`);
-        console.log(`  - ${minutesSinceUpdate.toFixed(1)} minutes since update`);
-        console.log(`  - ${minutesSinceCreation.toFixed(1)} minutes since creation`);
+        console.log(`Story ${story.title}: ${completedPages}/${totalPages} pages completed, ${failedPages} failed, ${minutesSinceUpdate.toFixed(1)} minutes since update`);
 
         // Check if story is actually completed
         if (completedPages > 0 && completedPages === totalPages) {
-          console.log(`✅ Marking as completed: ${story.title}`);
           await supabase
             .from('stories')
             .update({ 
@@ -63,10 +55,10 @@ export const useStoryRecovery = () => {
             .eq('id', story.id);
 
           recoveredCount++;
+          console.log(`✅ Recovered completed story: ${story.title}`);
         }
         // Check if story is partially completed
         else if (completedPages > 0 && (completedPages + failedPages) === totalPages) {
-          console.log(`⚠️ Marking as partial: ${story.title}`);
           await supabase
             .from('stories')
             .update({ 
@@ -77,24 +69,21 @@ export const useStoryRecovery = () => {
             .eq('id', story.id);
 
           recoveredCount++;
+          console.log(`⚠️ Recovered partial story: ${story.title}`);
         }
-        // Check if story appears stuck (no updates for 10+ minutes OR no pages created after 15+ minutes)
-        else if (minutesSinceUpdate > 10 || (story.story_pages?.length === 0 && minutesSinceCreation > 15)) {
-          console.log(`❌ Marking as failed (stuck): ${story.title}`);
-          const reason = story.story_pages?.length === 0 
-            ? `No processing started after ${minutesSinceCreation.toFixed(0)} minutes`
-            : `Processing stalled after ${minutesSinceUpdate.toFixed(0)} minutes`;
-            
+        // Check if story appears stuck (no updates for 10+ minutes)
+        else if (minutesSinceUpdate > 10) {
           await supabase
             .from('stories')
             .update({ 
               status: 'failed',
-              description: `Processing failed: ${reason}`,
+              description: `Processing appears to have stalled. Last update: ${minutesSinceUpdate.toFixed(0)} minutes ago.`,
               updated_at: new Date().toISOString()
             })
             .eq('id', story.id);
 
           stuckCount++;
+          console.log(`❌ Marked stuck story as failed: ${story.title}`);
         }
       }
 
@@ -108,15 +97,11 @@ export const useStoryRecovery = () => {
           title: "Recovery Complete",
           description: messages.join(' and ') + '. Check your stories for updates.',
         });
-        
-        console.log('Recovery completed:', { recoveredCount, stuckCount });
       } else {
         toast({
           title: "No Issues Found",
           description: "All processing stories appear to be running correctly.",
         });
-        
-        console.log('No stuck stories found');
       }
 
     } catch (error) {

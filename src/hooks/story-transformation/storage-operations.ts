@@ -1,60 +1,18 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// Phase 1 optimization: Simple image compression function
-const compressImage = async (file: File): Promise<File> => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    
-    img.onload = () => {
-      // Resize to max 1024px width while maintaining aspect ratio
-      const maxWidth = 1024;
-      const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
-      
-      canvas.width = img.width * ratio;
-      canvas.height = img.height * ratio;
-      
-      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const compressedFile = new File([blob], file.name, {
-            type: 'image/jpeg',
-            lastModified: Date.now()
-          });
-          resolve(compressedFile);
-        } else {
-          resolve(file); // Fallback to original if compression fails
-        }
-      }, 'image/jpeg', 0.8); // 80% quality
-    };
-    
-    img.onerror = () => resolve(file); // Fallback to original if loading fails
-    img.src = URL.createObjectURL(file);
-  });
-};
-
 export const uploadImagesToStorage = async (images: File[], storyId: string, userId: string) => {
-  console.log('Phase 1 optimization: Uploading images to Supabase Storage with optimizations...');
+  console.log('Uploading images to Supabase Storage...');
   
   const uploadPromises = images.map(async (file, index) => {
-    // Phase 1 optimization: Compress large files before upload
-    let fileToUpload = file;
-    if (file.size > 5 * 1024 * 1024) { // If larger than 5MB
-      console.log(`Compressing large image ${index + 1} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-      fileToUpload = await compressImage(file);
-    }
-    
-    const fileName = `${userId}/temp/${storyId}/page_${index + 1}_${Date.now()}.${fileToUpload.name.split('.').pop()}`;
+    const fileName = `${userId}/temp/${storyId}/page_${index + 1}_${Date.now()}.${file.name.split('.').pop()}`;
     
     console.log(`Uploading image ${index + 1} to: ${fileName}`);
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('story-images')
-      .upload(fileName, fileToUpload, {
-        contentType: fileToUpload.type,
+      .upload(fileName, file, {
+        contentType: file.type,
         upsert: false
       });
 

@@ -1,6 +1,6 @@
+
 import { artStylePrompts } from './config.ts';
 import { processStoryPage } from './story-processor.ts';
-import { ErrorHandler, StoryProcessingError, ErrorContext } from './error-handler.ts';
 
 export async function processSynchronously(
   storyId: string, 
@@ -9,7 +9,7 @@ export async function processSynchronously(
   userId: string, 
   supabase: any
 ) {
-  console.log(`[SYNC] Phase 3: Processing ${imageUrls.length} images synchronously with comprehensive error handling and recovery`);
+  console.log(`[SYNC] Processing ${imageUrls.length} images synchronously with enhanced error handling`);
   
   // Update story status to processing
   await supabase
@@ -17,7 +17,7 @@ export async function processSynchronously(
     .update({ 
       status: 'processing',
       total_pages: imageUrls.length,
-      description: `Phase 3: Processing page 1 of ${imageUrls.length} (enhanced synchronous mode)...`,
+      description: `Processing page 1 of ${imageUrls.length} (synchronous mode)...`,
       updated_at: new Date().toISOString()
     })
     .eq('id', storyId);
@@ -28,18 +28,9 @@ export async function processSynchronously(
   let successfulPages = 0;
   let failedPages = 0;
 
-  // Process each image with Phase 3 enhanced error handling
+  // Process each image with enhanced error handling
   for (let i = 0; i < imageUrls.length; i++) {
     const currentPage = i + 1;
-    
-    const context: ErrorContext = {
-      storyId,
-      pageNumber: currentPage,
-      userId,
-      operation: 'sync_process_page',
-      attempt: 1,
-      timestamp: new Date().toISOString()
-    };
     
     try {
       // Check if story was cancelled during processing
@@ -63,16 +54,16 @@ export async function processSynchronously(
       await supabase
         .from('stories')
         .update({ 
-          description: `Phase 3: Processing page ${currentPage} of ${imageUrls.length} (${progressPercent}%)`,
+          description: `Processing page ${currentPage} of ${imageUrls.length} (${progressPercent}%)`,
           updated_at: new Date().toISOString()
         })
         .eq('id', storyId);
 
-      console.log(`[SYNC] Phase 3: Processing page ${currentPage} of ${imageUrls.length} with enhanced error handling`);
+      console.log(`[SYNC] Processing page ${currentPage} of ${imageUrls.length}`);
       
-      // Phase 3: Enhanced processing with comprehensive error handling
-      await ErrorHandler.handleWithRetry(
-        () => processStoryPage({
+      // Process with timeout protection
+      const result = await Promise.race([
+        processStoryPage({
           imageData: imageUrls[i], 
           pageNumber: currentPage, 
           storyId, 
@@ -82,9 +73,10 @@ export async function processSynchronously(
           artStyleGuidelines,
           supabase
         }),
-        context,
-        3 // Max retries for sync processing
-      );
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Page processing timeout')), 120000) // 2 minute timeout per page
+        )
+      ]);
 
       successfulPages++;
 
@@ -98,7 +90,7 @@ export async function processSynchronously(
 - Portrait orientation (3:4 aspect ratio) with safe margins`;
       }
 
-      console.log(`[SYNC] Phase 3: Completed page ${currentPage} of ${imageUrls.length}`);
+      console.log(`[SYNC] Completed page ${currentPage} of ${imageUrls.length}`);
     } catch (error) {
       if (error.message === 'Story transformation was cancelled') {
         console.log(`[SYNC] Story ${storyId} was cancelled, stopping processing at page ${currentPage}`);
@@ -109,13 +101,8 @@ export async function processSynchronously(
         };
       }
       
-      console.error(`[SYNC] Phase 3: Failed to process page ${currentPage}:`, error);
+      console.error(`[SYNC] Failed to process page ${currentPage}:`, error);
       failedPages++;
-      
-      // Phase 3: Enhanced error logging
-      if (error instanceof StoryProcessingError) {
-        await ErrorHandler.logError(error, supabase);
-      }
       
       // Mark this specific page as failed
       await supabase
@@ -132,14 +119,11 @@ export async function processSynchronously(
         });
     }
 
-    // Phase 3: Adaptive delay based on success rate
+    // Reduced delay between pages for faster processing
     if (i < imageUrls.length - 1) {
-      const successRate = successfulPages / (successfulPages + failedPages);
-      const baseDelay = 1000; // Phase 1 optimization maintained
-      const adaptiveDelay = successRate >= 0.8 ? baseDelay * 0.8 : baseDelay * 1.2;
-      
-      console.log(`[SYNC] Phase 3: Adaptive delay ${adaptiveDelay}ms (success rate: ${(successRate * 100).toFixed(1)}%)`);
-      await new Promise(resolve => setTimeout(resolve, adaptiveDelay));
+      const delayMs = 5000; // Reduced from 8000ms to 5000ms
+      console.log(`[SYNC] Waiting ${delayMs}ms before processing next page...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
 
@@ -149,12 +133,12 @@ export async function processSynchronously(
   
   if (failedPages > 0 && successfulPages > 0) {
     finalStatus = 'partial';
-    finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. Phase 3 error recovery available.`;
+    finalDescription = `Story partially completed: ${successfulPages} successful, ${failedPages} failed pages. You can regenerate the failed pages.`;
   } else if (successfulPages === 0) {
     finalStatus = 'failed';
-    finalDescription = `Story processing failed: All ${failedPages} pages failed to process despite Phase 3 recovery attempts.`;
+    finalDescription = `Story processing failed: All ${failedPages} pages failed to process.`;
   } else {
-    finalDescription = `Story completed successfully with ${successfulPages} pages using Phase 3 optimizations.`;
+    finalDescription = `Story completed successfully with ${successfulPages} pages.`;
   }
 
   // Update story status
@@ -168,7 +152,7 @@ export async function processSynchronously(
     })
     .eq('id', storyId);
 
-  console.log(`[SYNC] Phase 3: Story ${storyId} transformation completed: ${successfulPages} successful, ${failedPages} failed pages`);
+  console.log(`[SYNC] Story ${storyId} transformation completed: ${successfulPages} successful, ${failedPages} failed pages`);
 
   return {
     success: true, 
@@ -177,13 +161,6 @@ export async function processSynchronously(
     successful_pages: successfulPages,
     failed_pages: failedPages,
     status: finalStatus,
-    processing_mode: 'enhanced_synchronous',
-    phase: 3,
-    features: [
-      'Enhanced error handling & recovery',
-      'Adaptive timing based on success rates',
-      'Circuit breaker protection',
-      'Comprehensive error logging'
-    ]
+    processing_mode: 'synchronous'
   };
 }
