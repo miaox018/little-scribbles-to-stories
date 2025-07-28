@@ -4,6 +4,7 @@ export const useMaintenanceMode = () => {
   const isMaintenanceMode = useMemo(() => {
     // Check environment variable for maintenance mode
     const envMaintenance = import.meta.env.VITE_MAINTENANCE_MODE;
+    console.log('🚧 Maintenance mode check:', envMaintenance, 'Result:', envMaintenance === 'true' || envMaintenance === '1');
     return envMaintenance === 'true' || envMaintenance === '1';
   }, []);
 
