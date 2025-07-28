@@ -37,3 +37,6 @@ ${characterEstablishmentSection}${characterConsistencySection}
 
 Transform into a polished storybook page while preserving the child's creativity and at least 60% of their written text.`;
 }
+
+// Alias export for backward compatibility
+export const buildTransformationPrompt = buildPrompt;
