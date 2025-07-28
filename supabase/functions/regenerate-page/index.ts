@@ -2,6 +2,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { validateUserAuthentication, validateUserOwnership } from './auth-validation.ts';
+import { checkMaintenanceMode } from '../_shared/maintenance-check.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -285,6 +286,12 @@ async function uploadImageToSupabase(imageUrl: string, storyId: string, pageNumb
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Check maintenance mode
+  const maintenanceResponse = checkMaintenanceMode();
+  if (maintenanceResponse) {
+    return maintenanceResponse;
   }
 
   try {

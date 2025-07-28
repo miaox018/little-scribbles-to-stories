@@ -26,46 +26,29 @@ export const useStoryTransformation = () => {
     images: File[],
     artStyle: string = 'classic_watercolor'
   ) => {
-    console.log('=== STORY TRANSFORMATION STARTED ===');
-    console.log('Title:', title);
-    console.log('Images count:', images.length);
-    console.log('Art style:', artStyle);
-    console.log('User ID:', user?.id);
-    
     validateUserAuthentication(user);
 
     setState(prev => ({ ...prev, isTransforming: true, error: null, progress: 0 }));
 
     try {
-      console.log('Validating story creation permissions...');
       await validateStoryCreation(user!.id);
       
-      console.log('Creating story record...');
       const story = await createStoryRecord(user!.id, title, artStyle, images.length);
-      console.log('Story created with ID:', story.id);
       
-      console.log('Tracking story creation...');
       await trackStoryCreation(user!.id, images.length);
       
-      console.log('Validating page upload permissions...');
       await validatePageUpload(user!.id, story.id, images.length);
 
       // Upload images to storage and get URLs instead of converting to base64
-      console.log('Uploading images to storage...');
       const imageUrls = await uploadImagesAndGetUrls(images, story.id, user!.id);
-      console.log('Images uploaded successfully:', imageUrls.length);
       
       setState(prev => ({ ...prev, progress: 20 }));
 
-      console.log('Calling transform story edge function...');
-      const edgeFunctionResult = await callTransformStoryFunction(story.id, imageUrls, artStyle);
-      console.log('Edge function result:', edgeFunctionResult);
+      await callTransformStoryFunction(story.id, imageUrls, artStyle);
       
       setState(prev => ({ ...prev, progress: 50 }));
 
-      console.log('Starting polling for completion...');
       const completedStory = await pollForStoryCompletion(story.id, user!.id, updateProgress);
-      console.log('Story transformation completed:', completedStory.status);
       
       setState(prev => ({ 
         ...prev, 
@@ -98,12 +81,7 @@ export const useStoryTransformation = () => {
       return completedStory;
 
     } catch (error: any) {
-      console.error('=== STORY TRANSFORMATION ERROR ===');
-      console.error('Error details:', error);
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error.constructor?.name);
-      console.error('Error stack:', error.stack);
-      
+      console.error('Story transformation error:', error);
       setState(prev => ({ 
         ...prev, 
         isTransforming: false, 
@@ -111,22 +89,9 @@ export const useStoryTransformation = () => {
         progress: 0
       }));
       
-      // Provide more specific error messages
-      let errorMessage = "Something went wrong. Please try again.";
-      
-      if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        errorMessage = "Network error. Please check your connection and try again.";
-      } else if (error.message?.includes('timeout')) {
-        errorMessage = "Request timed out. Please try again.";
-      } else if (error.message?.includes('permission') || error.message?.includes('unauthorized')) {
-        errorMessage = "Permission denied. Please sign in and try again.";
-      } else if (error.message?.includes('limit')) {
-        errorMessage = "You've reached your story limit. Please upgrade your plan.";
-      }
-      
       toast({
         title: "Transformation Failed",
-        description: errorMessage,
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive"
       });
       

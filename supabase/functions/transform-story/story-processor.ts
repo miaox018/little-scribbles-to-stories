@@ -1,8 +1,7 @@
 
-
 import { editImageWithGPT } from './openai-api.ts';
 import { uploadImageToSupabase, uploadOriginalImageToSupabase } from './storage-utils.ts';
-import { buildPrompt } from './prompt-builder.ts';
+import { buildTransformationPrompt } from './prompt-builder.ts';
 import type { ProcessStoryPageParams } from './types.ts';
 
 // Function to safely convert ArrayBuffer to base64 using chunked processing
@@ -77,7 +76,7 @@ export async function processStoryPage({
   }
 
   try {
-    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with optimized image-to-image transformation`);
+    console.log(`[GPT-Image-1 Edit] Processing page ${pageNumber} with image-to-image transformation`);
     
     // Fetch the original image from storage URL and convert to data URL for processing
     const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);
@@ -85,9 +84,9 @@ export async function processStoryPage({
     // Upload original image to permanent storage
     const originalImageUrl = await uploadOriginalImageToSupabase(originalImageDataUrl, storyId, pageNumber, userId, supabase);
 
-    // Build optimized transformation prompt for image editing
-    const transformationPrompt = buildPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
-    console.log(`[GPT-Image-1 Edit] Built optimized transformation prompt for page ${pageNumber}`);
+    // Build transformation prompt for image editing
+    const transformationPrompt = buildTransformationPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
+    console.log(`[GPT-Image-1 Edit] Built transformation prompt for page ${pageNumber}`);
 
     // Edit the image directly with GPT-Image-1 using the original drawing as input
     const editedImageUrl = await editImageWithGPT(originalImageDataUrl, transformationPrompt);
@@ -108,7 +107,7 @@ export async function processStoryPage({
         transformation_status: 'completed'
       });
 
-    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber} with optimized approach`);
+    console.log(`[GPT-Image-1 Edit] Successfully completed page ${pageNumber}`);
     
     return { 
       analysisText: transformationPrompt, // Return transformation prompt as analysis text
@@ -133,4 +132,3 @@ export async function processStoryPage({
     throw error;
   }
 }
-

@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { checkMaintenanceMode } from '../_shared/maintenance-check.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +16,12 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     console.log('📋 Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Check maintenance mode
+  const maintenanceResponse = checkMaintenanceMode();
+  if (maintenanceResponse) {
+    return maintenanceResponse;
   }
 
   try {
