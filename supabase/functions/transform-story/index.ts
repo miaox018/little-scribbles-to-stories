@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from './config.ts';
 import { handleCorsRequest, validateRequest, validateRequestBody } from './request-handler.ts';
+import { checkMaintenanceMode } from '../_shared/maintenance-check.ts';
 import { validateStoryExists } from './story-validation.ts';
 import { processSynchronously } from './sync-processor.ts';
 import { startAsyncProcessing } from './async-processor.ts';
@@ -24,6 +25,12 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return handleCorsRequest();
+  }
+
+  // Check maintenance mode
+  const maintenanceResponse = checkMaintenanceMode();
+  if (maintenanceResponse) {
+    return maintenanceResponse;
   }
 
   try {

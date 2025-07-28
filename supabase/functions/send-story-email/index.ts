@@ -4,6 +4,7 @@ import { validateAuth } from './auth-validation.ts';
 import { validateEmailRequest, validateEnvironmentVariables, SendStoryEmailRequest } from './validation.ts';
 import { fetchStoryData, sortStoryPages } from './story-service.ts';
 import { sendStoryEmail } from './email-service.ts';
+import { checkMaintenanceMode } from '../_shared/maintenance-check.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,12 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     console.log('📋 Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Check maintenance mode
+  const maintenanceResponse = checkMaintenanceMode();
+  if (maintenanceResponse) {
+    return maintenanceResponse;
   }
 
   try {
