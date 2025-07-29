@@ -162,6 +162,7 @@ export type Database = {
           cover_image_url: string | null
           created_at: string | null
           description: string | null
+          expires_at: string | null
           id: string
           meta_context_version: number | null
           status: string | null
@@ -177,6 +178,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          expires_at?: string | null
           id?: string
           meta_context_version?: number | null
           status?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          expires_at?: string | null
           id?: string
           meta_context_version?: number | null
           status?: string | null
@@ -380,6 +383,13 @@ export type Database = {
           additional_pages?: number
         }
         Returns: boolean
+      }
+      cleanup_expired_stories: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          deleted_story_id: string
+          deleted_pages_count: number
+        }[]
       }
       get_user_limits: {
         Args: { user_id_param: string }
