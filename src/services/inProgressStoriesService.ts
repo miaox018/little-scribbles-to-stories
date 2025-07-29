@@ -6,6 +6,7 @@ export interface InProgressStory {
   title: string;
   status: string;
   created_at: string;
+  expires_at?: string;
   story_pages: any[];
   [key: string]: any;
 }

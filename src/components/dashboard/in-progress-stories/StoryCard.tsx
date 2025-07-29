@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Save, Eye, X, Loader2 } from "lucide-react";
 import { StoryPageGrid } from "./StoryPageGrid";
 import { StoryStatusBadge } from "./StoryStatusBadge";
+import { StoryExpirationWarning } from "../StoryExpirationWarning";
+import { getStoryExpirationInfo } from "@/utils/storyExpiration";
 
 interface StoryCardProps {
   story: any;
@@ -26,8 +28,19 @@ export function StoryCard({
   onPreview,
   onCancel
 }: StoryCardProps) {
+  const expirationInfo = getStoryExpirationInfo(story.expires_at);
+
   return (
     <Card className="p-6">
+      {/* Expiration Warning */}
+      {(expirationInfo.isExpiring || expirationInfo.isExpired) && (
+        <StoryExpirationWarning 
+          expirationInfo={expirationInfo}
+          onSaveToLibrary={() => onSaveToLibrary(story)}
+          className="mb-4"
+        />
+      )}
+
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-xl font-semibold text-gray-800 mb-1">
