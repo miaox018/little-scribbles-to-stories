@@ -103,7 +103,14 @@ export async function processStoryAsync(storyId: string, imageUrls: any[], artSt
             original_image_url: imageUrls[i].storageUrl || null,
             generated_image_url: null,
             enhanced_prompt: null,
-            transformation_status: 'failed'
+            transformation_status: 'failed',
+            error_message: JSON.stringify({
+              error: error.message || 'Unknown error',
+              timestamp: new Date().toISOString(),
+              pageNumber: currentPage,
+              storyId,
+              processingMode: 'async'
+            })
           }, {
             onConflict: 'story_id,page_number'
           });

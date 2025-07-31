@@ -2,7 +2,8 @@ export function buildTransformationPrompt(
   pageNumber: number, 
   stylePrompt: string, 
   characterDescriptions?: string, 
-  artStyleGuidelines?: string
+  artStyleGuidelines?: string,
+  hasChineseContent?: boolean
 ): string {
   
   const characterConsistencySection = pageNumber > 1 && characterDescriptions ? `
@@ -31,6 +32,17 @@ As this is the first page, establish clear, consistent character designs:
 - Ensure each character has distinctive features for future consistency
 ` : '';
 
+  // Language-specific enhancements (D. Language robustness)
+  const languageHint = hasChineseContent ? `
+
+LANGUAGE CONTEXT:
+This story contains Chinese content. Please ensure:
+- Respect Chinese cultural elements and aesthetics
+- If any Chinese text appears in the image, preserve it accurately
+- Consider traditional Chinese art influences where appropriate
+- Maintain authenticity in cultural representation
+` : '';
+
   return `Transform this child's hand-drawn story page into a professional children's book illustration while preserving their exact creative vision.
 
 TRANSFORMATION INSTRUCTIONS:
@@ -54,7 +66,7 @@ TRANSFORMATION INSTRUCTIONS:
 - Use clean fonts and ensure high contrast with background
 - Format dialogue in clear speech bubbles if present in original
 
-${characterEstablishmentSection}${characterConsistencySection}
+${characterEstablishmentSection}${characterConsistencySection}${languageHint}
 
 🔧 TECHNICAL SPECIFICATIONS:
 - Maintain portrait orientation suitable for children's book pages
@@ -83,6 +95,3 @@ export function buildPrompt(
 ): string {
   return buildTransformationPrompt(pageNumber, stylePrompt, characterDescriptions, artStyleGuidelines);
 }
-
-// Alias export for backward compatibility
-export const buildTransformationPrompt = buildPrompt;
