@@ -38,6 +38,18 @@ serve(async (req) => {
 
         console.log('Checkout session completed:', { userId, tier, customerId: session.customer });
 
+        // Check if this is an admin user and skip processing
+        if (userId) {
+          const { data: isAdmin } = await supabase.rpc('is_admin', {
+            _user_id: userId
+          });
+
+          if (isAdmin) {
+            console.log('Admin user detected, skipping subscription processing for user:', userId);
+            break;
+          }
+        }
+
         if (userId && tier) {
           // Update subscriber record with new tier
           const { error: upsertError } = await supabase

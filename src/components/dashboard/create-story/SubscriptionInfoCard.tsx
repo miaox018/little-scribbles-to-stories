@@ -1,5 +1,6 @@
 
 import { Card, CardContent } from "@/components/ui/card";
+import { useUserRoles } from "@/hooks/useUserRoles";
 
 interface SubscriptionInfoCardProps {
   subscriptionTier: string;
@@ -8,6 +9,21 @@ interface SubscriptionInfoCardProps {
 }
 
 export function SubscriptionInfoCard({ subscriptionTier, maxPages, onUpgradeClick }: SubscriptionInfoCardProps) {
+  const { isAdmin } = useUserRoles();
+  // Show admin status if user is admin
+  if (isAdmin) {
+    return (
+      <Card className="bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200">
+        <CardContent className="p-4">
+          <p className="text-sm text-emerald-700">
+            <strong>Admin Access - Unlimited:</strong> 
+            {' '}Create unlimited stories with unlimited pages
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
       <CardContent className="p-4">

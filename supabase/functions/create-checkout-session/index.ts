@@ -56,6 +56,16 @@ serve(async (req) => {
 
     console.log('[CHECKOUT] User authenticated:', user.id, user.email);
 
+    // Check if user is admin and prevent subscription creation
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin', {
+      _user_id: user.id
+    });
+
+    if (isAdmin) {
+      console.log('[CHECKOUT] Admin user detected, blocking subscription creation');
+      throw new Error('Admin users do not need subscriptions. You already have unlimited access.');
+    }
+
     const { priceId, tier, couponCode } = await req.json();
     console.log('[CHECKOUT] Request data:', { priceId, tier, couponCode });
     
