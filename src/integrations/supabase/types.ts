@@ -209,6 +209,7 @@ export type Database = {
         Row: {
           created_at: string | null
           enhanced_prompt: string | null
+          error_message: string | null
           generated_image_url: string | null
           id: string
           is_approved: boolean | null
@@ -222,6 +223,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           enhanced_prompt?: string | null
+          error_message?: string | null
           generated_image_url?: string | null
           id?: string
           is_approved?: boolean | null
@@ -235,6 +237,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           enhanced_prompt?: string | null
+          error_message?: string | null
           generated_image_url?: string | null
           id?: string
           is_approved?: boolean | null
