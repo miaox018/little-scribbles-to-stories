@@ -47,6 +47,7 @@ export function validateStoryTitle(title: string): string {
 }
 
 export function validateArtStyle(artStyle: string): string {
+  // D. Language robustness - Accept any art style instead of defaulting
   const allowedStyles = [
     'classic_watercolor',
     'disney_animation', 
@@ -56,16 +57,27 @@ export function validateArtStyle(artStyle: string): string {
   ];
   
   if (!artStyle || typeof artStyle !== 'string') {
-    return 'classic_watercolor'; // Default fallback
+    return 'classic_watercolor'; // Default fallback only if no style provided
   }
   
-  const sanitized = artStyle.toLowerCase().trim();
+  const sanitized = artStyle.trim();
   
-  if (!allowedStyles.includes(sanitized)) {
-    return 'classic_watercolor'; // Default fallback
+  // If it's one of our preset styles, return the normalized version
+  const normalizedStyle = sanitized.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  if (allowedStyles.includes(normalizedStyle)) {
+    return normalizedStyle;
   }
   
-  return sanitized;
+  // D. Language robustness - Pass through any custom art style instead of defaulting
+  // This allows users to specify art styles in any language or custom descriptions
+  if (sanitized.length > 0 && sanitized.length <= 100) {
+    console.log(`[ART-STYLE] Using custom art style: "${sanitized}"`);
+    return sanitized;
+  }
+  
+  // Only fall back to default if the style is invalid or too long
+  console.log(`[ART-STYLE] Invalid art style "${sanitized}", using default`);
+  return 'classic_watercolor';
 }
 
 export function validateImageUrls(imageUrls: any[]): void {
