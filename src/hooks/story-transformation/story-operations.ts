@@ -24,61 +24,73 @@ export const createStoryRecord = async (userId: string, title: string, artStyle:
 };
 
 export const uploadImagesAndGetUrls = async (images: File[], storyId: string, userId: string) => {
-  console.log('Preparing image data by uploading to storage...');
+  console.log('Preparing image data by uploading normalized images to storage...');
   
-  const imageUrls = await uploadImagesToStorage(images, storyId, userId);
-  console.log('Images uploaded to storage:', imageUrls.length);
+  const imageData = await uploadImagesToStorage(images, storyId, userId);
+  console.log('Images normalized and uploaded to storage:', imageData.length);
   
-  return imageUrls;
+  // Convert to format expected by new pipeline
+  return imageData.map(data => ({
+    originalUrl: data.originalUrl,
+    normalizedUrl: data.normalizedUrl,
+    thumbnailUrl: data.thumbnailUrl,
+    pageNumber: data.pageNumber
+  }));
 };
 
-export const callTransformStoryFunction = async (storyId: string, imageUrls: any[], artStyle: string) => {
-  console.log('=== CLIENT SIDE EDGE FUNCTION CALL ===');
+export const createJobAndStartProcessing = async (storyId: string, imageUrls: any[], artStyle: string, userId: string) => {
+  console.log('=== NEW JOB-BASED PROCESSING ===');
   console.log('Story ID:', storyId);
   console.log('Images count:', imageUrls.length);
   console.log('Art style:', artStyle);
-  console.log('Sample image URL structure:', {
-    hasStorageUrl: !!imageUrls[0]?.storageUrl,
-    storageUrl: imageUrls[0]?.storageUrl?.substring(0, 100) + '...',
-    pageNumber: imageUrls[0]?.pageNumber
-  });
   
-  const payload = {
-    storyId: storyId,
-    imageUrls: imageUrls,
-    artStyle
-  };
-  
-  console.log('Payload structure:', {
-    storyId: typeof payload.storyId,
-    imageUrls: Array.isArray(payload.imageUrls) ? `array[${payload.imageUrls.length}]` : typeof payload.imageUrls,
-    artStyle: typeof payload.artStyle
-  });
-  
-  console.log('Payload JSON string length:', JSON.stringify(payload).length);
-  
+  // Create processing job
+  const { data: job, error: jobError } = await supabase
+    .from('story_processing_jobs')
+    .insert({
+      story_id: storyId,
+      user_id: userId,
+      job_type: 'full_story',
+      total_pages: imageUrls.length,
+      status: 'pending'
+    })
+    .select()
+    .single();
+
+  if (jobError) {
+    console.error('Failed to create job:', jobError);
+    throw jobError;
+  }
+
+  console.log('Created job:', job.id);
+
+  // Start background processing
   try {
-    console.log('Calling supabase.functions.invoke...');
-    const { data, error } = await supabase.functions.invoke('transform-story', {
-      body: payload
+    const { error: processError } = await supabase.functions.invoke('process-story-job', {
+      body: { jobId: job.id }
     });
 
-    if (error) {
-      console.error('Edge function error details:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-        context: error.context
-      });
-      throw error;
+    if (processError) {
+      console.error('Failed to start job processing:', processError);
+      // Mark job as failed
+      await supabase
+        .from('story_processing_jobs')
+        .update({ status: 'failed', error_message: processError.message })
+        .eq('id', job.id);
+      throw processError;
     }
-    console.log('Transform result:', data);
-    return data;
-  } catch (edgeFunctionError) {
-    console.error('Edge function call failed with full error:', edgeFunctionError);
-    console.error('Error properties:', Object.getOwnPropertyNames(edgeFunctionError));
-    // Continue with polling - the story might still be processing
-    return null;
+
+    console.log('Job processing started successfully');
+    return { jobId: job.id, status: 'processing' };
+    
+  } catch (processError) {
+    console.error('Error starting background processing:', processError);
+    // Mark job as failed
+    await supabase
+      .from('story_processing_jobs')
+      .update({ status: 'failed', error_message: processError.message })
+      .eq('id', job.id);
+    throw processError;
   }
 };
 

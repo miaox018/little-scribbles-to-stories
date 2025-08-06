@@ -2,10 +2,12 @@
 import { useState, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import type { TransformationState } from './story-transformation/types';
 import { validateStoryCreation, validatePageUpload, validateUserAuthentication } from './story-transformation/validation';
-import { createStoryRecord, uploadImagesAndGetUrls, callTransformStoryFunction, pollForStoryCompletion } from './story-transformation/story-operations';
+import { createStoryRecord, uploadImagesAndGetUrls, createJobAndStartProcessing } from './story-transformation/story-operations';
 import { trackStoryCreation, trackPageUploads } from './story-transformation/usage-tracking';
+import { useJobQueue } from './useJobQueue';
 
 export const useStoryTransformation = () => {
   const [state, setState] = useState<TransformationState>({
@@ -16,6 +18,7 @@ export const useStoryTransformation = () => {
   });
   
   const { user } = useAuth();
+  const { jobs } = useJobQueue();
 
   const updateProgress = useCallback((progress: number) => {
     setState(prev => ({ ...prev, progress }));
@@ -39,46 +42,47 @@ export const useStoryTransformation = () => {
       
       await validatePageUpload(user!.id, story.id, images.length);
 
-      // Upload images to storage and get URLs instead of converting to base64
+      // Upload and normalize images
       const imageUrls = await uploadImagesAndGetUrls(images, story.id, user!.id);
       
-      setState(prev => ({ ...prev, progress: 20 }));
+      setState(prev => ({ ...prev, progress: 30 }));
 
-      await callTransformStoryFunction(story.id, imageUrls, artStyle);
-      
-      setState(prev => ({ ...prev, progress: 50 }));
+      // Create story pages from uploaded images
+      for (const imageData of imageUrls) {
+        await supabase.from('story_pages').insert({
+          story_id: story.id,
+          page_number: imageData.pageNumber,
+          original_image_url: imageData.normalizedUrl, // Use normalized for processing
+          transformation_status: 'pending'
+        });
+      }
 
-      const completedStory = await pollForStoryCompletion(story.id, user!.id, updateProgress);
+      // Start job-based processing
+      const jobResult = await createJobAndStartProcessing(story.id, imageUrls, artStyle, user!.id);
       
       setState(prev => ({ 
         ...prev, 
-        progress: 100, 
-        transformedStory: completedStory,
+        progress: 50,
+        transformedStory: { 
+          ...story, 
+          status: 'processing',
+          jobId: jobResult.jobId 
+        },
         isTransforming: false 
       }));
 
       await trackPageUploads(user!.id, story.id, images.length);
 
-      if (completedStory.status === 'completed') {
-        toast({
-          title: "Story Transformed! ✨",
-          description: `Your story "${title}" has been magically transformed!`,
-        });
-      } else if (completedStory.status === 'partial') {
-        toast({
-          title: "Story Partially Complete",
-          description: "Some pages were transformed successfully. You can regenerate failed pages.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Story Transformation Failed",
-          description: "We couldn't transform your story. Please try again with different images.",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Story Processing Started! ⚡",
+        description: `Your story "${title}" is being transformed. You'll see progress updates in real-time.`,
+      });
 
-      return completedStory;
+      return { 
+        ...story, 
+        status: 'processing',
+        jobId: jobResult.jobId 
+      };
 
     } catch (error: any) {
       console.error('Story transformation error:', error);
