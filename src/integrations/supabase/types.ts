@@ -158,6 +158,8 @@ export type Database = {
         Row: {
           art_style: string | null
           cancelled_at: string | null
+          character_descriptions: Json | null
+          character_sheet_url: string | null
           character_summary: string | null
           cover_image_url: string | null
           created_at: string | null
@@ -165,7 +167,9 @@ export type Database = {
           expires_at: string | null
           id: string
           meta_context_version: number | null
+          processing_version: number | null
           status: string | null
+          style_bible: Json | null
           title: string
           total_pages: number | null
           updated_at: string | null
@@ -174,6 +178,8 @@ export type Database = {
         Insert: {
           art_style?: string | null
           cancelled_at?: string | null
+          character_descriptions?: Json | null
+          character_sheet_url?: string | null
           character_summary?: string | null
           cover_image_url?: string | null
           created_at?: string | null
@@ -181,7 +187,9 @@ export type Database = {
           expires_at?: string | null
           id?: string
           meta_context_version?: number | null
+          processing_version?: number | null
           status?: string | null
+          style_bible?: Json | null
           title: string
           total_pages?: number | null
           updated_at?: string | null
@@ -190,6 +198,8 @@ export type Database = {
         Update: {
           art_style?: string | null
           cancelled_at?: string | null
+          character_descriptions?: Json | null
+          character_sheet_url?: string | null
           character_summary?: string | null
           cover_image_url?: string | null
           created_at?: string | null
@@ -197,7 +207,9 @@ export type Database = {
           expires_at?: string | null
           id?: string
           meta_context_version?: number | null
+          processing_version?: number | null
           status?: string | null
+          style_bible?: Json | null
           title?: string
           total_pages?: number | null
           updated_at?: string | null
@@ -207,42 +219,57 @@ export type Database = {
       }
       story_pages: {
         Row: {
+          analysis_data: Json | null
           created_at: string | null
           enhanced_prompt: string | null
           error_message: string | null
+          final_text: string | null
           generated_image_url: string | null
           id: string
           is_approved: boolean | null
+          ocr_confidence: number | null
           original_image_url: string | null
+          original_text: string | null
           page_number: number
+          processing_job_id: string | null
           story_id: string
           transformation_status: string | null
           updated_at: string | null
           user_feedback: string | null
         }
         Insert: {
+          analysis_data?: Json | null
           created_at?: string | null
           enhanced_prompt?: string | null
           error_message?: string | null
+          final_text?: string | null
           generated_image_url?: string | null
           id?: string
           is_approved?: boolean | null
+          ocr_confidence?: number | null
           original_image_url?: string | null
+          original_text?: string | null
           page_number: number
+          processing_job_id?: string | null
           story_id: string
           transformation_status?: string | null
           updated_at?: string | null
           user_feedback?: string | null
         }
         Update: {
+          analysis_data?: Json | null
           created_at?: string | null
           enhanced_prompt?: string | null
           error_message?: string | null
+          final_text?: string | null
           generated_image_url?: string | null
           id?: string
           is_approved?: boolean | null
+          ocr_confidence?: number | null
           original_image_url?: string | null
+          original_text?: string | null
           page_number?: number
+          processing_job_id?: string | null
           story_id?: string
           transformation_status?: string | null
           updated_at?: string | null
@@ -250,7 +277,76 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "story_pages_processing_job_id_fkey"
+            columns: ["processing_job_id"]
+            isOneToOne: false
+            referencedRelation: "story_processing_jobs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "story_pages_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_processing_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_page: number | null
+          error_message: string | null
+          id: string
+          job_type: string
+          max_retries: number | null
+          progress_percentage: number | null
+          retry_count: number | null
+          started_at: string | null
+          status: string
+          story_id: string
+          total_pages: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_page?: number | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          max_retries?: number | null
+          progress_percentage?: number | null
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          story_id: string
+          total_pages?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_page?: number | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          max_retries?: number | null
+          progress_percentage?: number | null
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          story_id?: string
+          total_pages?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_processing_jobs_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
             referencedRelation: "stories"
@@ -392,6 +488,20 @@ export type Database = {
         Returns: {
           deleted_story_id: string
           deleted_pages_count: number
+        }[]
+      }
+      get_user_active_jobs: {
+        Args: { user_id_param: string }
+        Returns: {
+          job_id: string
+          story_id: string
+          story_title: string
+          status: string
+          progress_percentage: number
+          current_page: number
+          total_pages: number
+          created_at: string
+          error_message: string
         }[]
       }
       get_user_limits: {
