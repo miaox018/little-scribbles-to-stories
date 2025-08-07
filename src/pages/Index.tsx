@@ -152,6 +152,14 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-gray-600">
+        <div className="flex justify-center space-x-6 mb-4">
+          <Link to="/privacy-policy" className="hover:text-purple-600 transition-colors">
+            Privacy Policy
+          </Link>
+          <Link to="/terms-of-service" className="hover:text-purple-600 transition-colors">
+            Terms of Service
+          </Link>
+        </div>
         <p>&copy; 2024 StoryMagic. Made with love for creative families.</p>
       </footer>
     </div>;
