@@ -1,0 +1,314 @@
+diff --git a/README-QUEUE.md b/README-QUEUE.md
+new file mode 100644
+index 0000000..a1b2c3d
+--- /dev/null
++++ b/README-QUEUE.md
+@@ -0,0 +1,43 @@
++# Character Sheet + Jobs Queue (Quick Start)
++
++What this adds:
++- Single source of truth: `stories.character_sheet` (JSONB) and `stories.character_version` (INT).
++- Page provenance: `story_pages.character_version`.
++- Queue: `story_page_jobs` + RPCs to claim/finish jobs.
++- Edge functions:
++  - `enqueue-story`: upserts one job per page, kicks the worker.
++  - `page-worker`: processes exactly one page, then re-invokes itself until done.
++
++Steps:
++1) `supabase db migrate up`
++2) `supabase functions deploy enqueue-story`
++3) `supabase functions deploy page-worker`
++4) Set function secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
++5) Make sure each story has a `character_sheet` before enqueueing.
++
++Wire your one-page renderer inside `supabase/functions/page-worker/index.ts` at the TODO block.
++It should write the image(s) to storage / `story_pages` and set `story_pages.character_version = job.character_version`.
++
++This design enforces per-story FIFO via the `claim_next_story_page_job` RPC, so two workers won't drift the style.
+diff --git a/supabase/functions/_shared/types.d.ts b/supabase/functions/_shared/types.d.ts
+new file mode 100644
+index 0000000..b4c3d5e
+--- /dev/null
++++ b/supabase/functions/_shared/types.d.ts
+@@ -0,0 +1,3 @@
++// Minimal type; provided by Supabase Edge runtime at runtime.
++declare const EdgeRuntime: {
++  waitUntil(promise: Promise<unknown>): void;
++};
+diff --git a/supabase/functions/enqueue-story/index.ts b/supabase/functions/enqueue-story/index.ts
+new file mode 100644
+index 0000000..c5d6e7f
+--- /dev/null
++++ b/supabase/functions/enqueue-story/index.ts
+@@ -0,0 +1,77 @@
++// deno-lint-ignore-file no-explicit-any
++/// <reference path="../_shared/types.d.ts" />
++import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
++
++const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
++const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
++
++Deno.serve(async (req) => {
++  if (req.method !== "POST") {
++    return new Response("Method Not Allowed", { status: 405 });
++  }
++  const { storyId, pages } = await req.json().catch(() => ({}));
++  if (!storyId || !Array.isArray(pages) || pages.length === 0) {
++    return new Response("Missing storyId or pages[]", { status: 400 });
++  }
++
++  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
++    auth: { persistSession: false },
++    global: { headers: { "X-Client-Info": "enqueue-story" } },
++  });
++
++  // Ensure story exists & has a character sheet
++  const { data: story, error: storyErr } = await admin
++    .from("stories")
++    .select("id, character_version, character_sheet")
++    .eq("id", storyId)
++    .single();
++  if (storyErr || !story) {
++    return new Response("Story not found", { status: 404 });
++  }
++  if (!story.character_sheet || Object.keys(story.character_sheet || {}).length === 0) {
++    return new Response("Character sheet missing. Set it before enqueueing.", { status: 400 });
++  }
++
++  // Upsert jobs (one per page)
++  const jobs = (pages as number[]).map((i) => ({
++    story_id: storyId,
++    page_index: i,
++    character_version: story.character_version as number,
++    status: "queued",
++  }));
++
++  const { error: upErr } = await admin
++    .from("story_page_jobs")
++    .upsert(jobs, { onConflict: "story_id,page_index", ignoreDuplicates: true });
++  if (upErr) {
++    return new Response("Failed to enqueue pages: " + upErr.message, { status: 500 });
++  }
++
++  // Kick worker
++  const invokeUrl = `${SUPABASE_URL}/functions/v1/page-worker`;
++  const kick = fetch(invokeUrl, {
++    method: "POST",
++    headers: {
++      Authorization: `Bearer ${SERVICE_ROLE}`,
++      "Content-Type": "application/json",
++    },
++    body: JSON.stringify({ storyId }),
++  }).catch((e) => console.error("invoke worker failed", e));
++
++  // Let it run after returning response
++  // @ts-ignore
++  EdgeRuntime.waitUntil(kick as unknown as Promise<unknown>);
++
++  return new Response(JSON.stringify({ ok: true, enqueued: jobs.length }), {
++    headers: { "content-type": "application/json" },
++  });
++});
+diff --git a/supabase/functions/page-worker/index.ts b/supabase/functions/page-worker/index.ts
+new file mode 100644
+index 0000000..d6e7f80
+--- /dev/null
++++ b/supabase/functions/page-worker/index.ts
+@@ -0,0 +1,106 @@
++// deno-lint-ignore-file no-explicit-any
++/// <reference path="../_shared/types.d.ts" />
++import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
++
++const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
++const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
++
++async function invokeSelf(body: any) {
++  const url = `${SUPABASE_URL}/functions/v1/page-worker`;
++  return fetch(url, {
++    method: "POST",
++    headers: { Authorization: `Bearer ${SERVICE_ROLE}`, "Content-Type": "application/json" },
++    body: JSON.stringify(body),
++  });
++}
++
++Deno.serve(async (req) => {
++  if (req.method !== "POST") {
++    return new Response("Method Not Allowed", { status: 405 });
++  }
++  const { storyId } = await req.json().catch(() => ({}));
++  if (!storyId) return new Response("Missing storyId", { status: 400 });
++
++  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
++    auth: { persistSession: false },
++    global: { headers: { "X-Client-Info": "page-worker" } },
++  });
++
++  // Claim next job FIFO for this story
++  const { data: job, error: claimErr } = await admin.rpc("claim_next_story_page_job", { p_story_id: storyId });
++  if (claimErr) return new Response("Claim error: " + claimErr.message, { status: 500 });
++  if (!job) {
++    return new Response(JSON.stringify({ ok: true, message: "No queued jobs" }), {
++      headers: { "content-type": "application/json" },
++    });
++  }
++
++  // Load story + sheet
++  const { data: story, error: storyErr } = await admin
++    .from("stories")
++    .select("id, character_version, character_sheet")
++    .eq("id", storyId)
++    .single();
++  if (storyErr || !story) {
++    await admin.rpc("finish_story_page_job", { p_job_id: job.id, p_success: false, p_error: "Story not found" });
++    return new Response("Story not found", { status: 404 });
++  }
++  if (!story.character_sheet || Object.keys(story.character_sheet || {}).length === 0) {
++    await admin.rpc("finish_story_page_job", { p_job_id: job.id, p_success: false, p_error: "Character sheet missing" });
++    return new Response("Character sheet missing", { status: 400 });
++  }
++
++  let ok = false, errMsg = "";
++  try {
++    // === TODO: call your actual one-page renderer here ===
++    // await generateAndSavePage(storyId, job.page_index, story.character_sheet, job.character_version);
++    // It should write to storage / story_pages and set story_pages.character_version = job.character_version
++    ok = true;
++  } catch (e) {
++    ok = false; errMsg = (e as Error)?.message ?? String(e);
++    console.error("render error", e);
++  }
++
++  await admin.rpc("finish_story_page_job", {
++    p_job_id: job.id,
++    p_success: ok,
++    p_error: ok ? null : errMsg,
++  });
++
++  // If success, try next page for the same story (keeps runs short, avoids timeouts)
++  if (ok) {
++    const kick = invokeSelf({ storyId });
++    // @ts-ignore
++    EdgeRuntime.waitUntil(kick as unknown as Promise<unknown>);
++  }
++
++  return new Response(JSON.stringify({ ok, jobId: job.id, page_index: job.page_index }), {
++    headers: { "content-type": "application/json" },
++  });
++});
+diff --git a/supabase/migrations/20250808120000_character_sheet_and_jobs.sql b/supabase/migrations/20250808120000_character_sheet_and_jobs.sql
+new file mode 100644
+index 0000000..e7f809a
+--- /dev/null
++++ b/supabase/migrations/20250808120000_character_sheet_and_jobs.sql
+@@ -0,0 +1,124 @@
++-- Character sheet + simple jobs queue schema
++create extension if not exists pgcrypto;
++
++-- === Character sheet on stories ===
++alter table if exists public.stories
++  add column if not exists character_sheet jsonb not null default '{}'::jsonb;
++
++alter table if exists public.stories
++  add column if not exists character_version integer not null default 1;
++
++-- === Page provenance ===
++alter table if exists public.story_pages
++  add column if not exists character_version integer;
++
++update public.story_pages sp
++set character_version = s.character_version
++from public.stories s
++where sp.story_id = s.id and sp.character_version is null;
++
++-- === Jobs queue ===
++create table if not exists public.story_page_jobs (
++  id uuid primary key default gen_random_uuid(),
++  story_id uuid not null references public.stories(id) on delete cascade,
++  page_index integer not null,
++  payload jsonb not null default '{}'::jsonb,
++  character_version integer not null,
++  status text not null default 'queued' check (status in ('queued','processing','done','error')),
++  attempts integer not null default 0,
++  last_error text,
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now(),
++  unique (story_id, page_index)
++);
++
++create index if not exists idx_story_page_jobs_story_status
++  on public.story_page_jobs (story_id, status, page_index);
++
++-- updated_at trigger
++create or replace function public.set_updated_at()
++returns trigger as $$
++begin
++  new.updated_at = now();
++  return new;
++end;
++$$ language plpgsql;
++
++drop trigger if exists trg_story_page_jobs_updated on public.story_page_jobs;
++create trigger trg_story_page_jobs_updated
++before update on public.story_page_jobs
++for each row execute function public.set_updated_at();
++
++-- Keep it simple (service role functions handle access)
++alter table if exists public.story_page_jobs disable row level security;
++
++-- === Atomic claim/finish RPCs ===
++create or replace function public.claim_next_story_page_job(p_story_id uuid)
++returns public.story_page_jobs
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  v_job public.story_page_jobs;
++begin
++  select * into v_job
++    from public.story_page_jobs
++   where story_id = p_story_id
++     and status = 'queued'
++   order by page_index
++   for update skip locked
++   limit 1;
++
++  if v_job.id is null then
++    return null;
++  end if;
++
++  update public.story_page_jobs
++     set status = 'processing'
++   where id = v_job.id
++   returning * into v_job;
++
++  return v_job;
++end;
++$$;
++
++create or replace function public.finish_story_page_job(p_job_id uuid, p_success boolean, p_error text default null)
++returns public.story_page_jobs
++language plpgsql
++security definer
++set search_path = public
++as $$
++declare
++  v_job public.story_page_jobs;
++begin
++  if p_success then
++    update public.story_page_jobs
++       set status = 'done', last_error = null
++     where id = p_job_id
++     returning * into v_job;
++  else
++    update public.story_page_jobs
++       set status = 'error',
++           attempts = attempts + 1,
++           last_error = p_error
++     where id = p_job_id
++     returning * into v_job;
++  end if;
++
++  return v_job;
++end;
++$$;

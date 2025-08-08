@@ -15,3 +15,9 @@ verify_jwt = false
 
 [functions.send-story-email]
 verify_jwt = true
+
+[functions.enqueue-story]
+verify_jwt = true
+
+[functions.page-worker]
+verify_jwt = true
