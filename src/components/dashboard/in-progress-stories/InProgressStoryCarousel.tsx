@@ -26,6 +26,7 @@ export function InProgressStoryCarousel({
   const [currentPage, setCurrentPage] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
   const { subscription } = useSubscription();
 
   // Ensure story_pages is always an array and sort by page_number
@@ -109,6 +110,10 @@ export function InProgressStoryCarousel({
     }
   };
 
+  const handleToggleView = () => {
+    setShowOriginal(!showOriginal);
+  };
+
   if (!story || totalPages === 0) {
     return (
       <CarouselDialog
@@ -145,9 +150,12 @@ export function InProgressStoryCarousel({
           currentStoryPage={currentStoryPage}
           currentPage={currentPage}
           totalPages={totalPages}
+          showOriginal={showOriginal}
+          allowRegenerate={true}
           onPrevPage={prevPage}
           onNextPage={nextPage}
           onRegeneratePage={handleRegeneratePage}
+          onToggleView={handleToggleView}
         />
 
         <CarouselFooter

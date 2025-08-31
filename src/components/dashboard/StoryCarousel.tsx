@@ -13,6 +13,7 @@ interface StoryCarouselProps {
   onClose?: () => void;
   onSave?: () => void;
   showSaveButton?: boolean;
+  allowRegenerate?: boolean; // New prop to control regenerate functionality
 }
 
 export function StoryCarousel({ 
@@ -20,10 +21,13 @@ export function StoryCarousel({
   originalImages = [], 
   onClose, 
   onSave, 
-  showSaveButton = false 
+  showSaveButton = false,
+  allowRegenerate = false 
 }: StoryCarouselProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Ensure story_pages is always an array and sort by page_number
   const pages = (story?.story_pages || []).sort((a: any, b: any) => a.page_number - b.page_number);
@@ -86,6 +90,46 @@ export function StoryCarousel({
     }
   };
 
+  const handleRegeneratePage = async (pageId: string) => {
+    if (!allowRegenerate) return;
+    
+    setIsRegenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('regenerate-page', {
+        body: { 
+          pageId, 
+          storyId: story.id, 
+          artStyle: story.art_style || 'watercolor'
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Page Regenerated! ✨",
+        description: "The page has been regenerated successfully!",
+      });
+
+      // Call onSave to refresh data if it's available
+      if (onSave) {
+        onSave();
+      }
+    } catch (error: any) {
+      console.error('Error regenerating page:', error);
+      toast({
+        title: "Regeneration Failed",
+        description: error.message || "Failed to regenerate page. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleToggleView = () => {
+    setShowOriginal(!showOriginal);
+  };
+
   if (!story || totalPages === 0) {
     return (
       <CarouselDialog 
@@ -101,6 +145,8 @@ export function StoryCarousel({
   }
 
   const currentStoryPage = pages[currentPage];
+
+
 
   return (
     <CarouselDialog 
@@ -120,9 +166,12 @@ export function StoryCarousel({
         currentStoryPage={currentStoryPage}
         currentPage={currentPage}
         totalPages={totalPages}
+        showOriginal={showOriginal}
+        allowRegenerate={allowRegenerate}
         onPrevPage={prevPage}
         onNextPage={nextPage}
-        onRegeneratePage={() => {}} // Empty function for this carousel type
+        onRegeneratePage={handleRegeneratePage}
+        onToggleView={handleToggleView}
       />
 
       <CarouselFooter

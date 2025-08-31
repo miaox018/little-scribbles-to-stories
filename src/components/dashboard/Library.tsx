@@ -172,6 +172,7 @@ export function Library({ onNavigateToCreate }: LibraryProps) {
           story={selectedStory}
           onClose={() => setSelectedStory(null)}
           showSaveButton={false}
+          allowRegenerate={false}
         />
       )}
 
