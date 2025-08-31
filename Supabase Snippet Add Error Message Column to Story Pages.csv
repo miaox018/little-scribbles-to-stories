@@ -1,0 +1,170 @@
+id,story_id,page_number,original_image_url,generated_image_url,user_feedback,is_approved,created_at,updated_at,enhanced_prompt,transformation_status,error_message,ocr_confidence,original_text,final_text,analysis_data,processing_job_id,character_version,story_text
+cbab9592-fadd-48fb-8aaa-1dca5fb2b766,ec643dd4-63e0-49e9-b5e6-fc83e29d550c,1,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/temp/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_1_1755627303196.jpeg,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/generated/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_1_1755627409939.png,null,false,2025-08-19 18:16:50.3702+00,2025-08-19 18:16:50.323+00,"1. **Scene Composition and Visual Elements**:
+   - The drawing is framed inside a representation of a book cover.
+   - The main character is centered, suggesting they are the focal point of the story.
+   - The background consists of blended colors, creating a simple, textured backdrop.
+
+2. **Character Poses, Expressions, and Actions**:
+   - The main character stands upright, facing forward, with a friendly expression suggested by simplistic facial features.
+   - The character’s arms are positioned neutrally by their side, conveying a sense of calm or readiness.
+
+3. **Background Setting and Environment**:
+   - The background is abstract, with no specific setting features visible, allowing focus to remain on the character.
+   - The use of blended colors like gray, purple, and blue provides a soft, imaginative environment.
+
+4. **Colors, Lighting, and Atmosphere**:
+   - Bright and cheerful colors dominate the character's outfit: a blue bottom and a top with hints of color.
+   - The atmosphere is cheerful and inviting, aiming for a child-friendly and imaginative tone.
+
+5. **Objects, Props, or Scenic Elements**:
+   - The surroundings are minimalistic, with no distinct objects or props, which keeps the focus entirely on the character.
+
+**Professional Illustration Guidance**:
+- **Character Consistency**: Ensure the main character has the same distinctive features and colorful outfit in every illustration. The friendly expression should be a consistent trait.
+- **Detailed Background**: While the child’s drawing uses an abstract background, a professional illustration could incorporate subtle hints of a mall setting to enhance the theme without losing the simplicity.
+- **Color Palette**: Use a bright, harmonious color scheme to maintain the cheerful atmosphere. Combine smooth gradients and textures to reflect the blended feel of the drawing.
+- **Lighting**: Include soft, uniformly distributed lighting to give the illustration a warm and welcoming ambiance.
+
+The professional illustration should capture the childlike essence and simplicity of the original drawing while adding depth and context to support the story visually.",completed,null,null,"```json
+{
+  ""extracted_text"": ""A day at the mall. By: Ni Shen"",
+  ""story_narrative"": ""A young girl is excited to start her adventure at the mall."",
+  ""dialogue"": """",
+  ""scene_description"": ""The page s","```json
+{
+  ""extracted_text"": ""A day at the mall. By: Ni Shen"",
+  ""story_narrative"": ""A young girl is excited to start her adventure at the mall."",
+  ""dialogue"": """",
+  ""scene_description"": ""The page s",{},null,2,null
+d75b2df3-b48a-491c-9205-9ebebc8c04db,ec643dd4-63e0-49e9-b5e6-fc83e29d550c,2,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/temp/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_2_1755627303198.jpeg,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/generated/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_2_1755627408284.png,null,false,2025-08-19 18:16:48.630331+00,2025-08-19 18:16:48.604+00,"The image you provided features a border of stars around a dedication note. Let's analyze how a professional illustration could be created based on visual elements while maintaining character consistency:
+
+### 1. Scene Composition and Visual Elements
+
+- **Stars as Motif**: Stars of various sizes and colors are scattered, creating a whimsical, magical border. These can be integrated into the illustration by positioning them as guiding or playful elements in the background.
+
+### 2. Character Poses, Expressions, and Actions
+
+- **Main Character**: Ensure the main character has a friendly expression, with a bright, colorful outfit. Poses should convey action or interaction, such as reaching for a star or dancing among them to relate to the border theme.
+
+### 3. Background Setting and Environment
+
+- **Celestial Theme**: Use a night sky or cosmic backdrop to maintain the theme. The environment should feel open and vast, with twinkling stars enhancing the sense of wonder.
+
+### 4. Colors, Lighting, and Atmosphere
+
+- **Color Palette**: Use bright, cheerful colors. Integrate the yellow and green from the stars, adding contrast with blues or purples for the sky.
+- **Lighting**: Stars should have a gentle glow effect, adding warmth and setting a dreamy atmosphere that highlights the character's features and adds depth.
+
+### 5. Objects, Props, or Scenic Elements
+
+- **Props**: Consider adding a small telescope or constellation map for the character if looking towards the stars, or a magical object like a glowing orb.
+- **Scenic Elements**: Floating clouds or a crescent moon to create layers within the illustration, enhancing the celestial feel.
+
+### Creating a Professional Illustration
+
+- **Consistency**: Ensure the main character maintains their distinctive features and friendly appearance from the original drawing. 
+- **Dynamic Storytelling**: Use poses and expressions that convey a sense of adventure or curiosity.
+- **Integration of Elements**: Seamlessly blend the elements of the starry border into the scene to create cohesion between the dedication’s whimsical tone and the story’s visual journey.
+
+This approach ensures a captivating and consistent illustration for the children's story, reflecting the playful and imaginative nature of the original drawing elements.",completed,null,null,"```json
+{
+  ""extracted_text"": ""This book is dedicated to My Family because they take care of me."",
+  ""story_narrative"": ""The book is lovingly dedicated to the child's family, highlighting their care a","```json
+{
+  ""extracted_text"": ""This book is dedicated to My Family because they take care of me."",
+  ""story_narrative"": ""The book is lovingly dedicated to the child's family, highlighting their care a",{},null,2,null
+7906e333-fb22-4ecd-9a8e-15899c7039d4,ec643dd4-63e0-49e9-b5e6-fc83e29d550c,3,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/temp/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_3_1755627303198.jpeg,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/generated/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_3_1755627487868.png,null,false,2025-08-19 18:18:08.253174+00,2025-08-19 18:18:08.223+00,"1. **Scene Composition and Visual Elements:**
+   - The drawing depicts a scene at a mall with a central character positioned prominently.
+   - There are two sections labeled ""Womens"" and ""Mens"", indicating different clothing areas.
+
+2. **Character Poses, Expressions, and Actions:**
+   - The main character stands in the center, facing forward with a friendly expression.
+   - Their pose is simple, appearing relaxed and approachable.
+
+3. **Background Setting and Environment:**
+   - The setting is minimal, focusing on the character and the clothing sections.
+   - The environment suggests a shopping area, indicated by the labeled sections and items.
+
+4. **Colors, Lighting, and Atmosphere:**
+   - The colors are bright and cheerful, with blue for the outfit, red for some clothing items, and yellow hair, creating a lively atmosphere.
+   - The lighting appears flat, typical of children's drawings, emphasizing simplicity and clarity.
+
+5. **Objects, Props, or Scenic Elements:**
+   - A counter and cash register are drawn, reinforcing the mall setting.
+   - Clothing items on either side, like skirts and shirts, add detail and context to the setting.
+
+**Professional Illustration Guidelines:**
+
+- **Character Consistency:** Ensure the main character maintains their distinctive features, such as hair color, facial expression, and outfit colors.
+- **Detail Enhancement:** Add more detailed textures to clothing and environment but retain the childlike charm through vibrant, bold coloring.
+- **Background Detail:** Include more specific mall elements like shop signs, other shoppers, or decorative elements to create depth.
+- **Dynamic Composition:** Introduce varied angles or perspectives to make the scene more visually engaging while keeping the character as the focal point.
+- **Color and Lighting:** Use shading and gradients to give the image depth while preserving the bright and cheerful color palette.",completed,null,null,"```json
+{
+  ""extracted_text"": ""One boiling summer day, Rose was at the mall. Rose is a girl who always forgetting where she puts her stuff including her mom's car key. She can only remember where she ","```json
+{
+  ""extracted_text"": ""One boiling summer day, Rose was at the mall. Rose is a girl who always forgetting where she puts her stuff including her mom's car key. She can only remember where she ",{},null,2,null
+71b1664e-8d8c-4e4c-9698-74fbf392b491,ec643dd4-63e0-49e9-b5e6-fc83e29d550c,4,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/temp/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_4_1755627303198.jpeg,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/generated/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_4_1755627487767.png,null,false,2025-08-19 18:18:08.118615+00,2025-08-19 18:18:08.094+00,"I’m unable to see the specific child's drawing related to your description. However, I can guide you on how to analyze a child's drawing for creating a professional illustration with the information you provided.
+
+### Visual Analysis
+
+1. **Scene Composition and Visual Elements**
+   - **Arrangement**: Consider the placement of characters and objects. Ensure balance and focus around the main character.
+   - **Perspective**: Choose an engaging perspective that draws the viewer's eye, such as eye-level for relatability.
+
+2. **Character Poses, Expressions, and Actions**
+   - **Pose**: Capture a dynamic or engaging pose for the main character that reflects their personality.
+   - **Expression**: Emphasize a friendly expression with big, inviting eyes and a smile.
+   - **Action**: Depict the character involved in a child-friendly action, like playing or interacting with the environment.
+
+3. **Background Setting and Environment**
+   - **Setting**: Create a simple, recognizable environment suitable for the story, with elements that evoke a sense of place (e.g., park, schoolyard).
+   - **Details**: Include child-relatable details like swings or colorful trees.
+
+4. **Colors, Lighting, and Atmosphere**
+   - **Colors**: Use bright, cheerful colors for both the character and the background to maintain a joyful atmosphere.
+   - **Lighting**: Soft, natural lighting can enhance the friendly and inviting feel.
+
+5. **Objects, Props, or Scenic Elements**
+   - **Props**: Include colorful and relevant props that align with the story, such as toys or books.
+   - **Details**: Add small details to enrich the scene without overcrowding it, like butterflies or flowers.
+
+### Creating the Professional Illustration
+
+- **Maintain Character Consistency**:
+  - Use the same bright colors and clothing patterns established in the child's drawing.
+  - Ensure the character's distinctive features are faithfully represented.
+  - Keep the character's expression and stance consistent throughout the story, making minor adjustments for different actions or emotions.
+
+By following these guidelines, you can create an illustration that remains true to the original drawing's spirit and visual elements while enhancing it for professional publication.",completed,null,null,"```json
+{
+  ""extracted_text"": ""She checked again no wallet. Her face turned as red as a tomato. She looked on the ground. Then she asked the employee to take her to a place you can claim car keys, jac","```json
+{
+  ""extracted_text"": ""She checked again no wallet. Her face turned as red as a tomato. She looked on the ground. Then she asked the employee to take her to a place you can claim car keys, jac",{},null,2,null
+2db8e8d2-208e-4e71-bbe1-b892c9f48dd5,ec643dd4-63e0-49e9-b5e6-fc83e29d550c,5,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/temp/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_5_1755627303198.jpeg,https://mpmbduoffaldnkhrkxxp.supabase.co/storage/v1/object/public/story-images/2542f7c3-ef8d-4219-8916-39f3b1ba5785/generated/ec643dd4-63e0-49e9-b5e6-fc83e29d550c/page_5_1755627560708.png,null,false,2025-08-19 18:19:21.097616+00,2025-08-19 18:19:21.059+00,"I can't see the child's drawing in your description, but I can guide you on creating a professional illustration:
+
+1. **Scene Composition and Visual Elements**:
+   - Create a visually balanced scene, focusing on the main character.
+   - Ensure the character is prominently placed to catch the viewer's eye.
+
+2. **Character Poses, Expressions, and Actions**:
+   - The main character should have a friendly, expressive face. 
+   - Capture a moment of interaction between the character and their environment, possibly showing a sense of anticipation or relief.
+
+3. **Background Setting and Environment**:
+   - Design a cozy, child-friendly space that complements the character's actions, like a living room or a backyard scene.
+   - Use simple shapes and elements to make the space feel inviting and not overwhelming.
+
+4. **Colors, Lighting, and Atmosphere**:
+   - Use bright, cheerful colors that align with the character's colorful outfit.
+   - Employ soft lighting to create a warm atmosphere.
+
+5. **Objects, Props, or Scenic Elements**:
+   - Include relevant objects that interact with the storyline, like a chair or a toy nearby.
+   - Add simple decorative elements that enhance the scene without taking focus away from the characters.
+
+Make sure the character stays visually consistent with defined distinctive features from the child's original drawing.",completed,null,null,"```json
+{
+  ""extracted_text"": ""Rose felt nervous about telling her mom. She felt butterflies in her stomach. When her mom came back from the bathroom, instead of grounding her, she was happy Rose told","```json
+{
+  ""extracted_text"": ""Rose felt nervous about telling her mom. She felt butterflies in her stomach. When her mom came back from the bathroom, instead of grounding her, she was happy Rose told",{},null,2,null

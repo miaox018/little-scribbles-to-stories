@@ -21,3 +21,12 @@ verify_jwt = true
 
 [functions.page-worker]
 verify_jwt = true
+
+[functions.cleanup-expired-stories]
+verify_jwt = true
+
+[functions.simple-orchestrator]
+verify_jwt = true
+
+[functions.simple-page-worker]
+verify_jwt = true

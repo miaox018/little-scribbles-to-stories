@@ -119,35 +119,54 @@ export default function SharedStory() {
           <div className="p-6">
             {sortedPages.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                {/* Story Pages with Text */}
+                <div className="space-y-8 mb-6">
                   {sortedPages.slice(0, 8).map((page: any) => (
-                    <div key={page.id} className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden">
-                      {page.generated_image_url ? (
-                        <img
-                          src={page.generated_image_url}
-                          alt={`Page ${page.page_number}`}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.log('❌ Image failed to load:', page.generated_image_url);
-                            // Try original image as fallback
-                            if (page.original_image_url && e.currentTarget.src !== page.original_image_url) {
-                              e.currentTarget.src = page.original_image_url;
-                            }
-                          }}
-                        />
-                      ) : page.original_image_url ? (
-                        <img
-                          src={page.original_image_url}
-                          alt={`Page ${page.page_number}`}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <span className="text-sm">Page {page.page_number}</span>
+                    <div key={page.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                      {/* Page Header */}
+                      <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3">
+                        <h3 className="text-lg font-semibold">Page {page.page_number}</h3>
+                      </div>
+                      
+                      <div className="p-6">
+                        {/* Image */}
+                        <div className="mb-6 flex justify-center">
+                          <div className="max-w-md">
+                            {page.generated_image_url ? (
+                              <img
+                                src={page.generated_image_url}
+                                alt={`Page ${page.page_number}`}
+                                className="w-full h-auto rounded-lg shadow-md"
+                                onError={(e) => {
+                                  console.log('❌ Image failed to load:', page.generated_image_url);
+                                  // Try original image as fallback
+                                  if (page.original_image_url && e.currentTarget.src !== page.original_image_url) {
+                                    e.currentTarget.src = page.original_image_url;
+                                  }
+                                }}
+                              />
+                            ) : page.original_image_url ? (
+                              <img
+                                src={page.original_image_url}
+                                alt={`Page ${page.page_number}`}
+                                className="w-full h-auto rounded-lg shadow-md"
+                              />
+                            ) : (
+                              <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                                <span className="text-sm">Page {page.page_number}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <div className="absolute bottom-1 right-1 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                        {page.page_number}
+                        
+                        {/* Story Text */}
+                        {(page.final_text || page.original_text) && (
+                          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-100">
+                            <p className="text-lg leading-relaxed text-gray-800 font-medium text-center">
+                              {page.final_text || page.original_text}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

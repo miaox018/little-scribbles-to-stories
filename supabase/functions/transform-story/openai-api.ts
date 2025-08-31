@@ -4,6 +4,72 @@ async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export async function analyzeCharacterDetails(imageDataUrl: string, retryCount = 0): Promise<string> {
+  const maxRetries = 2;
+  const baseDelay = 1000;
+  
+  try {
+    console.log(`[Character Analysis] Extracting character details (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    
+    if (retryCount > 0) {
+      await delay(baseDelay * Math.pow(2, retryCount - 1));
+    }
+
+    const prompt = `Analyze this professional children's book illustration and extract detailed character information for maintaining consistency across story pages:
+
+FOCUS ON THE MAIN CHARACTER:
+- Hair: exact color, style, length, texture (e.g., "brown shoulder-length wavy hair")
+- Clothing: specific colors, style, patterns (e.g., "light blue sweater with orange/pink outfit")
+- Physical features: age, size, facial features, skin tone
+- Distinctive visual elements that make them recognizable
+- Color palette used for this character
+
+PROVIDE A DETAILED DESCRIPTION (3-4 sentences) that another artist could use to draw the exact same character. Be specific about colors, clothing, and distinctive features:`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: imageDataUrl } }
+            ]
+          }
+        ],
+        max_tokens: 300
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 429 && retryCount < maxRetries) {
+        console.log(`Character analysis rate limited, retrying...`);
+        return await analyzeCharacterDetails(imageDataUrl, retryCount + 1);
+      }
+      throw new Error(`Character analysis failed: ${errorText}`);
+    }
+
+    const data = await response.json();
+    const result = data.choices[0].message.content;
+    console.log(`[Character Analysis] Raw response: ${result.substring(0, 200)}...`);
+    console.log(`[Character Analysis] Full character details extracted:`, result);
+    return result;
+  } catch (error) {
+    console.error(`[Character Analysis] Error: ${error.message}`);
+    if (retryCount < maxRetries && error.message.includes('rate limit')) {
+      return await analyzeCharacterDetails(imageDataUrl, retryCount + 1);
+    }
+    return ""; // Return empty string on failure instead of throwing
+  }
+}
+
 export async function analyzeImageWithGPT(imageDataUrl: string, prompt: string, retryCount = 0): Promise<string> {
   const maxRetries = 3;
   const baseDelay = 2000; // 2 seconds

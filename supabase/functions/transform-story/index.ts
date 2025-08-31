@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from './config.ts';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleCorsRequest, validateRequest, validateRequestBody } from './request-handler.ts';
 import { validateStoryExists } from './story-validation.ts';
 import { processSynchronously } from './sync-processor.ts';
@@ -69,8 +70,8 @@ serve(async (req) => {
       );
     }
 
-    // ENHANCED HYBRID PROCESSING LOGIC
-    const SYNC_THRESHOLD = 3;
+    // Simple two-path processing: sync for small stories, async for large ones
+    const SYNC_THRESHOLD = 4; // Increased to 4 pages for sync processing
     let result;
 
     if (requestBody.imageUrls.length <= SYNC_THRESHOLD) {
@@ -83,41 +84,8 @@ serve(async (req) => {
         );
       }
     } else {
-      console.log(`[PROCESSING] Using queued background mode for ${requestBody.imageUrls.length} pages`);
-
-      // Build 1-based page inputs with storageUrl for each page
-      const pageInputs = requestBody.imageUrls.map((img: any, idx: number) => ({
-        page_number: idx + 1,
-        storageUrl: img.storageUrl,
-      }));
-
-      // Invoke enqueue-story with service role to set up jobs and kick the worker
-      const enqueueResp = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/enqueue-story`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ storyId, pageInputs }),
-      });
-
-      if (!enqueueResp.ok) {
-        const txt = await enqueueResp.text();
-        throw new Error(JSON.stringify({ error: `Enqueue failed: ${txt}` }));
-      }
-
-      // Update story state immediately
-      await supabase
-        .from('stories')
-        .update({ status: 'processing', description: `Queued ${pageInputs.length} pages`, updated_at: new Date().toISOString() })
-        .eq('id', storyId);
-
-      result = {
-        success: true,
-        message: `Queued ${pageInputs.length} pages for background processing`,
-        status: 'processing',
-        processing_mode: 'queued',
-      };
+      console.log(`[PROCESSING] Using async processing for ${requestBody.imageUrls.length} pages`);
+      result = await startAsyncProcessing(storyId, requestBody.imageUrls, artStyle, userId, supabase);
     }
 
     console.log('=== EDGE FUNCTION SUCCESS ===');

@@ -25,6 +25,7 @@ export async function processSynchronously(
   const stylePrompt = artStylePrompts[artStyle as keyof typeof artStylePrompts] || artStylePrompts.classic_watercolor;
   let characterDescriptions = "";
   let artStyleGuidelines = "";
+  let page1Analysis = ""; // Store analysis from page 1 for character consistency
   let successfulPages = 0;
   let failedPages = 0;
 
@@ -80,14 +81,43 @@ export async function processSynchronously(
 
       successfulPages++;
 
-      // Update context for next pages
+      // Extract character info from page 1 for consistency
       if (i === 0) {
-        characterDescriptions = `- Character designs and appearances established in page 1
-- Clothing styles and color schemes from page 1`;
-        artStyleGuidelines = `- Art style: ${stylePrompt}
-- Visual language and composition style from page 1
-- Text typography and placement style from page 1
-- Portrait orientation (3:4 aspect ratio) with safe margins`;
+        page1Analysis = result.analysisText || "";
+        const extractedCharacterDetails = result.characterDetails || "";
+        
+        console.log(`[CHARACTER_DEBUG] Page 1 character extraction result:`, extractedCharacterDetails);
+        console.log(`[CHARACTER_DEBUG] Character details length:`, extractedCharacterDetails.length);
+        
+        // Use actual character details from page 1 analysis
+        if (extractedCharacterDetails && extractedCharacterDetails.trim().length > 0) {
+          characterDescriptions = `MAIN CHARACTER CONSISTENCY from Page 1:
+${extractedCharacterDetails}
+
+CRITICAL: Maintain these exact character features in all subsequent pages:
+- Keep identical appearance, clothing, and distinctive visual elements
+- Character must be immediately recognizable as the same person
+- Preserve the artistic style and colors used for this character in page 1`;
+          
+          console.log(`[CHARACTER_DEBUG] Using extracted character details for subsequent pages`);
+        } else {
+          characterDescriptions = `MAIN CHARACTER CONSISTENCY from Page 1:
+- Keep the same character appearance, facial features, and expression style  
+- Maintain consistent clothing colors and style from page 1
+- Preserve the same artistic interpretation of the character
+- Character should be immediately recognizable as the same person from page 1`;
+          
+          console.log(`[CHARACTER_DEBUG] Using fallback character descriptions - extraction failed or empty`);
+        }
+        
+        console.log(`[CHARACTER_DEBUG] Final character descriptions:`, characterDescriptions);
+        
+        artStyleGuidelines = `VISUAL STYLE CONSISTENCY from Page 1:
+- Art style: ${stylePrompt}
+- Maintain the same artistic approach, line work, and color palette established in page 1
+- Keep consistent illustration style and level of detail
+- Portrait orientation (2:3 aspect ratio) with safe margins
+- Same lighting and artistic treatment`;
       }
 
       console.log(`[SYNC] Completed page ${currentPage} of ${imageUrls.length}`);

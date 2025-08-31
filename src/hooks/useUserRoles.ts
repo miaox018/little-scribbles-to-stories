@@ -48,7 +48,7 @@ export const useUserRoles = () => {
         .upsert({
           user_id: targetUserId,
           role: 'admin'
-        });
+        }, { onConflict: 'user_id,role', ignoreDuplicates: true });
 
       if (error) throw error;
     },
@@ -88,7 +88,7 @@ export const useUserRoles = () => {
         .upsert({
           user_id: profile.id,
           role: 'admin'
-        });
+        }, { onConflict: 'user_id,role', ignoreDuplicates: true });
 
       if (error) throw error;
       return profile.id;

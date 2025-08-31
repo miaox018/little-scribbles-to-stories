@@ -4,16 +4,24 @@ export function buildPrompt(pageNumber: number, stylePrompt: string, characterDe
   if (pageNumber === 1) {
     contextPrompt = `This is PAGE 1 of a children's story book. ESTABLISH the character designs, art style, and story world that will be consistent throughout all pages. Use the following art style: ${stylePrompt}`;
   } else {
-    contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. MAINTAIN CONSISTENCY with the established:
+    console.log(`[PROMPT_DEBUG] Building prompt for page ${pageNumber}`);
+    console.log(`[PROMPT_DEBUG] Character descriptions received:`, characterDescriptions);
+    console.log(`[PROMPT_DEBUG] Art style guidelines:`, artStyleGuidelines);
+    
+    contextPrompt = `This is PAGE ${pageNumber} of the same children's story book. 
+
+🔑 CRITICAL CHARACTER CONSISTENCY REQUIREMENTS:
 ${characterDescriptions}
+
+🎨 VISUAL STYLE CONSISTENCY:
 ${artStyleGuidelines}
 
-Use the following art style: ${stylePrompt}
+⚠️ CONSISTENCY PRIORITY: Character recognition is CRITICAL. The main character must look exactly like they did in page 1. Same hair, same clothes, same facial features, same proportions. Readers must immediately recognize this as the same character.
 
-Previous pages in this story have been generated with these visual elements. Ensure the same characters, art style, and story world continue seamlessly.`;
+Use the following art style: ${stylePrompt}`;
   }
-
-  return `${contextPrompt}
+  
+  const fullPrompt = `${contextPrompt}
 
 Transform this child's hand-drawn story page into a professional children's book illustration.
 
@@ -59,4 +67,10 @@ CONSISTENCY REQUIREMENTS (for pages after page 1):
 - Ensure characters look identical to how they appeared before
 
 FINAL CHECK: The text in the final image must be as clear and readable as text in a printed children's book. If any text appears blurry, distorted, or unclear, the image fails the quality standard. The illustration must work perfectly in portrait orientation with proper margins for a children's book layout.`;
+
+  if (pageNumber > 1) {
+    console.log(`[PROMPT_DEBUG] Full prompt for page ${pageNumber} (first 500 chars):`, fullPrompt.substring(0, 500));
+  }
+  
+  return fullPrompt;
 }

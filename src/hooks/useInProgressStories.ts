@@ -21,7 +21,9 @@ export const useInProgressStories = () => {
             page_number,
             original_image_url,
             generated_image_url,
-            transformation_status
+            transformation_status,
+            original_text,
+            final_text
           )
         `)
         .eq('user_id', user.id)

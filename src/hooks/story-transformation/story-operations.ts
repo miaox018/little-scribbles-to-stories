@@ -98,7 +98,9 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
             page_number,
             original_image_url,
             generated_image_url,
-            transformation_status
+            transformation_status,
+            original_text,
+            final_text
           )
         `)
         .eq('id', storyId)
@@ -126,7 +128,7 @@ export const pollForStoryCompletion = async (storyId: string, userId: string, up
     }
   }
   
-  // Clean up temporary images even on timeout
-  await cleanupTempImages(storyId, userId);
+  // Do not clean up on timeout so we can inspect/retry with original inputs
+  console.warn('Story processing timeout; keeping temp images for debugging/retry');
   throw new Error('Story processing timeout');
 };

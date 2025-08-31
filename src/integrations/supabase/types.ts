@@ -204,6 +204,8 @@ export type Database = {
           id: string
           is_approved: boolean | null
           original_image_url: string | null
+          original_text: string | null
+          final_text: string | null
           page_number: number
           story_id: string
           transformation_status: string | null
@@ -217,6 +219,8 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           original_image_url?: string | null
+          original_text?: string | null
+          final_text?: string | null
           page_number: number
           story_id: string
           transformation_status?: string | null
@@ -230,6 +234,8 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           original_image_url?: string | null
+          original_text?: string | null
+          final_text?: string | null
           page_number?: number
           story_id?: string
           transformation_status?: string | null

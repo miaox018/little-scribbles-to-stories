@@ -63,14 +63,25 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
         }
         .page-image { 
           max-width: 100%; 
-          max-height: 500px;
+          max-height: 400px;
           height: auto; 
           border-radius: 8px; 
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          margin-bottom: 15px;
+          margin-bottom: 20px;
           display: block;
           margin-left: auto;
           margin-right: auto;
+        }
+        .page-text {
+          font-size: 18px;
+          line-height: 1.6;
+          color: #333;
+          text-align: left;
+          padding: 15px 20px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          margin-top: 15px;
+          font-family: 'Comic Sans MS', cursive, sans-serif;
         }
         .page-placeholder {
           width: 100%;
@@ -129,6 +140,10 @@ export async function generateStoryPDF(story: any, storyPages: any[]): Promise<U
                  📷 Image for Page ${page.page_number}<br/>
                  <small>Image was being processed or unavailable</small>
                </div>`
+            }
+            ${page.final_text || page.original_text ? 
+              `<div class="page-text">${page.final_text || page.original_text}</div>` : 
+              ''
             }
           </div>
         `).join('')}

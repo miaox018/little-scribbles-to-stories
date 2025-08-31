@@ -63,7 +63,9 @@ const handler = async (req: Request): Promise<Response> => {
           page_number,
           original_image_url,
           generated_image_url,
-          transformation_status
+          transformation_status,
+          original_text,
+          final_text
         )
       `)
       .eq('id', storyId)

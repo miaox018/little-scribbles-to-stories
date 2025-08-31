@@ -9,6 +9,8 @@ interface StoryPage {
   original_image_url: string | null;
   generated_image_url: string | null;
   transformation_status: string | null;
+  original_text?: string | null;
+  final_text?: string | null;
 }
 
 interface StoryImageDisplayProps {
@@ -78,20 +80,41 @@ export function StoryImageDisplay({
     );
   }
 
+  const storyText = currentPageData.final_text || currentPageData.original_text;
+
   return (
     <ScrollArea className="h-full">
-      <div className="p-4 min-h-full flex justify-center">
-        <img
-          src={currentImageUrl}
-          alt={`Page ${currentPageData.page_number}`}
-          className="story-page-image rounded-lg shadow-sm transition-transform duration-200 ease-in-out"
-          style={{ 
-            transform: `scale(${scale})`,
-            transformOrigin: 'center top'
-          }}
-          onError={onImageError}
-          onLoad={onImageLoad}
-        />
+      <div className="p-4 min-h-full">
+        {/* Image Display */}
+        <div className="flex justify-center mb-4">
+          <img
+            src={currentImageUrl}
+            alt={`Page ${currentPageData.page_number}`}
+            className="story-page-image rounded-lg shadow-sm transition-transform duration-200 ease-in-out"
+            style={{ 
+              transform: `scale(${scale})`,
+              transformOrigin: 'center top'
+            }}
+            onError={onImageError}
+            onLoad={onImageLoad}
+          />
+        </div>
+        
+        {/* Story Text Display */}
+        {storyText && (
+          <div className="mt-6 max-w-2xl mx-auto">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+              <div className="text-center mb-3">
+                <span className="text-sm font-medium text-purple-600 bg-purple-100 px-3 py-1 rounded-full">
+                  Page {currentPageData.page_number} Story
+                </span>
+              </div>
+              <p className="text-lg leading-relaxed text-gray-800 font-medium text-center">
+                {storyText}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </ScrollArea>
   );

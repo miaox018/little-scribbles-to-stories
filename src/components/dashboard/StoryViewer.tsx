@@ -11,6 +11,8 @@ interface StoryPage {
   original_image_url: string | null;
   generated_image_url: string | null;
   transformation_status: string | null;
+  original_text?: string | null;
+  final_text?: string | null;
 }
 
 interface Story {
