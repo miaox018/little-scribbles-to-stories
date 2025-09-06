@@ -4,7 +4,8 @@ export const FEATURES = {
   // Set to 'true' to enable Google OAuth authentication
   // Set to 'false' to temporarily disable Google OAuth while waiting for verification approval
   // When Google OAuth is disabled, users can still sign in/up with email and password
-  GOOGLE_AUTH_ENABLED: import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true',
+  GOOGLE_AUTH_ENABLED: true, // Hardcoded to true until Vercel env var issue is resolved
+  // GOOGLE_AUTH_ENABLED: import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true',
   
   // Other feature flags can be added here in the future
 } as const;
