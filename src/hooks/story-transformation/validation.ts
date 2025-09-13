@@ -3,30 +3,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 export const validateStoryCreation = async (userId: string) => {
-  console.log('Checking if user can create story...');
-  
-  const { data: canCreate } = await supabase.rpc('can_create_story', {
-    user_id_param: userId
-  });
-
-  console.log('Can create story:', canCreate);
-  
-  if (!canCreate) {
-    throw new Error('Story limit reached. Please upgrade your plan.');
-  }
+  console.log('Story creation validation - with credit system, users can always create stories');
+  // With credit system, story creation is always allowed
+  // Credit validation happens at page upload time
+  return true;
 };
 
 export const validatePageUpload = async (userId: string, storyId: string, imageCount: number) => {
-  console.log('Checking page upload limits...');
+  console.log(`Checking if user has ${imageCount} credits for page upload...`);
   
-  const { data: canUpload } = await supabase.rpc('can_upload_pages', {
+  const { data: hasEnoughCredits } = await supabase.rpc('check_user_credits', {
     user_id_param: userId,
-    story_id_param: storyId,
-    additional_pages: imageCount
+    credits_needed: imageCount
   });
 
-  if (!canUpload) {
-    throw new Error('Page upload limit exceeded. Please upgrade your plan.');
+  if (!hasEnoughCredits) {
+    throw new Error(`You need ${imageCount} credits to upload ${imageCount} pages. Purchase more credits to continue.`);
   }
 };
 

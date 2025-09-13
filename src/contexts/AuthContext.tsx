@@ -51,9 +51,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/dashboard`;
     
-    const { error } = await supabase.auth.signUp({
+    console.log('🔍 SignUp Debug:', { email, redirectUrl });
+    
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -63,6 +65,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     });
+    
+    console.log('📧 SignUp Response:', { data, error });
+    
+    if (data.user && !data.session) {
+      console.log('✅ User created, verification email should be sent');
+    } else if (data.session) {
+      console.log('⚠️ User signed up without email verification');
+    }
+    
     return { error };
   };
 

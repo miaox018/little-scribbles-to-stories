@@ -101,20 +101,14 @@ export function InProgressStories() {
   };
 
   const handleSaveToLibrary = async (story: any) => {
-    // For free users, show paywall
-    if (subscription.subscription_tier === 'free') {
-      setPaywallStory(story);
-      return;
-    }
-
-    // For paid users, save directly
+    // With credit system, all users can save to library
     setSavingStory(true);
     
     try {
       await saveStoryToLibrary(story.id);
       toast({
-        title: "Success",
-        description: "Story saved to library!"
+        title: "Success! 📚",
+        description: `"${story.title}" has been saved to your library!`
       });
       // Close carousel after successful save
       setShowCarousel(false);

@@ -10,6 +10,7 @@ import { AdminPanel } from "@/components/dashboard/AdminPanel";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserRoles } from "@/hooks/useUserRoles";
 import { useInProgressStories } from "@/hooks/useInProgressStories";
+import { CreditCounter } from "@/components/credits/CreditCounter";
 import { useState, useEffect, useRef } from "react";
 import { LogOut, User, Shield } from "lucide-react";
 
@@ -78,6 +79,7 @@ const Dashboard = () => {
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
+                <CreditCounter showPurchaseButton={true} showHistoryButton={true} />
                 {(activeTab === "library" || activeTab === "in-progress") && <RecoveryButton />}
                 <div className="flex items-center space-x-2 text-gray-600">
                   <User className="h-4 w-4" />

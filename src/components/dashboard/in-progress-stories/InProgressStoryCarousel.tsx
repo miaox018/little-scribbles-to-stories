@@ -54,12 +54,7 @@ export function InProgressStoryCarousel({
     
     if (!story?.id) return;
     
-    // Check if user has paid subscription
-    if (subscription.subscription_tier === 'free') {
-      setShowPaywall(true);
-      return;
-    }
-    
+    // With credit system, all users can save to library
     setIsSaving(true);
     try {
       console.log('Saving story to library:', story.id);
