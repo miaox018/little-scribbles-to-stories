@@ -225,6 +225,29 @@ serve(async (req) => {
     // Validate user ownership
     await validateUserOwnership(supabase, userId, storyId);
 
+    // Consume 1 credit for page regeneration
+    console.log(`[CREDIT] Consuming 1 credit for page regeneration (user: ${userId}, page: ${pageId})`);
+    const { data: creditConsumed, error: creditError } = await supabase.rpc('consume_credits', {
+      user_id_param: userId,
+      credits_to_consume: 1,
+      transaction_type_param: 'page_regeneration',
+      story_id_param: storyId,
+      page_id_param: pageId,
+      description_param: `Page regeneration for story "${storyId}"`
+    });
+
+    if (creditError) {
+      console.error(`[CREDIT] Error consuming credit for page regeneration:`, creditError);
+      throw new Error(`Credit consumption failed: ${creditError.message}`);
+    }
+
+    if (!creditConsumed) {
+      console.error(`[CREDIT] Insufficient credits for page regeneration (user: ${userId})`);
+      throw new Error('Insufficient credits to regenerate this page');
+    }
+
+    console.log(`[CREDIT] Successfully consumed 1 credit for page regeneration`);
+
     // Get the page and story data
     const { data: page, error: pageError } = await supabase
       .from('story_pages')

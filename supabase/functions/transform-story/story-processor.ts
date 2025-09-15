@@ -75,6 +75,28 @@ export async function processStoryPage({
     throw new Error('Story transformation was cancelled');
   }
 
+  // Consume 1 credit for this page generation
+  console.log(`[CREDIT] Consuming 1 credit for page ${pageNumber} generation (user: ${userId})`);
+  const { data: creditConsumed, error: creditError } = await supabase.rpc('consume_credits', {
+    user_id_param: userId,
+    credits_to_consume: 1,
+    transaction_type_param: 'page_generation',
+    story_id_param: storyId,
+    description_param: `Page ${pageNumber} generation for story "${storyId}"`
+  });
+
+  if (creditError) {
+    console.error(`[CREDIT] Error consuming credit for page ${pageNumber}:`, creditError);
+    throw new Error(`Credit consumption failed: ${creditError.message}`);
+  }
+
+  if (!creditConsumed) {
+    console.error(`[CREDIT] Insufficient credits for page ${pageNumber} (user: ${userId})`);
+    throw new Error('Insufficient credits to generate this page');
+  }
+
+  console.log(`[CREDIT] Successfully consumed 1 credit for page ${pageNumber}`);
+
   try {
     // Fetch the original image from storage URL and convert to data URL for processing
     const originalImageDataUrl = await fetchImageAsDataUrl(imageData.storageUrl);

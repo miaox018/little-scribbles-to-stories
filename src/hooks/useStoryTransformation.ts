@@ -82,12 +82,29 @@ export const useStoryTransformation = () => {
 
     } catch (error: any) {
       console.error('Story transformation error:', error);
-      setState(prev => ({ 
-        ...prev, 
-        isTransforming: false, 
-        error: error.message,
-        progress: 0
-      }));
+      
+      // Handle specific credit errors
+      if (error.message?.includes('INSUFFICIENT_CREDITS') || error.message?.includes('Insufficient credits')) {
+        setState(prev => ({ 
+          ...prev, 
+          isTransforming: false, 
+          error: `You need more credits to create this story. Please purchase additional credits.`,
+          progress: 0
+        }));
+        
+        toast({
+          title: "Insufficient Credits 💎",
+          description: "You don't have enough credits to create this story. Purchase more credits to continue.",
+          variant: "destructive"
+        });
+      } else {
+        setState(prev => ({ 
+          ...prev, 
+          isTransforming: false, 
+          error: error.message,
+          progress: 0
+        }));
+      }
       
       toast({
         title: "Transformation Failed",

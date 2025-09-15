@@ -70,6 +70,38 @@ serve(async (req) => {
       );
     }
 
+    // Validate user has enough credits for this story
+    const creditsNeeded = requestBody.imageUrls.length;
+    console.log(`[CREDIT] Checking if user has ${creditsNeeded} credits for ${creditsNeeded} pages`);
+    
+    const { data: hasEnoughCredits, error: creditCheckError } = await supabase.rpc('check_user_credits', {
+      user_id_param: userId,
+      credits_needed: creditsNeeded
+    });
+
+    if (creditCheckError) {
+      console.error(`[CREDIT] Error checking credits:`, creditCheckError);
+      throw new Error(`Credit check failed: ${creditCheckError.message}`);
+    }
+
+    if (!hasEnoughCredits) {
+      console.error(`[CREDIT] Insufficient credits: user needs ${creditsNeeded} credits`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'INSUFFICIENT_CREDITS',
+          message: `You need ${creditsNeeded} credits to create this ${creditsNeeded}-page story. Please purchase more credits.`,
+          creditsNeeded: creditsNeeded
+        }),
+        { 
+          status: 402, // Payment Required
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log(`[CREDIT] User has sufficient credits for ${creditsNeeded} pages`);
+
     // Simple two-path processing: sync for small stories, async for large ones
     const SYNC_THRESHOLD = 4; // Increased to 4 pages for sync processing
     let result;
